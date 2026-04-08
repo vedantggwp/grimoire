@@ -5,7 +5,8 @@ Turn the wiki into a study-oriented frontend that is theme-aware, navigable, and
 ## Inputs
 | File | Layer | Relevant Sections | Why |
 |------|-------|-------------------|-----|
-| `SOUL.md` | L0 | 5, 7, 8 | Canonical presentation contract, design rules, and required frontend modes |
+| `docs/design-engine.md` | L3 | All | Design rules, skill arsenal, theme switching |
+| `docs/frontend-modes.md` | L3 | All | Required modes and architecture |
 | `CLAUDE.md` | L0 | Core Rules | Preserve stage isolation and editable outputs |
 | `CONTEXT.md` | L1 | Stage Map, Decision Tree | Confirm this task belongs to present |
 | `_config/design.md` | L3 | Theme configuration | Sets palette, typography, motion, density, and accent rules |
@@ -27,6 +28,6 @@ Turn the wiki into a study-oriented frontend that is theme-aware, navigable, and
 | Review notes | `stages/04-present/output/review-notes.md` | Draft-to-final decisions and human feedback log |
 
 ## Audit
-- [ ] Respects `_config/design.md` and the non-negotiable design rules from `SOUL.md`
+- [ ] Respects `_config/design.md` and the non-negotiable design rules from `docs/design-engine.md`
 - [ ] Includes linear reading, graph exploration, search, changelog, and gap map modes
 - [ ] Works on mobile, supports keyboard navigation, and honors reduced-motion preferences

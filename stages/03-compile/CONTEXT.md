@@ -5,7 +5,8 @@ Audit the wiki as a system, repair deterministic link issues, and surface the ne
 ## Inputs
 | File | Layer | Relevant Sections | Why |
 |------|-------|-------------------|-----|
-| `SOUL.md` | L0 | 5, 8 | Canonical compile contract and frontend-facing knowledge model |
+| `docs/architecture.md` | L3 | Stages, Handoffs | Stage contract format and pipeline position |
+| `docs/frontend-modes.md` | L3 | Core Modes | Knowledge model the frontend expects |
 | `CLAUDE.md` | L0 | Core Rules | Keep compile focused on deterministic system maintenance |
 | `CONTEXT.md` | L1 | Stage Map, Decision Tree | Confirm this task belongs to compile |
 | `wiki/**/*.md` | L4 | All articles and support pages | Full graph needed for cross-reference audit |

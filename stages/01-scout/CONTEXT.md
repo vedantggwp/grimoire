@@ -5,7 +5,9 @@ Research a topic, score candidate sources, and hand an approved source list to i
 ## Inputs
 | File | Layer | Relevant Sections | Why |
 |------|-------|-------------------|-----|
-| `SOUL.md` | L0 | 5, 9 | Canonical scout contract, scoring rules, and handoff model |
+| `docs/architecture.md` | L3 | Stages, Handoffs | Stage contract format and pipeline position |
+| `docs/scout-spec.md` | L3 | All | Scout workflow, scoring rules, output format, emergent taxonomy |
+| `shared/confidence-scoring.md` | L3 | All | 6-signal scoring rubric and tier thresholds |
 | `CLAUDE.md` | L0 | Core Rules | Keep stage isolation and editable outputs intact |
 | `CONTEXT.md` | L1 | Stage Map, Decision Tree | Confirm this task belongs to scout |
 | User brief / questionnaire | L4 | Topic, scope, exclusions, desired depth | Defines search angles and ranking priorities |
@@ -26,3 +28,9 @@ Research a topic, score candidate sources, and hand an approved source list to i
 | Scout report | `stages/01-scout/output/scout-report.md` | Markdown report with P0/P1/P2 tables, scores, rationale, and gaps |
 | Approved sources | `stages/01-scout/output/approved-sources.md` | Markdown URL list reflecting human decisions |
 | Search notes | `stages/01-scout/output/search-notes.md` | Brief notes on dedupes, exclusions, and search angles |
+
+## Audit
+- [ ] Every source scored on all 6 signals with written rationale
+- [ ] No duplicate URLs in the final list
+- [ ] Gaps section identifies at least one area with thin coverage
+- [ ] Human checkpoint was reached before finalizing output

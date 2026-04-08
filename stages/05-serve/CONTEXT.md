@@ -5,7 +5,8 @@ Expose the wiki through MCP tools, provide local serving for development, and em
 ## Inputs
 | File | Layer | Relevant Sections | Why |
 |------|-------|-------------------|-----|
-| `SOUL.md` | L0 | 5, 6, 11 | Canonical serving contract, MCP tool inventory, and CLAUDE snippet rules |
+| `docs/mcp-spec.md` | L3 | All | MCP tool inventory, architecture, moat |
+| `docs/integration.md` | L3 | All | CLAUDE.md snippet rules |
 | `CLAUDE.md` | L0 | Core Rules | Keep serving focused on runtime and integration setup |
 | `CONTEXT.md` | L1 | Stage Map, Decision Tree | Confirm this task belongs to serve |
 | `wiki/` | L4 | Articles, index, overview, gaps | Primary knowledge source for MCP queries |

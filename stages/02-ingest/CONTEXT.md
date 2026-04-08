@@ -5,7 +5,8 @@ Preserve source material, confirm takeaways with a human, then compile or update
 ## Inputs
 | File | Layer | Relevant Sections | Why |
 |------|-------|-------------------|-----|
-| `SOUL.md` | L0 | 5, 10 | Canonical ingest contract and taxonomy rules |
+| `docs/architecture.md` | L3 | Stages, Handoffs | Stage contract format and pipeline position |
+| `docs/scout-spec.md` | L3 | Emergent Taxonomy | Taxonomy rules (emergent vs. defined) |
 | `CLAUDE.md` | L0 | Core Rules | Keep raw preservation and stage isolation intact |
 | `CONTEXT.md` | L1 | Stage Map, Decision Tree | Confirm this task belongs to ingest |
 | `stages/01-scout/output/approved-sources.md` or direct source payload | L4 | URLs, files, pasted text | Defines what to ingest in this run |
