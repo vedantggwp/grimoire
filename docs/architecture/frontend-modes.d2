@@ -1,0 +1,142 @@
+direction: right
+
+wiki_data: {
+  label: "wiki data"
+  direction: down
+  style: {
+    fill: "#F8FAFC"
+    stroke: "#475569"
+    stroke-width: 2
+    shadow: true
+  }
+
+  articles: {
+    label: "articles"
+    shape: cylinder
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#64748B"
+      stroke-width: 2
+    }
+  }
+
+  backlinks: {
+    label: "backlinks"
+    shape: cylinder
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#64748B"
+      stroke-width: 2
+    }
+  }
+
+  log: {
+    label: "log"
+    shape: cylinder
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#64748B"
+      stroke-width: 2
+    }
+  }
+
+  word_counts: {
+    label: "word counts"
+    shape: cylinder
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#64748B"
+      stroke-width: 2
+    }
+  }
+}
+
+core_modes: {
+  label: "Core Frontend Modes (MVP)"
+  direction: down
+  style: {
+    fill: "#FFFFFF"
+    stroke: "#CBD5E1"
+    stroke-width: 1
+  }
+
+  linear_reading: {
+    label: "Linear Reading"
+    shape: rectangle
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  graph_exploration: {
+    label: "Graph Exploration"
+    shape: rectangle
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  search_answer: {
+    label: "Search + Answer"
+    shape: rectangle
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  changelog_feed: {
+    label: "Changelog / Feed"
+    shape: rectangle
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  gap_map: {
+    label: "Gap Map"
+    shape: rectangle
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  flashcard_quiz: {
+    label: "Flashcard / Quiz"
+    shape: rectangle
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+}
+
+wiki_data.articles -> core_modes.linear_reading: "reading order + content"
+wiki_data.articles -> core_modes.graph_exploration: "article nodes"
+wiki_data.backlinks -> core_modes.graph_exploration: "graph edges"
+
+wiki_data.articles -> core_modes.search_answer: "answer sources"
+wiki_data.backlinks -> core_modes.search_answer: "related context"
+
+wiki_data.log -> core_modes.changelog_feed: "timeline events"
+
+wiki_data.word_counts -> core_modes.gap_map: "coverage signal"
+wiki_data.articles -> core_modes.gap_map: "taxonomy context"
+
+wiki_data.articles -> core_modes.flashcard_quiz: "question generation"

@@ -1,0 +1,216 @@
+direction: right
+
+questionnaire: {
+  label: "Questionnaire\nTopic + scope\nOptional taxonomy hints"
+  shape: page
+  style: {
+    fill: "#F8FAFC"
+    stroke: "#475569"
+    stroke-width: 2
+    shadow: true
+  }
+}
+
+pipeline: {
+  label: "Grimoire Pipeline"
+  direction: right
+  style: {
+    fill: "#FFFFFF"
+    stroke: "#CBD5E1"
+    stroke-width: 1
+    shadow: false
+  }
+
+  scout: {
+    label: "01-scout\nResearch, score,\nand curate sources"
+    shape: rectangle
+    style: {
+      fill: "#E0F2FE"
+      stroke: "#0369A1"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  ingest: {
+    label: "02-ingest\nFetch sources,\npreserve raw,\ncompile wiki articles"
+    shape: rectangle
+    style: {
+      fill: "#E0F2FE"
+      stroke: "#0369A1"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  compile: {
+    label: "03-compile\nCross-reference audit,\nbacklinks, overview,\ngap analysis"
+    shape: rectangle
+    style: {
+      fill: "#E0F2FE"
+      stroke: "#0369A1"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  present: {
+    label: "04-present\nGenerate study-oriented\nfrontend"
+    shape: rectangle
+    style: {
+      fill: "#E0F2FE"
+      stroke: "#0369A1"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  serve: {
+    label: "05-serve\nExpose wiki via MCP\nand local dev server"
+    shape: rectangle
+    style: {
+      fill: "#E0F2FE"
+      stroke: "#0369A1"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  scout -> ingest
+  ingest -> compile
+  compile -> present
+  present -> serve
+}
+
+checkpoints: {
+  label: "Human Checkpoints"
+  direction: down
+  style: {
+    fill: "#FFFFFF"
+    stroke: "#CBD5E1"
+    stroke-width: 1
+  }
+
+  scout_review: {
+    label: "Human checkpoint\nApprove, reject,\nreprioritize"
+    shape: hexagon
+    style: {
+      fill: "#FEF3C7"
+      stroke: "#D97706"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  ingest_review: {
+    label: "Human checkpoint\nReview takeaways\nbefore writing"
+    shape: hexagon
+    style: {
+      fill: "#FEF3C7"
+      stroke: "#D97706"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  present_review: {
+    label: "Human checkpoint\nReview design\nand UX"
+    shape: hexagon
+    style: {
+      fill: "#FEF3C7"
+      stroke: "#D97706"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+}
+
+artifacts: {
+  label: "Shared Artifacts"
+  direction: down
+  style: {
+    fill: "#FFFFFF"
+    stroke: "#CBD5E1"
+    stroke-width: 1
+  }
+
+  scout_output: {
+    label: "stages/01-scout/output/\nScout report + prioritized URLs"
+    shape: page
+    style: {
+      fill: "#F8FAFC"
+      stroke: "#64748B"
+      stroke-width: 2
+    }
+  }
+
+  raw_store: {
+    label: "raw/\nPreserved source text"
+    shape: cylinder
+    style: {
+      fill: "#F8FAFC"
+      stroke: "#64748B"
+      stroke-width: 2
+    }
+  }
+
+  wiki_store: {
+    label: "wiki/\nCompiled articles,\nindex, taxonomy"
+    shape: cylinder
+    style: {
+      fill: "#F8FAFC"
+      stroke: "#64748B"
+      stroke-width: 2
+    }
+  }
+
+  design_config: {
+    label: "_config/design.md\nPalette, typography,\nmotion, density"
+    shape: page
+    style: {
+      fill: "#F8FAFC"
+      stroke: "#64748B"
+      stroke-width: 2
+    }
+  }
+
+  frontend_output: {
+    label: "stages/04-present/output/\nHTML + CSS + JS frontend"
+    shape: page
+    style: {
+      fill: "#F8FAFC"
+      stroke: "#64748B"
+      stroke-width: 2
+    }
+  }
+
+  mcp_output: {
+    label: "stages/05-serve/output/\nMCP server + CLAUDE.md snippet"
+    shape: page
+    style: {
+      fill: "#F8FAFC"
+      stroke: "#64748B"
+      stroke-width: 2
+    }
+  }
+}
+
+questionnaire -> pipeline.scout: "topic + scope"
+pipeline.scout -> checkpoints.scout_review: "present shortlist"
+checkpoints.scout_review -> artifacts.scout_output: "approved URL list"
+artifacts.scout_output -> pipeline.ingest: "feeds ingest"
+
+pipeline.ingest -> checkpoints.ingest_review: "review takeaways"
+pipeline.ingest -> artifacts.raw_store: "produces"
+pipeline.ingest -> artifacts.wiki_store: "produces"
+
+artifacts.wiki_store -> pipeline.compile: "reads wiki/"
+pipeline.compile -> artifacts.wiki_store: "enriches wiki/"
+
+artifacts.wiki_store -> pipeline.present: "reads wiki/"
+artifacts.design_config -> pipeline.present: "reads design.md"
+pipeline.present -> checkpoints.present_review: "design review"
+pipeline.present -> artifacts.frontend_output: "renders frontend"
+
+artifacts.wiki_store -> pipeline.serve: "reads wiki/"
+pipeline.serve -> artifacts.mcp_output: "ships server"

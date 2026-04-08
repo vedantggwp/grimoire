@@ -1,0 +1,178 @@
+direction: right
+
+clients: {
+  label: "MCP Clients"
+  direction: down
+  style: {
+    fill: "#FFFFFF"
+    stroke: "#CBD5E1"
+    stroke-width: 1
+  }
+
+  claude_desktop: {
+    label: "Claude Desktop"
+    shape: rectangle
+    style: {
+      fill: "#E0F2FE"
+      stroke: "#0369A1"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  claude_code: {
+    label: "Claude Code"
+    shape: rectangle
+    style: {
+      fill: "#E0F2FE"
+      stroke: "#0369A1"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+
+  ide_agents: {
+    label: "IDE agents"
+    shape: rectangle
+    style: {
+      fill: "#E0F2FE"
+      stroke: "#0369A1"
+      stroke-width: 2
+      shadow: true
+    }
+  }
+}
+
+transport: {
+  label: "stdio transport"
+  shape: hexagon
+  style: {
+    fill: "#FEF3C7"
+    stroke: "#D97706"
+    stroke-width: 2
+    shadow: true
+  }
+}
+
+server: {
+  label: "Grimoire MCP Server"
+  direction: down
+  style: {
+    fill: "#F8FAFC"
+    stroke: "#475569"
+    stroke-width: 2
+    shadow: true
+  }
+
+  dispatcher: {
+    label: "Tool dispatcher"
+    shape: rectangle
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#64748B"
+      stroke-width: 2
+    }
+  }
+
+  query: {
+    label: "grimoire_query"
+    shape: rectangle
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+    }
+  }
+
+  list_topics: {
+    label: "grimoire_list_topics"
+    shape: rectangle
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+    }
+  }
+
+  get_article: {
+    label: "grimoire_get_article"
+    shape: rectangle
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+    }
+  }
+
+  open_questions: {
+    label: "grimoire_open_questions"
+    shape: rectangle
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+    }
+  }
+
+  coverage_gaps: {
+    label: "grimoire_coverage_gaps"
+    shape: rectangle
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+    }
+  }
+
+  search: {
+    label: "grimoire_search"
+    shape: rectangle
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+    }
+  }
+
+  dispatcher -> query
+  dispatcher -> list_topics
+  dispatcher -> get_article
+  dispatcher -> open_questions
+  dispatcher -> coverage_gaps
+  dispatcher -> search
+}
+
+wiki_store: {
+  label: "wiki/\nArticles, taxonomy,\nbacklinks, overview"
+  shape: cylinder
+  style: {
+    fill: "#F8FAFC"
+    stroke: "#475569"
+    stroke-width: 2
+    shadow: true
+  }
+}
+
+qmd: {
+  label: "QMD\nOptional search backend"
+  shape: cylinder
+  style: {
+    fill: "#F8FAFC"
+    stroke: "#94A3B8"
+    stroke-width: 2
+    stroke-dash: 4
+  }
+}
+
+clients.claude_desktop -> transport
+clients.claude_code -> transport
+clients.ide_agents -> transport
+transport -> server.dispatcher: "MCP requests / responses"
+
+server.query -> wiki_store: "read synthesis inputs"
+server.list_topics -> wiki_store: "read taxonomy"
+server.get_article -> wiki_store: "read article"
+server.open_questions -> wiki_store: "read overview"
+server.coverage_gaps -> wiki_store: "read gaps"
+server.search -> wiki_store: "native search fallback"
+server.search -> qmd: "optional backend"

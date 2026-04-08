@@ -1,0 +1,164 @@
+direction: down
+
+loader: {
+  label: "ICM Context Loading"
+  shape: rectangle
+  style: {
+    fill: "#0F172A"
+    stroke: "#0F172A"
+    stroke-width: 2
+    font-color: "#FFFFFF"
+    shadow: true
+  }
+}
+
+l0: {
+  label: "L0\nAlways loaded\n~800 tokens\nProject identity + orientation"
+  direction: right
+  style: {
+    fill: "#DBEAFE"
+    stroke: "#1D4ED8"
+    stroke-width: 2
+    shadow: true
+  }
+
+  l0_file: {
+    label: "CLAUDE.md"
+    shape: page
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#60A5FA"
+      stroke-width: 2
+    }
+  }
+}
+
+l1: {
+  label: "L1\nRead on entry\n~300 tokens\nRoute to the right stage"
+  direction: right
+  style: {
+    fill: "#E0F2FE"
+    stroke: "#0369A1"
+    stroke-width: 2
+    shadow: true
+  }
+
+  l1_file: {
+    label: "CONTEXT.md"
+    shape: page
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#38BDF8"
+      stroke-width: 2
+    }
+  }
+}
+
+l2: {
+  label: "L2\nRead per task\n~200-500 tokens\nStage-specific instructions"
+  direction: right
+  style: {
+    fill: "#DCFCE7"
+    stroke: "#15803D"
+    stroke-width: 2
+    shadow: true
+  }
+
+  l2_file: {
+    label: "stages/NN-name/CONTEXT.md"
+    shape: page
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#4ADE80"
+      stroke-width: 2
+    }
+  }
+}
+
+l3: {
+  label: "L3\nVariable budget\nReference constraints and shared rules"
+  direction: right
+  style: {
+    fill: "#FEF3C7"
+    stroke: "#D97706"
+    stroke-width: 2
+    shadow: true
+  }
+
+  config: {
+    label: "_config/"
+    shape: page
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#F59E0B"
+      stroke-width: 2
+    }
+  }
+
+  shared: {
+    label: "shared/"
+    shape: page
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#F59E0B"
+      stroke-width: 2
+    }
+  }
+
+  templates: {
+    label: "templates/"
+    shape: page
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#F59E0B"
+      stroke-width: 2
+    }
+  }
+}
+
+l4: {
+  label: "L4\nVariable budget\nWorking artifacts to process"
+  direction: right
+  style: {
+    fill: "#F3F4F6"
+    stroke: "#4B5563"
+    stroke-width: 2
+    shadow: true
+  }
+
+  raw: {
+    label: "raw/"
+    shape: cylinder
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#9CA3AF"
+      stroke-width: 2
+    }
+  }
+
+  wiki: {
+    label: "wiki/"
+    shape: cylinder
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#9CA3AF"
+      stroke-width: 2
+    }
+  }
+
+  output: {
+    label: "output/\n(stage-specific:\nstages/NN-name/output/)"
+    shape: cylinder
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#9CA3AF"
+      stroke-width: 2
+    }
+  }
+}
+
+loader -> l0: "load first"
+l0 -> l1: "then route"
+l1 -> l2: "then specialize"
+l2 -> l3: "pull rules as needed"
+l3 -> l4: "process working material"

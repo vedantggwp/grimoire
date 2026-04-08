@@ -1,0 +1,22 @@
+# Stage outputs are ephemeral — only .gitkeep is tracked
+stages/*/output/*
+!stages/*/output/.gitkeep
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Node (for future MCP server)
+node_modules/
+package-lock.json
+
+# Python (for future MCP server)
+__pycache__/
+*.pyc
+.venv/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
