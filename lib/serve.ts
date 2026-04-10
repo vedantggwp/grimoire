@@ -361,7 +361,7 @@ export function handleSearch(
 function createServer(data: WikiData): McpServer {
   const server = new McpServer({
     name: 'grimoire',
-    version: '0.1.0',
+    version: '0.2.1',
   });
 
   server.tool(
