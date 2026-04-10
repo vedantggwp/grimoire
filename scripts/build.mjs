@@ -18,7 +18,7 @@
  */
 
 import esbuild from 'esbuild';
-import { rm, mkdir, stat } from 'node:fs/promises';
+import { rm, mkdir, stat, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -26,6 +26,32 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const root = resolve(__dirname, '..');
 const distDir = resolve(root, 'dist');
+
+/**
+ * Inline d3.min.js as a string constant inside the bundle.
+ *
+ * `lib/present/modes/d3-source.ts` does a real `readFileSync` against
+ * `node_modules/d3/dist/d3.min.js` at dev time (tsx / vitest). For the
+ * production build we intercept that file and replace its contents with
+ * an inlined string constant, so the shipped `dist/present.js` has the
+ * entire d3 UMD bundle baked in and requires no filesystem access at
+ * runtime. This is what lets the generated static site stay 100%
+ * self-contained — no CDN, no network, no `npm install` in the output.
+ */
+const d3InlinePlugin = {
+  name: 'd3-inline',
+  setup(build) {
+    const d3SourceFile = /lib[/\\]present[/\\]modes[/\\]d3-source\.ts$/;
+    const d3MinPath = resolve(root, 'node_modules/d3/dist/d3.min.js');
+    build.onLoad({ filter: d3SourceFile }, async () => {
+      const source = await readFile(d3MinPath, 'utf8');
+      return {
+        contents: `export const d3MinSource = ${JSON.stringify(source)};\n`,
+        loader: 'ts',
+      };
+    });
+  },
+};
 
 /**
  * ESM Node banner — MANDATORY for any ESM bundle that inlines npm
@@ -84,6 +110,7 @@ async function main() {
     sourcemap: 'linked',
     minifyWhitespace: true,
     banner: { js: esmShimBanner },
+    plugins: [d3InlinePlugin],
     logLevel: 'info',
     metafile: !watchMode,
   };

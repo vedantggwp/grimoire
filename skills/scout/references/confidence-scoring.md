@@ -114,4 +114,4 @@ When sources share the same composite score:
 
 ---
 
-*This scoring system is used in `stages/01-scout/`. The scout presents scores transparently so humans can override with judgment.*
+*This scoring system is used by the `scout` skill. The scout presents scores transparently so humans can override with judgment.*

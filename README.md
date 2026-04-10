@@ -6,29 +6,29 @@ Grimoire is a Claude Code plugin that turns a topic into a structured knowledge 
 
 ## Install
 
-Grimoire is a Node-based plugin. Install its dependencies before loading it into Claude Code.
+Grimoire is distributed through the [Athanor](https://github.com/vedantggwp/athanor) marketplace. From Claude Code:
 
-```bash
-git clone https://github.com/<you>/grimoire.git
-cd grimoire
-npm install
+```
+/plugin marketplace add vedantggwp/athanor
+/plugin install grimoire@athanor
 ```
 
-The `npm install` step is required — `compile`, `present`, and `serve` all shell out to `tsx` scripts that depend on `papyr-core`, `@modelcontextprotocol/sdk`, and `zod`. Skipping it will break the pipeline after the ingest stage.
-
-Point Claude Code at the plugin directory:
-
-```bash
-claude --plugin-dir /absolute/path/to/grimoire
-```
-
-Or symlink into your plugins directory:
-
-```bash
-ln -s /absolute/path/to/grimoire ~/.claude/plugins/manual/grimoire
-```
+That's it. No `npm install`, no build step, no dependency setup. The plugin ships with pre-built bundles in `dist/` that inline every runtime dependency (`papyr-core`, `@modelcontextprotocol/sdk`, `zod`), so `compile`, `present`, and `serve` run straight from `node dist/*.js` with nothing else on the machine.
 
 Skills auto-discover from `skills/*/SKILL.md` once the plugin is loaded.
+
+### Developing Grimoire locally
+
+Only needed if you're contributing to Grimoire itself:
+
+```bash
+git clone https://github.com/vedantggwp/grimoire.git
+cd grimoire
+npm install
+npm run build
+```
+
+`npm run build` regenerates `dist/{compile,present,serve}.js` via esbuild. The bundles are committed so marketplace installs work without a build step — rerun `npm run build` whenever you change anything in `lib/` and commit the updated bundles alongside the source.
 
 ## Quick start
 
@@ -86,7 +86,7 @@ From there, run the pipeline one stage at a time:
 | `present` | Working | Static frontend with 6 study modes (read, graph, search, feed, gaps, quiz) |
 | `serve` | Working | MCP server exposing 6 tools for LLM knowledge access |
 
-`init`, `scout`, and `ingest` are Claude-driven workflows defined in `SKILL.md`. `compile`, `present`, and `serve` have matching TypeScript runtimes in `lib/` that the skills invoke via `tsx`.
+`init`, `scout`, and `ingest` are Claude-driven workflows defined in `SKILL.md`. `compile`, `present`, and `serve` have matching TypeScript runtimes in `lib/` that esbuild bundles into self-contained ESM files under `dist/`; each skill invokes its bundle directly via `node ${CLAUDE_PLUGIN_ROOT}/dist/<skill>.js`, so nothing needs to be installed on the user's machine.
 
 ## How it works
 
@@ -140,16 +140,15 @@ Theming is driven by `_config/design.md`: **7 palettes** (midnight-teal, noir-ci
 
 The server reads `wiki/.compile/` once on startup — restart to pick up changes. Validation is Zod-based; the data layer uses immutable readonly types throughout.
 
-To connect from Claude Desktop or any MCP client, add an entry to your MCP config:
+To connect from Claude Desktop or any MCP client, add an entry to your MCP config. Point the command at the bundled `dist/serve.js` inside the installed plugin:
 
 ```json
 {
   "mcpServers": {
     "grimoire-myproject": {
-      "command": "npx",
+      "command": "node",
       "args": [
-        "tsx",
-        "/absolute/path/to/grimoire/lib/serve.ts",
+        "/absolute/path/to/grimoire-plugin/dist/serve.js",
         "/absolute/path/to/my-grimoire"
       ]
     }
@@ -157,12 +156,13 @@ To connect from Claude Desktop or any MCP client, add an entry to your MCP confi
 }
 ```
 
+Marketplace installs live under `~/.claude-v/plugins/cache/athanor/grimoire/<version>/` — point the first path at that directory's `dist/serve.js`. The bundle is self-contained; no `npm install` is required.
+
 You can run multiple Grimoire servers side by side — one per knowledge base, each with its own name.
 
 ## Requirements
 
-- **Node.js 18+**
-- **npm** (for plugin dependencies)
+- **Node.js 20+** (the bundled `dist/*.js` files are emitted by esbuild with `target: node20`)
 - **Claude Code** with plugin support
 
 ## Dependencies

@@ -1,33 +1,40 @@
-# 04-present
+# Present Stage Contract
 
-Turn the wiki into a study-oriented frontend that is theme-aware, navigable, and reviewable before finalization.
+Turn the compiled wiki into a self-contained static frontend with six study modes, themed from `_config/design.md`.
 
 ## Inputs
-| File | Layer | Relevant Sections | Why |
-|------|-------|-------------------|-----|
-| `docs/design-engine.md` | L3 | All | Design rules, skill arsenal, theme switching |
-| `docs/frontend-modes.md` | L3 | All | Required modes and architecture |
-| `CLAUDE.md` | L0 | Core Rules | Preserve stage isolation and editable outputs |
-| `CONTEXT.md` | L1 | Stage Map, Decision Tree | Confirm this task belongs to present |
-| `_config/design.md` | L3 | Theme configuration | Sets palette, typography, motion, density, and accent rules |
-| `wiki/**/*.md` plus `wiki/index.md`, `wiki/overview.md`, `wiki/log.md` | L4 | Articles, structure, synthesis, changelog | Supplies content, graph edges, search data, and gap signals |
+| Source | Purpose |
+|--------|---------|
+| `SCHEMA.md` | Topic, scope, audience — used for page titles and framing |
+| `_config/design.md` | Palette, typography, motion, density — drives CSS generation |
+| `wiki/**/*.md` | Article content and frontmatter |
+| `wiki/.compile/notes.json` | Parsed article manifest (produced by compile) |
+| `wiki/.compile/graph.json` | Nodes, edges, backlinks, centrality (produced by compile) |
+| `wiki/.compile/search-index.json` | Serialized FlexSearch index (produced by compile) |
+| `wiki/.compile/analytics.json` | Tag and gap analytics (produced by compile) |
 
 ## Process
-1. Read `_config/design.md` and derive the theme, type system, motion rules, density, and accessibility constraints.
-2. Read the full wiki and build a content model for linear reading, graph exploration, search, changelog, and gap map views.
-3. Generate a draft frontend inside `stages/04-present/output/` using static HTML, CSS, JS, and any compiled JSON data needed by the UI.
-4. Present the draft design and interaction model to the human reviewer.
-   -> CHECKPOINT: human review is required before the frontend is treated as final.
-5. Apply review feedback, then finalize the presentation bundle with production-ready navigation, theme handling, and study flows.
+1. Run the bundled present CLI: `node ${CLAUDE_PLUGIN_ROOT}/dist/present.js {workspace-path}`.
+2. The generator reads `_config/design.md` and derives the theme (7 palettes, 5 type systems, dark/light, motion, density).
+3. It loads the compile artifacts from `wiki/.compile/` and the full wiki tree.
+4. It emits a static site under `{workspace}/site/` containing one page per study mode plus an index.
+5. The output opens directly from `file://` — no server required to view it.
 
 ## Outputs
 | Artifact | Location | Format |
 |----------|----------|--------|
-| Frontend bundle | `stages/04-present/output/` | Static HTML/CSS/JS for the study interface |
-| Compiled data | `stages/04-present/output/data/` | JSON or equivalent artifacts for search, graph, changelog, and gap views |
-| Review notes | `stages/04-present/output/review-notes.md` | Draft-to-final decisions and human feedback log |
+| Frontend bundle | `{workspace}/site/` | Static HTML + CSS + inline JS |
+| Index page | `{workspace}/site/index.html` | Landing page with mode navigation |
+| Read mode | `{workspace}/site/read/index.html` | Linear reading ordered by centrality |
+| Graph mode | `{workspace}/site/graph/index.html` | D3 force-directed concept map (loads D3 from CDN) |
+| Search mode | `{workspace}/site/search/index.html` | Full-text search via bundled FlexSearch index |
+| Feed mode | `{workspace}/site/feed/index.html` | Changelog of wiki updates |
+| Gaps mode | `{workspace}/site/gaps/index.html` | Coverage gap visualization |
+| Quiz mode | `{workspace}/site/quiz/index.html` | Auto-generated flashcards |
+| Stylesheet | `{workspace}/site/assets/style.css` | Theme-derived CSS custom properties on `:root` |
 
 ## Audit
-- [ ] Respects `_config/design.md` and the non-negotiable design rules from `docs/design-engine.md`
-- [ ] Includes linear reading, graph exploration, search, changelog, and gap map modes
-- [ ] Works on mobile, supports keyboard navigation, and honors reduced-motion preferences
+- [ ] Respects `_config/design.md` palette, typography, motion, and density
+- [ ] Mobile-first, keyboard-navigable, reduced-motion aware
+- [ ] All six modes render without console errors
+- [ ] Internal links (article → article) resolve to `read/` page anchors

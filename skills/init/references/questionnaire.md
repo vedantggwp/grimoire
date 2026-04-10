@@ -163,7 +163,7 @@ Your answers populate the workspace as follows:
 | Q1 topic | `SCHEMA.md` domain field, scout search queries, wiki identity |
 | Q2 scope | `SCHEMA.md` scope field, scout boundary rules, overview framing |
 | Q3 audience | Article depth calibration, vocabulary decisions, `SCHEMA.md` audience |
-| Q4 sources | `stages/01-scout/output/seed-urls.md` — pre-approved sources skip scoring |
+| Q4 sources | `scout-queue.md` — seed URLs loaded by scout as pre-approved candidates |
 | Q5 taxonomy | `SCHEMA.md` taxonomy table (empty if emergent, populated if defined) |
 | Q6 palette | `_config/design.md` palette field |
 | Q7 CLAUDE.md | Target project's `CLAUDE.md` gets wiki reference snippet |

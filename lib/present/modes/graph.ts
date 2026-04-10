@@ -4,10 +4,15 @@
  * Force-directed graph visualization using D3.
  * Nodes sized by word count, colored by primary tag.
  * Click to show article summary in side panel.
+ *
+ * D3 is embedded inline from the bundled UMD build (see `./d3-source.ts`
+ * and the `d3-inline` plugin in `scripts/build.mjs`) — no CDN, no network,
+ * fully self-contained static output.
  */
 
 import type { SiteData, DesignConfig } from '../types.js';
 import { pageShell } from '../html.js';
+import { d3MinSource } from './d3-source.js';
 
 function esc(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -22,9 +27,12 @@ function collectTags(data: SiteData): readonly string[] {
 }
 
 function graphScript(): string {
-  return `<script type="module">
-import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7/+esm';
-
+  // Emit d3 as a plain (non-module) script tag. The UMD wrapper assigns
+  // to `self.d3` (i.e. `window.d3`) when neither CJS nor AMD is present,
+  // so the graph script below picks up the global.
+  return `<script>${d3MinSource}</script>
+<script>
+(function () {
 var data = window.GRAPH_DATA;
 var nodes = data.nodes.map(function(n) { return Object.assign({}, n); });
 var edges = data.edges.map(function(e) {
@@ -160,6 +168,7 @@ simulation.on('tick', function() {
     .attr('x', function(d) { return d.x; })
     .attr('y', function(d) { return d.y; });
 });
+})();
 </script>`;
 }
 

@@ -15,13 +15,6 @@ Initialize a new Grimoire knowledge base. If run inside an existing project,
 intelligently discover context and pre-fill the questionnaire. Otherwise, run
 the full interactive flow.
 
-## Prerequisites
-
-- `papyr-core` must be available (declared in the plugin's package.json)
-- Plugin dependencies must be installed (`npm install` in the plugin directory).
-  Verify `${CLAUDE_PLUGIN_ROOT}/node_modules` exists. If missing, tell the user
-  to run `npm install` in `${CLAUDE_PLUGIN_ROOT}` before continuing.
-
 ## Step 1 — Detect the Current Context
 
 Before asking anything, look at the current working directory to understand
@@ -302,5 +295,4 @@ Next steps:
 - All file paths must use the target directory as root
 - All dates in generated files use ISO 8601 (YYYY-MM-DD)
 - All filenames are slugified (lowercase, hyphens, no spaces)
-- Do not create `node_modules` or install dependencies in the target — papyr-core is a plugin dependency, not a grimoire workspace dependency
 - If auto-discovery fails (file read errors, unclear signals), fall back gracefully to guided mode rather than scaffolding with bad defaults

@@ -215,9 +215,15 @@ describe('present', () => {
   });
 
   describe('graph mode', () => {
-    it('loads d3 from CDN', () => {
+    it('inlines d3 — no CDN, no network dependency', () => {
       const html = readSiteFile('graph/index.html');
-      expect(html).toContain('cdn.jsdelivr.net/npm/d3@7');
+      // Must NOT load d3 from any CDN
+      expect(html).not.toContain('cdn.jsdelivr.net');
+      expect(html).not.toContain('unpkg.com');
+      expect(html).not.toContain("from 'https://");
+      expect(html).not.toContain('src="https://');
+      // The inlined d3 UMD bundle's banner is our fingerprint for "it's embedded"
+      expect(html).toContain('Copyright 2010-2023 Mike Bostock');
     });
 
     it('embeds graph data inline', () => {

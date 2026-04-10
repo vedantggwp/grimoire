@@ -1,28 +1,33 @@
-# 05-serve
+# Serve Stage Contract
 
-Expose the wiki through MCP tools, provide local serving for development, and emit optional integration guidance.
+Expose the wiki through an MCP server that LLM clients can query over stdio, and optionally wire the wiki into a target project's `CLAUDE.md` so Claude Code consults it automatically.
 
 ## Inputs
-| File | Layer | Relevant Sections | Why |
-|------|-------|-------------------|-----|
-| `docs/mcp-spec.md` | L3 | All | MCP tool inventory, architecture, moat |
-| `docs/integration.md` | L3 | All | CLAUDE.md snippet rules |
-| `CLAUDE.md` | L0 | Core Rules | Keep serving focused on runtime and integration setup |
-| `CONTEXT.md` | L1 | Stage Map, Decision Tree | Confirm this task belongs to serve |
-| `wiki/` | L4 | Articles, index, overview, gaps | Primary knowledge source for MCP queries |
-| `stages/04-present/output/` | L4 | Frontend bundle | Asset root for local preview serving |
+| Source | Purpose |
+|--------|---------|
+| `SCHEMA.md` | Topic, scope, audience — read at startup for server identity |
+| `wiki/**/*.md` | Articles, index, overview, gaps — primary knowledge source for MCP queries |
+| `wiki/.compile/graph.json` | Graph and backlink data (produced by compile) |
+| `wiki/.compile/search-index.json` | Serialized FlexSearch index (produced by compile) |
+| `wiki/.compile/notes.json` | Parsed article manifest (produced by compile) |
+| `wiki/.compile/analytics.json` | Tag analytics, orphan lists, centrality scores |
 
 ## Process
-1. Read the wiki structure and build whatever indexes the runtime needs for article lookup, synthesis, topic lists, gaps, and search.
-2. Implement an MCP server that exposes exactly six tools: `grimoire_query`, `grimoire_list_topics`, `grimoire_get_article`, `grimoire_open_questions`, `grimoire_coverage_gaps`, and `grimoire_search`.
-3. Set up a local dev server that serves the generated frontend and any compiled data needed for preview or testing.
-4. Validate each MCP tool against live wiki content and ensure outputs stay aligned with the wiki, index, overview, and gap analysis.
-5. Optionally generate a standalone `CLAUDE.md` snippet for the user to adopt manually; do not mutate `CLAUDE.md` automatically.
+1. Start the bundled MCP server: `node ${CLAUDE_PLUGIN_ROOT}/dist/serve.js {workspace-path}`.
+2. The server loads `wiki/.compile/*.json` once at startup (restart to pick up changes).
+3. Register the six MCP tools: `grimoire_query`, `grimoire_list_topics`, `grimoire_get_article`, `grimoire_open_questions`, `grimoire_coverage_gaps`, `grimoire_search`.
+4. Emit a stdio JSON-RPC stream compatible with Claude Desktop, Claude Code, and any MCP client.
+5. Optionally update the target project's `CLAUDE.md` with a snippet pointing at the wiki and the MCP server (only with explicit user consent — same rule as init Q7).
 
 ## Outputs
 | Artifact | Location | Format |
 |----------|----------|--------|
-| MCP server | `stages/05-serve/output/mcp-server/` | Runnable server exposing the six Grimoire tools over stdio |
-| Dev server | `stages/05-serve/output/dev-server/` | Local preview server for the generated frontend |
-| Integration snippet | `stages/05-serve/output/claude-snippet.md` | Optional Markdown snippet for manual `CLAUDE.md` integration |
-| Serve notes | `stages/05-serve/output/serve-report.md` | Markdown summary of tool coverage, run commands, and validation status |
+| Running MCP server | stdio | JSON-RPC 2.0 over stdin/stdout |
+| MCP client config snippet | (printed to chat) | JSON config for Claude Desktop / Claude Code `mcpServers` entry |
+| CLAUDE.md integration | Target project's `CLAUDE.md` | Optional markdown section referencing the wiki (opt-in) |
+
+## Audit
+- [ ] All six tools respond successfully against the compiled indexes
+- [ ] Server logs include the article count loaded at startup
+- [ ] Staleness check warns if any `wiki/*.md` is newer than `wiki/.compile/graph.json`
+- [ ] No mutation of the target project's code — only `CLAUDE.md` with explicit consent
