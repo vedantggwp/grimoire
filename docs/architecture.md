@@ -1,63 +1,103 @@
-# Architecture — ICM Foundation
+# Architecture
 
-Grimoire is built on the **Interpreted Context Methodology (ICM)** by Jake Van Clief. ICM replaces framework-level orchestration with filesystem structure. The folder hierarchy IS the agent architecture.
+Grimoire is a Claude Code plugin that runs a five-stage pipeline to turn a
+topic into a structured knowledge base. Each stage is one skill; each skill is
+isolated, editable, and hands off to the next via plain markdown or JSON files.
 
-## Five-Layer Context Model
+## Principles
 
-| Layer | File | Budget | Question |
-|-------|------|--------|----------|
-| **L0** | `CLAUDE.md` | ~800 tokens | "Where am I?" |
-| **L1** | `CONTEXT.md` | ~300 tokens | "Where do I go?" |
-| **L2** | `stages/NN-name/CONTEXT.md` | ~200-500 tokens | "What do I do?" |
-| **L3** | `_config/`, `shared/`, `templates/` | Variable | "What rules apply?" |
-| **L4** | `stages/NN-name/output/`, `raw/`, `wiki/` | Variable | "What am I working with?" |
+Grimoire is built on **Interpreted Context Methodology (ICM)** by Jake Van
+Clief, adapted for Claude Code plugin format. Three rules govern the design:
 
-**Critical distinction:** L3 material requires *internalization as constraints*. L4 material requires *processing as input for transformation*.
+1. **One stage, one job** — each skill does one thing well
+2. **Plain text is the interface** — handoffs between stages are markdown/JSON files humans can inspect and edit
+3. **The human stays in control** — scout, ingest, and present have mandatory checkpoints
 
-A complete pipeline stage delivers 2,000-8,000 tokens — well within optimal model performance. Monolithic approaches push 30,000-50,000 tokens, causing information loss.
+## Plugin Layout
+
+```
+grimoire/
+  .claude-plugin/
+    plugin.json              # Plugin manifest
+  skills/                    # Claude-driven workflows
+    init/                    # Interactive questionnaire + scaffold
+    scout/                   # Web research + 6-signal scoring
+    ingest/                  # Fetch, preserve raw, compile articles
+    compile/                 # Graph audit, backlinks, taxonomy
+    present/                 # Static site generation
+    serve/                   # MCP server
+  lib/                       # TypeScript runtimes invoked by skills
+    compile.ts               # Papyr Core orchestration
+    present/                 # 12-module static site generator
+    serve.ts                 # MCP server with 6 tools
+  test/                      # Vitest suites + sample-wiki fixture
+  docs/                      # Specs, decisions, changelog, roadmap
+  SOUL.md                    # Product bible
+  MANIFEST.md                # File ledger
+```
+
+Skills auto-discover from `skills/*/SKILL.md` when Claude Code loads the plugin.
 
 ## Five Stages
 
 ```
-01-scout → 02-ingest → 03-compile → 04-present → 05-serve
-   ↑            ↑           ↑            ↑           ↑
- human       human       automated     human      automated
-checkpoint  checkpoint                checkpoint
+ init            scout            ingest            compile           present           serve
+  |                |                 |                 |                 |                |
+  v                v                 v                 v                 v                v
+  SCHEMA.md      scout-report.md    raw/*.md          wiki/.compile/    site/             MCP server
+  _config/       approved-sources    wiki/*.md          *.json            (6 HTML modes)    (6 tools)
+  wiki/          scout-notes.md      updated index                         assets/style.css   stdio
+  scout-queue
+       ^              ^                  ^                                     ^
+       |              |                  |                                     |
+       -human-     -checkpoint-    -checkpoint-                         -checkpoint-
 ```
 
-| Stage | Job | Input | Output | Checkpoint? |
-|-------|-----|-------|--------|-------------|
-| **01-scout** | Research + score sources | Topic + scope | Prioritized URL list | Yes |
-| **02-ingest** | Fetch, preserve raw, compile articles | Approved URLs | `raw/` + `wiki/` | Yes |
-| **03-compile** | Cross-refs, backlinks, overview, gaps | Wiki articles | Updated wiki graph | No |
-| **04-present** | Generate study frontend | Wiki + design.md | HTML/CSS/JS | Yes |
-| **05-serve** | MCP server + local dev | Wiki structure | Running server | No |
+| Stage | Job | Human checkpoint? |
+|-------|-----|-------------------|
+| `init` | 7-question questionnaire, workspace scaffold | Implicit (interactive) |
+| `scout` | Research + score sources, curate approved list | Yes — approve before ingest |
+| `ingest` | Fetch, preserve raw, compile articles | Yes — approve takeaways before write |
+| `compile` | Graph audit, link repair, overview, gap analysis | No — deterministic |
+| `present` | Generate static study frontend | Yes — preview and iterate |
+| `serve` | MCP server over stdio | No — automated |
 
-## Stage Contracts
+## Data Flow
 
-Every stage CONTEXT.md follows the ICM contract format:
+Every stage reads from the workspace, writes back to the workspace. Files
+between stages are the contract:
 
-```
-## Inputs
-| File | Layer | Relevant Sections | Why |
+- `SCHEMA.md` — workspace config (topic, scope, audience, taxonomy)
+- `scout-queue.md` — seed URLs from init
+- `scout-report.md`, `approved-sources.md`, `scout-notes.md` — scout outputs
+- `raw/{topic}/{date}-{source}.md` — immutable source archive
+- `wiki/*.md` — compiled articles with frontmatter
+- `wiki/index.md`, `wiki/overview.md`, `wiki/log.md` — navigators
+- `wiki/.compile/*.json` — compile artifacts (graph, analytics, search index, audit)
+- `site/` — static frontend output
+- MCP server reads `wiki/.compile/` + `wiki/*.md`, exposes tools over stdio
 
-## Process
-1. Step one
-2. Step two
-   → CHECKPOINT: human reviews X before continuing
+## Two-Layer Runtime
 
-## Outputs
-| Artifact | Location | Format |
+For stages that need programmatic computation (compile, present, serve), the
+pattern is split:
 
-## Audit (creative stages only)
-- [ ] Check 1
-```
+- **SKILL.md** tells Claude what to do and how to interpret results
+- **lib/ script** runs Papyr Core or the MCP SDK to do the actual work
 
-## Stage Handoffs
+This means compile can run graph analysis via Papyr Core, present can generate
+HTML from compiled JSON, and serve can expose a real MCP server — while keeping
+Claude's decision-making (what to fix, what to surface, how to design) in the
+skill instructions.
 
-Output folders connect sequential stages. Stage 01's `output/` contains the curated URL list that Stage 02 reads. Humans can edit intermediate outputs; the next stage picks up whatever remains.
+## References
 
-## Diagrams
-
-- [system-overview.svg](architecture/system-overview.svg) — Full pipeline with checkpoints and data flow
-- [context-layers.svg](architecture/context-layers.svg) — 5-layer model with token budgets
+- [SOUL.md](../SOUL.md) — product bible, identity, boundaries
+- [docs/mcp-spec.md](mcp-spec.md) — MCP server specification
+- [docs/design-engine.md](design-engine.md) — palette and typography system
+- [docs/frontend-modes.md](frontend-modes.md) — 6 study modes
+- [docs/scout-spec.md](scout-spec.md) — research engine + confidence scoring
+- [docs/decisions.md](decisions.md) — decision log
+- [docs/roadmap.md](roadmap.md) — phased roadmap
+- [docs/changelog.md](changelog.md) — build history
+- [ICM by Jake Van Clief](https://github.com/RinDig/Interpreted-Context-Methdology) — original methodology

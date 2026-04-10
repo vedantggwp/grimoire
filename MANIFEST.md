@@ -1,56 +1,130 @@
 # Manifest
 
-## Root — ICM Layers 0-1
-- `CLAUDE.md` — L0 context (~400 words). Project identity, core rules, routing pointer
-- `CONTEXT.md` — L1 router (~200 words). Stage map and decision tree
-- `SOUL.md` — Product soul (~700 words). Identity, vision, boundaries, principles. Points to docs/ for specs
+## Root
+- `README.md` — Comprehensive install guide, quick start, working skill statuses, npm install prerequisite, complete pipeline doc, MCP client config example, dependencies, development section
+- `CLAUDE.md` — Project instructions, plugin structure overview, core rules
+- `SOUL.md` — Product soul: identity, vision, boundaries, principles
+- `package.json` — v0.2.0; runtime deps (papyr-core, @modelcontextprotocol/sdk, zod); esbuild@0.28.0 dev dep (exact pin) for production bundling; `build` / `build:watch` / `prepack` scripts
+- `LICENSE` — MIT license (full text, created 2026-04-10)
+- `.gitignore` — Standard ignores; `package-lock.json` is NOT ignored (ships for reproducibility)
 
-## Docs — Detailed Specs (split from SOUL.md, each under 200 lines)
-- `docs/architecture.md` — ICM layers, stages, contracts, handoffs
-- `docs/mcp-spec.md` — MCP server tool inventory, architecture, moat
-- `docs/design-engine.md` — Theming, palettes, design skill arsenal, non-negotiable rules
-- `docs/frontend-modes.md` — 6 core study modes + future modes + architecture
-- `docs/scout-spec.md` — Research engine, confidence scoring, emergent taxonomy
-- `docs/integration.md` — CLAUDE.md integration rules and example snippet
-- `docs/competitive.md` — Competitive landscape + 5 compounding advantages
-- `docs/roadmap.md` — Phased roadmap (5 phases)
+## Plugin
+- `.claude-plugin/plugin.json` — Plugin manifest v0.2.0; top-level `homepage` and `repository` fields pointing at vedantggwp/grimoire (required by the Claude Code marketplace schema); published through the Athanor marketplace at vedantggwp/athanor
 
-## Stages — ICM Layer 2
-- `stages/01-scout/CONTEXT.md` — Scout stage contract: research, score, curate sources
-- `stages/02-ingest/CONTEXT.md` — Ingest stage contract: fetch, preserve raw, compile articles
-- `stages/03-compile/CONTEXT.md` — Compile stage contract: cross-refs, backlinks, overview, gaps
-- `stages/04-present/CONTEXT.md` — Present stage contract: generate study-oriented frontend
-- `stages/05-serve/CONTEXT.md` — Serve stage contract: MCP server, local dev, CLAUDE.md snippet
+## Skills
+- `skills/init/SKILL.md` — v0.2.0: project auto-discovery (detects existing projects, pre-fills answers, confirmation step) + workspace location checkpoint; 7 steps
+- `skills/init/references/questionnaire.md` — 7-question onboarding flow
+- `skills/init/assets/templates/schema-template.md` — SCHEMA.md template
+- `skills/init/assets/templates/design-config.md` — Design configuration template
+- `skills/init/assets/templates/article-template.md` — Wiki article format
+- `skills/init/assets/templates/raw-template.md` — Raw source preservation format
+- `skills/init/assets/templates/archive-template.md` — Archived query format
+- `skills/init/assets/templates/index-template.md` — Wiki index table format
+- `skills/scout/SKILL.md` — Source research + 6-signal confidence scoring
+- `skills/scout/references/stage-contract.md` — Scout stage contract
+- `skills/scout/references/scout-spec.md` — Full scout specification
+- `skills/scout/references/confidence-scoring.md` — 6-signal scoring rubric
+- `skills/ingest/SKILL.md` — Fetch, preserve raw, checkpoint, compile wiki articles
+- `skills/ingest/references/stage-contract.md` — Ingest stage contract
+- `skills/compile/SKILL.md` — Graph audit, backlink repair, gap analysis, emergent taxonomy, index serialization
+- `skills/compile/references/stage-contract.md` — Compile stage contract
+- `skills/present/SKILL.md` — Static site generation with 6 study modes
+- `skills/present/references/stage-contract.md` — Present stage contract
+- `skills/present/references/design-engine.md` — Theming and design specs
+- `skills/present/references/frontend-modes.md` — 6 study modes spec
+- `skills/serve/SKILL.md` — MCP server with 6 tools + CLAUDE.md integration
+- `skills/serve/references/stage-contract.md` — Serve stage contract
+- `skills/serve/references/mcp-spec.md` — MCP server tool inventory (fixed stale "watches for changes" claim)
+- `skills/serve/references/integration.md` — CLAUDE.md integration rules
 
-## Config — ICM Layer 3
-- `_config/design.md` — Theme configuration: palette, typography, motion, density
-- `_config/schema-template.md` — Template SCHEMA.md populated per wiki instance
+## Build
+- `scripts/build.mjs` — esbuild production bundler; produces three self-contained ESM bundles in `dist/` with the mandatory `createRequire`/`__dirname`/`__filename` ESM banner (per esbuild issue #1921); target `node20`, `packages: bundle`, `sourcemap: linked`, `minifyWhitespace: true`
+- `dist/compile.js` — Bundled compile CLI (~661 KB) + `compile.js.map` linked sourcemap; shipped for marketplace install (regenerated by `npm run build`)
+- `dist/present.js` — Bundled present CLI (~676 KB) + sourcemap
+- `dist/serve.js` — Bundled serve CLI (~920 KB, largest because it inlines MCP SDK + zod) + sourcemap
 
-## Shared — ICM Layer 3
-- `shared/confidence-scoring.md` — 6-signal scoring rubric (P0/P1/P2 tiers)
+## Lib — Runtime Scripts (source)
+- `lib/compile.ts` — Papyr Core orchestration: graph analysis, link validation, search indexing, analytics
+- `lib/present/index.ts` — Static site generator entry point, orchestrates all modes
+- `lib/present/types.ts` — Shared TypeScript types for present modules
+- `lib/present/config.ts` — Design config parser and palette resolution
+- `lib/present/css.ts` — CSS generation from design tokens
+- `lib/present/data.ts` — Wiki data loader and graph builder
+- `lib/present/html.ts` — HTML template helpers and page shell
+- `lib/present/modes/read.ts` — Read mode: article renderer
+- `lib/present/modes/graph.ts` — Graph mode: interactive knowledge graph
+- `lib/present/modes/search.ts` — Search mode: full-text search interface
+- `lib/present/modes/feed.ts` — Feed mode: chronological activity feed
+- `lib/present/modes/gaps.ts` — Gaps mode: coverage gap visualizer
+- `lib/present/modes/quiz.ts` — Quiz mode: study quiz generator (extractSentences handles bullet-list content without terminal punctuation)
+- `lib/serve.ts` — MCP server exposing wiki as queryable knowledge engine via 6 tools; `searchWithFallback` for natural-language resilience; `SUPPORT_PAGES` filter; search index error sentinel check
 
-## Templates — ICM Layer 3
-- `templates/article-template.md` — Wiki article format with frontmatter
-- `templates/raw-template.md` — Raw source preservation format
-- `templates/archive-template.md` — Archived query answer format
-- `templates/index-template.md` — Index table format with coverage summary
+## Test
+- `test/compile.test.ts` — Integration tests for compile script (18 tests)
+- `test/present.test.ts` — Integration tests for present generator (42 tests)
+- `test/serve.test.ts` — Integration tests for MCP serve handlers (19 tests)
+- `test/fixtures/sample-wiki/SCHEMA.md` — Test schema (topic: Modern Web Frameworks)
+- `test/fixtures/sample-wiki/_config/design.md` — Midnight-teal design config fixture
+- `test/fixtures/sample-wiki/raw/` — Empty raw source directory (test placeholder)
+- `test/fixtures/sample-wiki/wiki/index.md` — Test wiki index
+- `test/fixtures/sample-wiki/wiki/overview.md` — Test wiki overview article
+- `test/fixtures/sample-wiki/wiki/log.md` — Test wiki change log
+- `test/fixtures/sample-wiki/wiki/react-fundamentals.md` — Test article (React)
+- `test/fixtures/sample-wiki/wiki/vue-reactivity.md` — Test article (Vue)
+- `test/fixtures/sample-wiki/wiki/svelte-compilation.md` — Test article (Svelte)
+- `test/fixtures/sample-wiki/wiki/signals-pattern.md` — Test article (Signals — orphan/broken link fixture)
+- `test/fixtures/sample-wiki/site/` — Generated static site output (index + 6 modes + CSS)
 
-## Setup
-- `setup/questionnaire.md` — One-time onboarding: 7 questions, flat format, output mapping
-
-## Architecture Diagrams
-- `docs/architecture/system-overview.d2` — Full 5-stage pipeline with human checkpoints
-- `docs/architecture/system-overview.svg` — Rendered SVG
-- `docs/architecture/context-layers.d2` — ICM 5-layer context model with token budgets
-- `docs/architecture/context-layers.svg` — Rendered SVG
-- `docs/architecture/mcp-server.d2` — MCP server: 6 tools, clients, QMD integration
-- `docs/architecture/mcp-server.svg` — Rendered SVG
-- `docs/architecture/frontend-modes.d2` — 6 core frontend study modes with data sources
-- `docs/architecture/frontend-modes.svg` — Rendered SVG
+## Docs — Architecture Reference
+- `docs/architecture.md` — Current plugin architecture (fully rewritten 2026-04-10; no longer describes deleted ICM stages)
+- `docs/architecture/system-overview.d2` — System overview diagram source
+- `docs/architecture/system-overview.svg` — System overview diagram (rendered)
+- `docs/architecture/context-layers.d2` — Context layers diagram source
+- `docs/architecture/context-layers.svg` — Context layers diagram (rendered)
+- `docs/architecture/mcp-server.d2` — MCP server diagram source
+- `docs/architecture/mcp-server.svg` — MCP server diagram (rendered)
+- `docs/architecture/frontend-modes.d2` — Frontend modes diagram source
+- `docs/architecture/frontend-modes.svg` — Frontend modes diagram (rendered)
+- `docs/changelog.md` — Session changelog (engineering log of all build sessions)
+- `docs/competitive.md` — Competitive landscape + moat
+- `docs/decisions.md` — Living decision log
+- `docs/design-engine.md` — Theming, palettes, design skill arsenal
+- `docs/ecosystem-research.md` — Library ecosystem evaluation
+- `docs/frontend-modes.md` — 6 core study modes + future modes
+- `docs/integration.md` — CLAUDE.md integration rules
+- `docs/mcp-spec.md` — MCP server specification
+- `docs/plugin-spec.md` — Claude Code plugin format reference
+- `docs/roadmap.md` — Phased roadmap
+- `docs/scout-spec.md` — Research engine specification
+- `docs/references/papyr-core.md` — Papyr Core evaluation ("Evaluation Result" — verified adopted, npm-confirmed)
+- `docs/references/quartz-patterns.md` — Quartz patterns evaluation
+- `docs/references/flexsearch.md` — FlexSearch evaluation
+- `docs/references/graph-libraries.md` — Graph library comparison
+- `docs/references/notesmd-cli.md` — notes.md CLI evaluation
+- `docs/references/remark-pipeline.md` — Remark pipeline evaluation
 
 ## Recent Changes
-- 2026-04-08: Split SOUL.md into soul (~700w) + 8 spec docs (each <200 lines) for ICM compliance
-- 2026-04-08: Updated stage CONTEXT.md inputs to reference split docs instead of SOUL.md sections
-- 2026-04-08: Added audit checklist to 01-scout/CONTEXT.md (was missing for creative stage)
-- 2026-04-08: Initialized Grimoire project with ICM architecture
-- 2026-04-08: Created all stage contracts, questionnaire, templates, config, diagrams
+- 2026-04-08: Restructured from ICM stages to Claude Code plugin format
+- 2026-04-08: Evaluated Papyr Core — adopted as compilation/graph/search engine
+- 2026-04-08: Built grimoire-init skill (questionnaire + scaffolding)
+- 2026-04-08: Created stub skills for scout, ingest, compile, present, serve
+- 2026-04-08: Removed stages/, setup/, _config/, templates/, shared/, CONTEXT.md
+- 2026-04-08: Split SOUL.md, created all ICM architecture docs
+- 2026-04-09: Implemented grimoire-scout SKILL.md — 6 steps, checkpoint gate, 3 output files, full validation rules
+- 2026-04-09: Implemented grimoire-ingest SKILL.md — 7 steps, raw preservation, mandatory human checkpoint, backlink audit
+- 2026-04-09: Implemented grimoire-compile — lib/compile.ts + SKILL.md + tests (18 passing)
+- 2026-04-09: Added Step 5.5 (Emergent Taxonomy Engine) to grimoire-compile/SKILL.md
+- 2026-04-09: Verified scout-queue handoff (already wired)
+- 2026-04-09: Implemented grimoire-present — lib/present/ (12 modules, 6 modes) + tests (42 passing)
+- 2026-04-09: Implemented grimoire-serve — lib/serve.ts (MCP server, 6 tools) + tests (19 passing)
+- 2026-04-09: Security audit — fixed XSS, path traversal, missing deps, flat dir scan, stale contracts
+- 2026-04-09: Post-audit fixes — quiz templates, scout-queue clearing, MCP spec fix, compile overview instruction
+- 2026-04-09: Updated all 3 stage-contract reference files (scout, ingest, compile)
+- 2026-04-09: Created docs/changelog.md (session log) — not yet committed
+- 2026-04-10: Pre-launch hardening — LICENSE added, README rewritten, docs/architecture.md rewritten, papyr-core.md updated, package.json author contact added, lockfile un-ignored
+- 2026-04-10: grimoire-init v0.2.0 — project auto-discovery, workspace location checkpoint
+- 2026-04-10: Dry-run fixes — quiz bullet extraction, serve support page filter, handleQuery stop word fallback
+- 2026-04-10: Skill rename — `skills/grimoire-{init,scout,ingest,compile,present,serve}/` → `skills/{init,scout,ingest,compile,present,serve}/` so invocation becomes `/grimoire:init` instead of `/grimoire:grimoire-init`. 196 content substitutions across 34 files, 12 intentional historical skips (changelog, MANIFEST Recent Changes, decisions.md dated headings)
+- 2026-04-10: esbuild bundling — added `scripts/build.mjs` with ESM Node banner; produces self-contained `dist/{compile,present,serve}.js` bundles; SKILL.md invocations updated from `npx tsx lib/X.ts` → `node dist/X.js`; defensive `npm install` prerequisite checks removed from compile/present/serve SKILL.md. Marketplace installs now work without `npm install` (the whole point)
+- 2026-04-10: plugin.json v0.2.0 — added `homepage` and `repository` top-level string fields (verified against code.claude.com/docs/en/plugins-reference current schema)
+- 2026-04-10: Published through Athanor marketplace (separate repo at vedantggwp/athanor). Install via `/plugin marketplace add vedantggwp/athanor && /plugin install grimoire@athanor`

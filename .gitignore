@@ -1,14 +1,9 @@
-# Stage outputs are ephemeral — only .gitkeep is tracked
-stages/*/output/*
-!stages/*/output/.gitkeep
-
 # OS artifacts
 .DS_Store
 Thumbs.db
 
-# Node (for future MCP server)
+# Node
 node_modules/
-package-lock.json
 
 # Python (for future MCP server)
 __pycache__/
@@ -20,3 +15,10 @@ __pycache__/
 .idea/
 *.swp
 *.swo
+
+# Build artifacts
+**/.compile/
+**/site/
+
+# Test artifacts
+_test/

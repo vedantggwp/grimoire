@@ -9,7 +9,7 @@ grimoire/
 ├── .claude-plugin/
 │   └── plugin.json              # REQUIRED — only hard requirement
 ├── skills/                       # Auto-discovered via SKILL.md in subdirs
-│   └── grimoire-init/
+│   └── init/
 │       ├── SKILL.md             # Required per skill
 │       ├── references/          # Loaded on-demand
 │       └── assets/              # Templates, not loaded into context
@@ -41,7 +41,7 @@ Name must be kebab-case: `/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/`
 
 ```yaml
 ---
-name: grimoire-scout
+name: scout
 description: "This skill should be used when..." (third-person, include trigger phrases)
 version: 0.1.0
 ---
@@ -54,7 +54,7 @@ Progressive disclosure: metadata ~100 words always loaded. Body loaded on trigge
 
 ```yaml
 ---
-name: grimoire-scout
+name: scout
 description: "Use this agent when..." (must include <example> blocks)
 model: inherit
 color: cyan

@@ -5,6 +5,176 @@
 
 ---
 
+## 2026-04-10 — grimoire-init v0.2.0: project auto-discovery
+
+**Decision:** Init now detects existing projects (`.git`, `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Gemfile`, `pom.xml`, `CLAUDE.md`, `README.md`, `docs/`), offers auto-discovery mode, reads project files to pre-fill the 7 questionnaire answers, and asks the user to confirm. Also: workspace location is now a checkpoint question with 4 options (inside project, inside `docs/`, sibling directory, custom path) instead of a hardcoded default.
+
+**Why:** An "agentic, intelligent" plugin should minimize the user's thinking and data-entry burden when there's existing project context available. Ved's explicit feedback: "This needs to take away as much thinking and data ingestion workload from the user as possible."
+
+**Trail:** Alternatives rejected — keep the old "ask 7 questions from scratch" flow (too manual for existing projects); fully automatic without confirmation (violates "human stays in control" principle). Landed on detect → pre-fill → confirm.
+
+---
+
+## 2026-04-10 — Dry-run before any real-project test
+
+**Decision:** Before testing in a real project, run compile → present → serve handlers directly against a throwaway workspace.
+
+**Why:** Synthetic test fixtures passed all 79 tests but the dry-run found 3 real bugs that only showed up with realistic content. All three were fixed immediately. 79/79 tests still pass after fixes.
+
+**Trail:** Bugs found: (a) quiz `extractSentences` required terminal punctuation, dropped all bullet-list sections; (b) `loadWikiData` counted support pages (index/overview/log) as content articles; (c) `handleQuery` failed on natural language queries like "what is reward modeling" because FlexSearch needed all tokens to match.
+
+---
+
+## 2026-04-10 — Security posture for public launch
+
+**Decision:** Pre-publish scan found zero secrets, zero credentials, zero unwanted files. Four blockers fixed (stale `mcp-spec` copy, missing `LICENSE`, stale `architecture.md` referencing deleted ICM stages, README skill statuses all "Stub"). Four should-fix items fixed (papyr-core verified on npm, author contact added, `papyr-core.md` reference updated, `package-lock.json` un-ignored and MANIFEST entry removed).
+
+**Why:** First public release must be clean. MIT license file missing would make the declaration legally incomplete. Stale docs misrepresenting deleted architecture would confuse users.
+
+**Trail:** Ran pre-publish scan → enumerated blockers → fixed in order. Lockfile now ships for reproducibility.
+
+---
+
+## 2026-04-10 — Natural language query resilience in grimoire_query
+
+**Decision:** Added `searchWithFallback` to `serve.ts`: tries exact query first, then strips ~25 stop words and retries, then falls back to per-keyword search with merged results.
+
+**Why:** FlexSearch's default matching is token-AND. Users phrase MCP queries as natural language ("what is reward modeling", "how does PPO work") which has stop words. Without fallback, the query tool returns "no results" for queries where the answer clearly exists. This also hardens `grimoire_search` which uses the same fallback.
+
+**Trail:** Dry-run against realistic content exposed the issue. Three-tier fallback (exact → stop-words-stripped → per-keyword merged) added and verified.
+
+---
+
+## 2026-04-10 — Support pages are not content
+
+**Decision:** `loadWikiData` in `serve.ts` now filters out `index`, `overview`, and `log` from the notes list. These are navigators, not articles.
+
+**Why:** `handleListTopics` was reporting inflated article counts. `handleSearch` was surfacing overview/index as hits. This pollutes the MCP responses with non-content.
+
+**Trail:** Noticed during dry-run that `list_topics` returned support pages alongside articles. Added `SUPPORT_PAGES` filter at the loader level so every handler benefits.
+
+---
+
+## 2026-04-09 — SiYuan Note evaluation: steal, don't integrate
+
+**Decision:** No integration with SiYuan Note. Learn from their architecture instead.
+
+**Why:** SiYuan (42.5k stars, block-based PKM, Go+SQLite+REST API) solves a different problem (human PKM) than Grimoire (LLM compilation). Integration would violate "plain text is the interface" principle. API-only pattern (Pattern A) scored 78/100 but deferred.
+
+**Trail:** Evaluated SiYuan Note for potential integration. What we took: section-level retrieval concept (for future MCP optimization), FTS5 as a future upgrade path if FlexSearch hits limits, FSRS as a future flashcard upgrade if users do repeated reviews.
+
+---
+
+## 2026-04-09 — grimoire-compile: two-layer architecture (script + skill)
+
+**Decision:** `lib/compile.ts` (Node.js) computes JSON artifacts; `SKILL.md` tells Claude how to interpret and fix.
+
+**Why:** Machine computes (graph analysis, link validation, search indexing), Claude interprets (what to fix, what to surface, how to rewrite overview). Each layer does what it's good at.
+
+**Trail:** Graph analysis requires running Papyr Core programmatically. Pure SKILL.md approach rejected — Claude can't run FlexSearch or traverse graph algorithms.
+
+---
+
+## 2026-04-09 — Papyr Core is richer than documented — use what exists
+
+**Decision:** Compile stage orchestrates Papyr Core's existing functions, doesn't reinvent.
+
+**Why:** All graph analysis primitives already exist. Building our own would be duplication.
+
+**Trail:** Initial reference doc listed basic API. Actual `dist/` has `findOrphanedNotes`, `findOrphanedLinks`, `validateLinks`, `calculateCentrality`, `getConnectedComponents`, `getGraphStatistics`, `findHubs`, `findAuthorities`, `exportSearchIndex`/`importSearchIndex`, `AnalyticsEngine` with cluster detection. No reason to rebuild any of it.
+
+---
+
+## 2026-04-09 — grimoire-present: static site, no server needed
+
+**Decision:** Generate self-contained HTML files that work from `file://` protocol.
+
+**Why:** Local-first principle. User opens `index.html`, done. No build step, no `npm install` in the output, no CORS. CDN-loaded D3 for graph mode only.
+
+**Trail:** Evaluated dev server (Vite) vs. static files. Static won on simplicity and alignment with local-first.
+
+---
+
+## 2026-04-09 — grimoire-serve: MCP SDK over stdio
+
+**Decision:** Use `@modelcontextprotocol/sdk` with `StdioServerTransport`.
+
+**Why:** Official SDK handles protocol negotiation, error formatting, and transport. Less code, more correct.
+
+**Trail:** Considered bare JSON-RPC vs. official SDK. SDK chosen for correctness and reduced maintenance surface.
+
+---
+
+## 2026-04-09 — Search mode: vanilla JS, not FlexSearch in browser
+
+**Decision:** Simple substring + word scoring in ~40 lines of vanilla JS.
+
+**Why:** For <200 articles, FlexSearch is overkill in the browser. The Node.js serialized index format isn't browser-compatible anyway. Simple scoring (title: 10pts, headings: 5pts, tags: 3pts) works well enough.
+
+**Trail:** Evaluated embedding FlexSearch via CDN vs. hand-rolled search. Vanilla JS won on size and compatibility.
+
+---
+
+## 2026-04-09 — grimoire_query: ship as retrieval, defer synthesis
+
+**Decision:** Ship what works. The tool returns FlexSearch excerpts, not synthesized answers. Synthesis deferred.
+
+**Why:** Synthesis would require Claude API calls at query time, fundamentally changing the server architecture. The other 3 shape-aware tools (`list_topics`, `coverage_gaps`, `open_questions`) are the real moat.
+
+**Trail:** Audit found `grimoire_query` returns FlexSearch excerpts, not synthesized answers as docs aspirationally claim. Deferred — retrieval is useful on its own.
+
+---
+
+## 2026-04-09 — Quiz: heading-type-aware question templates
+
+**Decision:** Map heading types to question patterns (Overview → "What is X and why does it matter?", Limitations → "What are the trade-offs?", etc.).
+
+**Why:** Single "What is the {H2} of {title}?" template produced awkward questions. Heading-aware templates produce natural study questions without requiring an LLM at build time.
+
+**Trail:** Evaluated single template vs. heading-type mapping vs. LLM at build time. LLM rejected — adds dependency and latency for marginal quality gain.
+
+---
+
+## 2026-04-09 — Security fixes from code audit
+
+**Decision:** Four security fixes applied: XSS escaping in search mode, path traversal validation in `serve.ts`, explicit zod dependency, search index error sentinel.
+
+**Why:** Code audit identified injection vectors and implicit dependencies that would bite in production.
+
+**Trail:** XSS: added `esc()` function for title/excerpt/heading in `innerHTML`. Path traversal: added slug regex validation (`/^[a-zA-Z0-9/_-]+$/`). Zod: was working via transitive dep from MCP SDK, made explicit in `package.json`. Search index: check for error flag before `importSearchIndex()`.
+
+---
+
+## 2026-04-09 — Subdirectory wiki support in present/data.ts
+
+**Decision:** Recursive `collectMdFiles()` to match compile's behavior.
+
+**Why:** After taxonomy reorganization (Step 5.5), articles live in `wiki/{category}/`. Present's `data.ts` used flat `readdirSync` and missed them.
+
+**Trail:** Compile and serve already handle taxonomy subdirectories. Present's `data.ts` was the only holdout using flat directory reads.
+
+---
+
+## 2026-04-08 — Restructure from ICM stages to Claude Code plugin format
+
+**Decision:** Replace the ICM stage directory structure (`stages/01-scout/` through `stages/05-serve/`) with Claude Code plugin format (`.claude-plugin/plugin.json` + `skills/*/SKILL.md`).
+
+**Why:** The project is being packaged as a Claude Code plugin for distribution. The plugin system provides auto-discovery of skills via `SKILL.md` frontmatter, replacing the ICM router (`CONTEXT.md`). Each ICM stage maps 1:1 to a plugin skill, preserving the "one stage, one job" principle.
+
+**Trail:** Ved requested plugin packaging. Plugin spec extracted from `anthropics/claude-plugins-official`. Stage contracts preserved as skill `references/stage-contract.md`. Templates and config moved to `skills/init/assets/`. Old directories (`stages/`, `setup/`, `_config/`, `templates/`, `shared/`, `CONTEXT.md`) removed after contents absorbed into skills.
+
+---
+
+## 2026-04-08 — Adopt Papyr Core as compilation engine
+
+**Decision:** Use `papyr-core` (npm, MIT, v1.0.0) for markdown parsing, graph construction, search indexing, and analytics.
+
+**Why:** Papyr Core bundles exactly the stack we'd build from scratch: gray-matter (frontmatter), remark/rehype pipeline (markdown → HTML), remark-wiki-link (wikilinks), flexsearch (search), plus graph analysis (centrality, hubs, orphan detection, backlinks). One dependency replaces 12.
+
+**Trail:** Installed and tested against Grimoire-style markdown with custom frontmatter (confidence, sources). Results: frontmatter passes through in `metadata` untouched; wikilinks resolve and generate bidirectional backlinks; graph includes nodes with metadata, edges, centrality scores; search index serializes to JSON. One quirk: `[[topic/slug]]` resolves to just `slug` (strips path prefix) — compile skill will need slug disambiguation. Not a blocker.
+
+---
+
 ## 2026-04-08 — SOUL.md split for ICM compliance
 
 **Decision:** Split SOUL.md (3500 words) into SOUL.md (~700 words) + 8 spec docs in docs/.

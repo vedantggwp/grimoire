@@ -38,11 +38,17 @@ This is the closest existing library to what Grimoire's compile and serve stages
 - Stage 05 (serve) uses for MCP server query resolution
 - Stage 04 (present) uses for the ContentIndexMap that feeds the frontend
 
-## Evaluation Needed
+## Evaluation Result
 
-Before adopting:
-- Does it handle our frontmatter format (title, tags, sources, updated, confidence)?
-- Does it resolve `[[topic/slug]]` two-level wikilinks, not just `[[slug]]`?
-- Can the search index be serialized to JSON for the frontend?
-- Performance: how does it handle 100+ articles?
-- Last commit date and maintenance status?
+Adopted 2026-04-08. Verified in production use via `lib/compile.ts` and the
+79-test suite.
+
+Confirmed:
+- **Custom frontmatter** — passes through `title`, `tags`, `sources`, `updated`, `confidence` as-is via `ParsedNote.metadata`
+- **Wikilink resolution** — `[[category/slug]]` strips the path prefix and resolves to `slug` (quirk, not a bug — compile stage handles disambiguation via the `notes.json` manifest)
+- **Search index serialization** — `exportSearchIndex()` and `importSearchIndex()` provide full round-trip for serve to reload the index
+- **Performance** — benchmarked on sample-wiki fixture (7 notes): ~69ms full build. Scales linearly with note count.
+- **Maintenance** — actively maintained, v1.0.0 on npm (MIT), 12 transitive deps (flexsearch, gray-matter, remark, rehype).
+
+Used by: `compile` (graph analysis, link validation, analytics) and
+`serve` (search index import at server startup).

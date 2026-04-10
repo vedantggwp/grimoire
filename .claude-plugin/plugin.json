@@ -1,0 +1,14 @@
+{
+  "name": "grimoire",
+  "version": "0.2.0",
+  "description": "Knowledge base builder — scouts sources, compiles wiki articles, generates study frontends, serves via MCP",
+  "author": {
+    "name": "Ved",
+    "email": "138197457+vedantggwp@users.noreply.github.com",
+    "url": "https://github.com/vedantggwp"
+  },
+  "homepage": "https://github.com/vedantggwp/grimoire",
+  "repository": "https://github.com/vedantggwp/grimoire",
+  "license": "MIT",
+  "keywords": ["wiki", "research", "knowledge-base", "mcp", "study", "papyr"]
+}
