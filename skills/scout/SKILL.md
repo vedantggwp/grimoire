@@ -79,6 +79,19 @@ Deduplicate by URL before scoring:
 - Normalize `www` prefix (treat `www.example.com` and `example.com` as identical)
 - Keep the canonical form; note duplicates removed in scout-notes.md
 
+### If no candidates were found
+
+If the combined pool (search results + seed URLs) is empty after dedup, do NOT
+proceed to Step 4 with zero sources. Instead:
+
+1. Print what you searched for and what came back ("Searched X angles, 0 results after dedup")
+2. Diagnose the most likely cause: too narrow a topic, overly restrictive `scope.out`, rare jargon, network issue
+3. Offer the user three concrete recovery paths via AskUserQuestion:
+   - **Broaden angles** — return to Step 2 with wider queries
+   - **Provide seed URLs** — user pastes known-good starting points, you re-run scoring
+   - **Abort** — stop the scout run, no files written, suggest refining SCHEMA.md
+4. Do not write any output files until the user picks one of the recovery paths and the new run yields candidates.
+
 ## Step 4 — Score Every Source
 
 Load the full rubric from:

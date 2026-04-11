@@ -184,9 +184,12 @@ meaningfully shifted, rewrite the `summary` field to reflect the new coverage.
 
 Update three files in the workspace. Do not skip any of them.
 
-**wiki/index.md** — Add new articles to the correct category table. Update the
-summary line and date for any modified articles. Increment the total article count
-if you created new articles.
+**wiki/index.md** — If the file is missing (user deleted it, or this workspace
+was not scaffolded by init), create it first using the index template at
+`${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/index-template.md`, then
+populate. Otherwise, add new articles to the correct category table, update
+the summary line and date for any modified articles, and increment the total
+article count if you created new articles.
 
 **wiki/overview.md** — If this is the first ingest run (overview.md is still a
 stub), write an initial 2-4 paragraph synthesis of what the wiki now covers.
