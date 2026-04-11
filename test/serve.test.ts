@@ -166,4 +166,88 @@ describe('serve', () => {
       expect(bulletCount).toBeLessThanOrEqual(2);
     });
   });
+
+  // Regression tests for 2026-04-10 dry-run bugs ------------------------------
+
+  describe('regression: support-page filter (2026-04-10 bug #2)', () => {
+    // Bug: loadWikiData indexed every markdown file (needed for graph analysis),
+    // but the notes manifest returned to handlers included `index`, `overview`,
+    // and `log` as if they were content articles. `handleListTopics` reported
+    // inflated counts and `handleSearch` surfaced navigation pages as hits.
+    // Fix: SUPPORT_PAGES filter in loadWikiData + per-handler filter in query/search.
+
+    const SUPPORT_SLUGS = ['index', 'overview', 'log'];
+
+    it('notes manifest excludes support pages', () => {
+      const slugs = data.notes.map(n => n.slug);
+      for (const support of SUPPORT_SLUGS) {
+        expect(slugs, `"${support}" should not appear in notes manifest`).not.toContain(support);
+      }
+    });
+
+    it('handleSearch never returns a support page as a result', () => {
+      // Search for a term that appears in overview.md specifically
+      const result = handleSearch('overview', 10, data);
+      // Each result is formatted `- **Title** (slug)`
+      const slugMatches = [...result.matchAll(/\*\*[^*]+\*\*\s*\(([^)]+)\)/g)].map(m => m[1]);
+      for (const slug of slugMatches) {
+        expect(SUPPORT_SLUGS, `Support page "${slug}" leaked into search results`).not.toContain(slug);
+      }
+    });
+
+    it('handleQuery never returns a support page as a result', () => {
+      // Query phrasing that would match overview.md if support pages weren't filtered
+      const result = handleQuery('knowledge base overview open questions', data);
+      const slugMatches = [...result.matchAll(/###[^(]+\(([^)]+)\)/g)].map(m => m[1]);
+      for (const slug of slugMatches) {
+        expect(SUPPORT_SLUGS, `Support page "${slug}" leaked into query results`).not.toContain(slug);
+      }
+    });
+
+    it('handleListTopics total article count matches filtered notes count', () => {
+      const result = handleListTopics(data);
+      // The count in the output must match data.notes.length (which excludes support pages)
+      expect(result).toContain(`Total articles: ${data.notes.length}`);
+      // Sanity check — sample fixture has 4 content articles, not 4 + 3 navigation pages
+      expect(data.notes.length).toBeLessThan(7);
+    });
+  });
+
+  describe('regression: stop-word query fallback (2026-04-10 bug #3)', () => {
+    // Bug: FlexSearch's default config requires all tokens to match. A natural
+    // language query like "what is reward modeling" failed because "what" and
+    // "is" never appear in article bodies, so the full query matched nothing
+    // even though "reward modeling" was a direct title.
+    // Fix: searchWithFallback tries the query as-is, then strips stop words,
+    // then per-keyword search with merge.
+
+    it('answers natural language question with leading stop words', () => {
+      // "what is react" should return the React Fundamentals article even though
+      // "what" and "is" are in the stop word list.
+      const result = handleQuery('what is react', data);
+      expect(result).not.toContain('No results found');
+      expect(result.toLowerCase()).toContain('react');
+    });
+
+    it('answers "how does X work" style questions', () => {
+      const result = handleQuery('how does vue reactivity work', data);
+      expect(result).not.toContain('No results found');
+      expect(result.toLowerCase()).toContain('vue');
+    });
+
+    it('falls back to per-keyword when multi-word fails', () => {
+      // Phrasing that likely won't match as a phrase but should match by keyword.
+      const result = handleQuery('tell me about svelte', data);
+      expect(result).not.toContain('No results found');
+      expect(result.toLowerCase()).toContain('svelte');
+    });
+
+    it('still returns no-results for genuinely missing topics', () => {
+      // Regression guard: the fallback must not produce false positives for
+      // topics that truly aren't in the wiki.
+      const result = handleQuery('what is cobol mainframe programming', data);
+      // The wiki is about modern web frameworks — nothing about cobol.
+      expect(result).toContain('No results found');
+    });
+  });
 });

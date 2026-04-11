@@ -329,6 +329,39 @@ describe('present', () => {
       const html = readSiteFile('quiz/index.html');
       expect(html).toContain('shuffle');
     });
+
+    // Regression test for 2026-04-10 dry-run bug #1
+    // extractSentences previously used `/[^.!?]+[.!?]+/g` which required
+    // terminal punctuation — bullet-list sections (Key Capabilities,
+    // Limitations) returned zero matches and produced no flashcards.
+    // Fix: fallback chain (sentence → dash/newline/semicolon split → truncate).
+    it('generates cards from bullet-list sections without terminal punctuation', () => {
+      const html = readSiteFile('quiz/index.html');
+      const match = html.match(/window\.QUIZ_CARDS = (\[.*?\]);/s);
+      expect(match, 'QUIZ_CARDS not found in HTML').not.toBeNull();
+
+      const cards = JSON.parse(match![1]) as Array<{ front: string; back: string }>;
+
+      // Sanity: the fixture should produce multiple cards across articles and headings.
+      expect(cards.length).toBeGreaterThan(3);
+
+      // Every card must have non-empty back content — the bug manifested as
+      // empty backs when extractSentences returned [].
+      for (const card of cards) {
+        expect(card.back.length, `Empty back for "${card.front}"`).toBeGreaterThan(0);
+      }
+
+      // Specifically: there MUST be cards derived from bullet-list sections.
+      // The fixture has "Key Capabilities" sections in react-fundamentals, vue-reactivity,
+      // and svelte-compilation — all bullet lists with no terminal punctuation.
+      const keyCapCards = cards.filter(c => c.front.toLowerCase().includes('key capabilities'));
+      expect(keyCapCards.length, 'No cards generated from Key Capabilities bullet sections').toBeGreaterThan(0);
+
+      // Their backs must contain substantive content, not empty strings.
+      for (const card of keyCapCards) {
+        expect(card.back.length).toBeGreaterThan(20);
+      }
+    });
   });
 
   describe('no hardcoded colors in HTML body', () => {
