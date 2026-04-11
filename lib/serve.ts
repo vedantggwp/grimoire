@@ -270,11 +270,64 @@ function searchWithFallback(query: string, data: WikiData, limit: number): reado
   return substringSearch(query, data, limit);
 }
 
+// Rerank search hits by boosting title and summary matches. FlexSearch's
+// default scoring is term-frequency dominated, which biases toward overview
+// articles that mention many keywords — not toward articles whose *title*
+// or *summary* is specifically about the query. This pass adds a bonus
+// for keyword-in-title (strong signal) and keyword-in-summary (medium
+// signal) so the LLM-routing path preferentially surfaces the authoritative
+// article.
+function rerankHits(
+  query: string,
+  hits: readonly SearchHit[],
+  data: WikiData,
+): readonly SearchHit[] {
+  const keywords = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+  if (keywords.length === 0) return hits;
+
+  const notesBySlug = new Map(data.notes.map((n) => [n.slug, n]));
+
+  const rescored = hits.map((hit) => {
+    const note = notesBySlug.get(hit.slug);
+    const title = (note?.title ?? hit.title).toLowerCase();
+    const summary = (note?.summary ?? '').toLowerCase();
+    let bonus = 0;
+    for (const kw of keywords) {
+      if (title.includes(kw)) bonus += 5;
+      if (summary.includes(kw)) bonus += 2;
+    }
+    return { ...hit, score: (hit.score ?? 0) + bonus };
+  });
+
+  return [...rescored].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+}
+
 export function handleQuery(query: string, data: WikiData): string {
   const SUPPORT_PAGES = new Set(['index', 'overview', 'log']);
-  const rawHits = searchWithFallback(query, data, 10);
+  // Union FlexSearch + substring search on title/summary/tags, then rerank.
+  // FlexSearch catches body-text matches with good tokenization; substring
+  // search reliably catches articles whose *title* or *summary* contains the
+  // query terms (often the authoritative article on a topic). Together they
+  // ensure the routing-critical articles make it into the top-K pool.
+  const flexHits = searchWithFallback(query, data, 10);
+  const substrHits = substringSearch(query, data, 10);
+
+  const seen = new Set<string>();
+  const merged: SearchHit[] = [];
+  for (const h of [...flexHits, ...substrHits]) {
+    if (!seen.has(h.slug)) {
+      seen.add(h.slug);
+      merged.push(h);
+    }
+  }
+
   // Filter out support pages — they shouldn't appear as answers
-  const hits = rawHits.filter((h) => !SUPPORT_PAGES.has(h.slug));
+  const filtered = merged.filter((h) => !SUPPORT_PAGES.has(h.slug));
+  // Rerank for LLM-routing quality (title/summary match dominates body match)
+  const hits = rerankHits(query, filtered, data);
 
   if (hits.length === 0) {
     return `No results found for "${query}" in the ${data.schemaInfo.topic} knowledge base.`;
