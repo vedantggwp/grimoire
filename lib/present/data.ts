@@ -55,12 +55,20 @@ function parseLogEntries(logMd: string): readonly LogEntry[] {
   return entries;
 }
 
+// Parse the nested YAML domain block from SCHEMA.md.
+// Canonical shape (enforced by the init template):
+//   topic: "..."
+//   scope:
+//     in: "..."
+//     out: "..."
+//   audience: "..."
+// The regexes are intentionally anchored (^, multiline) and bound the captures
+// to the same line so they don't accidentally straddle fields.
 function parseSchema(content: string): SiteData['schema'] {
-  const topicMatch = content.match(/topic:\s*"?([^"\n]+)"?/);
-  const audienceMatch = content.match(/audience:\s*"?([^"\n]+)"?/);
-
-  const scopeInMatch = content.match(/in:\s*"?([^"\n]+)"?/);
-  const scopeOutMatch = content.match(/out:\s*"?([^"\n]+)"?/);
+  const topicMatch = content.match(/^topic:\s*"?([^"\n]+?)"?\s*$/m);
+  const audienceMatch = content.match(/^audience:\s*"?([^"\n]+?)"?\s*$/m);
+  const scopeInMatch = content.match(/^scope:\s*\r?\n\s+in:\s*"?([^"\n]+?)"?\s*$/m);
+  const scopeOutMatch = content.match(/^\s+out:\s*"?([^"\n]+?)"?\s*$/m);
 
   return {
     topic: topicMatch?.[1]?.trim() ?? 'Untitled',
@@ -94,22 +102,26 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
   const wikiDir = join(workspacePath, 'wiki');
   const compileDir = join(wikiDir, '.compile');
 
-  // Load compile artifacts
+  // Load compile artifacts — notes.json is the canonical article manifest,
+  // including the frontmatter fields (summary, confidence, sources) that
+  // compile.ts extracts directly from each markdown file.
   const notesManifest = readJSON(join(compileDir, 'notes.json')) as Array<{
     slug: string;
     title: string;
+    summary: string;
     tags: string[];
     wordCount: number;
     readingTime: number;
     linksTo: string[];
     headings: Array<{ level: number; text: string }>;
+    confidence: string;
+    sources: Array<{ url: string; title: string }>;
   }>;
 
   const graphRaw = readJSON(join(compileDir, 'graph.json')) as {
     nodes: Record<string, {
       id: string;
       label: string;
-      metadata: Record<string, unknown>;
       linkCount: number;
       backlinkCount: number;
       forwardLinkCount: number;
@@ -127,7 +139,11 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
   } catch { /* no log file */ }
 
   // Load SCHEMA.md
-  let schema: SiteData['schema'] = { topic: 'Untitled', scope: {}, audience: 'general' };
+  let schema: SiteData['schema'] = {
+    topic: 'Untitled',
+    scope: { in: '', out: '' },
+    audience: 'general',
+  };
   try {
     const schemaMd = readFileSync(join(workspacePath, 'SCHEMA.md'), 'utf-8');
     schema = parseSchema(schemaMd);
@@ -147,22 +163,19 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
     if (!manifest) continue;
 
     const parsed = await parseMarkdown(stripFrontmatter(raw), { path: rel });
-    const graphNode = graphRaw.nodes[slug];
-    const metadata = graphNode?.metadata ?? {};
 
     articles.push({
       slug,
       title: manifest.title,
+      summary: manifest.summary ?? '',
       tags: manifest.tags,
       html: parsed.html,
       wordCount: manifest.wordCount,
       readingTime: manifest.readingTime,
       linksTo: manifest.linksTo,
       headings: manifest.headings,
-      confidence: String(metadata.confidence ?? ''),
-      sources: Array.isArray(metadata.sources)
-        ? (metadata.sources as Array<{ url: string; title: string }>)
-        : [],
+      confidence: manifest.confidence ?? '',
+      sources: manifest.sources ?? [],
     });
   }
 

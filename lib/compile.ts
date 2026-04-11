@@ -8,8 +8,9 @@
  * Usage: node dist/compile.js <wiki-directory-path>
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import matter from 'gray-matter';
 
 import {
   PapyrBuilder,
@@ -70,6 +71,43 @@ function writeJSON(filename: string, data: unknown): void {
   const filepath = join(outputDir, filename);
   writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
   console.log(`  ✓ ${filename}`);
+}
+
+// Extract frontmatter fields we care about directly from the source file.
+// We don't rely on papyr-core's internal ParsedNote shape exposing these —
+// gray-matter is already a transitive dependency and gives us a stable contract.
+interface ArticleFrontmatter {
+  readonly summary: string;
+  readonly confidence: string;
+  readonly sources: readonly { readonly url: string; readonly title: string }[];
+}
+
+function extractFrontmatter(wikiDir: string, slug: string): ArticleFrontmatter {
+  try {
+    const filePath = join(wikiDir, `${slug}.md`);
+    const raw = readFileSync(filePath, 'utf-8');
+    const data = matter(raw).data ?? {};
+
+    const summary = typeof data.summary === 'string' ? data.summary.trim() : '';
+    const confidence = typeof data.confidence === 'string' ? data.confidence.trim() : '';
+
+    const sources: { url: string; title: string }[] = [];
+    if (Array.isArray(data.sources)) {
+      for (const src of data.sources) {
+        if (src && typeof src === 'object' && 'url' in src && 'title' in src) {
+          const s = src as { url: unknown; title: unknown };
+          if (typeof s.url === 'string' && typeof s.title === 'string') {
+            sources.push({ url: s.url, title: s.title });
+          }
+        }
+      }
+    }
+
+    return { summary, confidence, sources };
+  } catch {
+    // File not found or unreadable — emit empty fields, don't fail the build.
+    return { summary: '', confidence: '', sources: [] };
+  }
 }
 
 // --- Main ---
@@ -169,16 +207,24 @@ async function compile(): Promise<void> {
     tags: analytics.tags,
   });
 
-  // Step 9: Write notes manifest (lightweight — slugs, titles, tags, word counts)
-  const noteManifest = notes.map(n => ({
-    slug: n.slug,
-    title: n.title,
-    tags: n.tags,
-    wordCount: n.wordCount,
-    readingTime: n.readingTime,
-    linksTo: n.linksTo,
-    headings: n.headings.map(h => ({ level: h.level, text: h.text })),
-  }));
+  // Step 9: Write notes manifest (lightweight — slugs, titles, tags, word counts,
+  // plus frontmatter fields that downstream skills need for token-efficient
+  // routing: summary, confidence, sources).
+  const noteManifest = notes.map(n => {
+    const fm = extractFrontmatter(resolvedWikiDir, n.slug);
+    return {
+      slug: n.slug,
+      title: n.title,
+      summary: fm.summary,
+      tags: n.tags,
+      wordCount: n.wordCount,
+      readingTime: n.readingTime,
+      linksTo: n.linksTo,
+      headings: n.headings.map(h => ({ level: h.level, text: h.text })),
+      confidence: fm.confidence,
+      sources: fm.sources,
+    };
+  });
   writeJSON('notes.json', noteManifest);
 
   // Summary

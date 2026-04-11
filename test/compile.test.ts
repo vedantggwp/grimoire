@@ -162,6 +162,49 @@ describe('compile', () => {
       expect(reactNote.linksTo).toContain('vue-reactivity');
       expect(reactNote.linksTo).toContain('svelte-compilation');
     });
+
+    // Frontmatter extension pass (2026-04-11): compile.ts extracts summary,
+    // confidence, and sources from each article's frontmatter and emits them
+    // in notes.json so downstream skills (serve, present) can route and
+    // render without fishing fields out of graph.json metadata.
+    it('emits frontmatter summary for content articles', () => {
+      const notes = readJSON('notes.json') as any[];
+      const contentArticles = ['react-fundamentals', 'vue-reactivity', 'svelte-compilation', 'signals-pattern'];
+      for (const slug of contentArticles) {
+        const note = notes.find((n: any) => n.slug === slug);
+        expect(note, `missing note: ${slug}`).toBeDefined();
+        expect(typeof note.summary).toBe('string');
+        expect(note.summary.length, `${slug} has empty summary`).toBeGreaterThan(20);
+        expect(note.summary.length, `${slug} summary exceeds 180 chars`).toBeLessThanOrEqual(180);
+      }
+    });
+
+    it('emits frontmatter confidence for content articles', () => {
+      const notes = readJSON('notes.json') as any[];
+      const react = notes.find((n: any) => n.slug === 'react-fundamentals');
+      expect(react.confidence).toBe('P0');
+      const vue = notes.find((n: any) => n.slug === 'vue-reactivity');
+      expect(vue.confidence).toBe('P1');
+    });
+
+    it('emits frontmatter sources array for content articles', () => {
+      const notes = readJSON('notes.json') as any[];
+      const react = notes.find((n: any) => n.slug === 'react-fundamentals');
+      expect(Array.isArray(react.sources)).toBe(true);
+      expect(react.sources.length).toBeGreaterThan(0);
+      expect(react.sources[0].url).toContain('react.dev');
+      expect(typeof react.sources[0].title).toBe('string');
+    });
+
+    it('emits empty fields gracefully for support pages without frontmatter', () => {
+      const notes = readJSON('notes.json') as any[];
+      const log = notes.find((n: any) => n.slug === 'log');
+      expect(log).toBeDefined();
+      // Support pages shouldn't crash the extractor — they get empty fields.
+      expect(typeof log.summary).toBe('string');
+      expect(typeof log.confidence).toBe('string');
+      expect(Array.isArray(log.sources)).toBe(true);
+    });
   });
 
   describe('search-index.json — serialization', () => {

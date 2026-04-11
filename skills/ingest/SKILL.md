@@ -5,7 +5,7 @@ description: >-
   raw archives, compile wiki articles, or says "grimoire ingest", "process sources",
   "fetch and compile", or "/grimoire:ingest". Fetches approved URLs, preserves raw
   text, and compiles structured wiki articles with frontmatter.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # ingest
@@ -129,6 +129,11 @@ Use the article template at:
 Populate frontmatter:
 
 - `title` — clear, specific article title
+- `summary` — **required.** One sentence under 180 characters describing what the
+  article covers. This is load-bearing: LLMs querying the wiki use it to decide
+  which articles to fetch in full, so token-efficient retrieval depends on every
+  article having a crisp, specific summary. Write it like the first line of a
+  dictionary entry, not like marketing copy. No article ships without one.
 - `tags` — relevant taxonomy tags from SCHEMA.md
 - `sources` — list with `url`, `title`, and `accessed` (today's date)
 - `updated` — today's date
@@ -136,6 +141,17 @@ Populate frontmatter:
 
 Write the full body: Overview, Key Capabilities, How It Works, Usage Examples,
 Limitations, See Also. Each section must have real content — no placeholder text.
+
+### Writing the summary field
+
+Good summary: `"How Svelte's compile-time transformation eliminates the virtual DOM and ships minimal runtime code."`
+
+Bad summary (vague): `"An article about Svelte."`
+Bad summary (marketing): `"The revolutionary new framework changing how we build apps."`
+Bad summary (too long): anything over 180 characters.
+
+Derive the summary after you have written the article body, not before — the
+summary should accurately reflect what ended up in the article.
 
 File location:
 
@@ -150,7 +166,8 @@ as a candidate for the next SCHEMA.md update.
 
 Read the existing article first. Merge new information into the appropriate
 sections — do not overwrite, extend. Add the new source to the frontmatter
-`sources` list. Set `updated` to today's date.
+`sources` list. Set `updated` to today's date. If the article's scope has
+meaningfully shifted, rewrite the `summary` field to reflect the new coverage.
 
 ### Cross-references and backlinks
 
@@ -213,7 +230,8 @@ If the approved-sources list is exhausted, say so clearly and recommend
 ## Validation Rules
 
 - Never modify a file in `raw/` after initial creation — raw sources are immutable
-- All wiki articles must have complete frontmatter: title, tags, sources, updated, confidence
+- All wiki articles must have complete frontmatter: title, **summary**, tags, sources, updated, confidence
+- The `summary` field is required, one sentence, under 180 characters — this is a hard rule, not a nice-to-have
 - All dates use ISO 8601 (YYYY-MM-DD)
 - All filenames are slugified: lowercase, hyphens, no spaces
 - One article per concept — do not create mega-articles covering multiple distinct topics

@@ -12,11 +12,14 @@ import { importSearchIndex, searchNotes, type SearchIndex, type SerializedSearch
 interface NoteManifestEntry {
   readonly slug: string;
   readonly title: string;
+  readonly summary: string;
   readonly tags: readonly string[];
   readonly wordCount: number;
   readonly readingTime: number;
   readonly linksTo: readonly string[];
   readonly headings: readonly { level: number; text: string }[];
+  readonly confidence: string;
+  readonly sources: readonly { url: string; title: string }[];
 }
 
 interface GraphData {
@@ -33,14 +36,20 @@ interface AnalyticsData {
 }
 
 interface AuditData { readonly orphanedLinks: Record<string, readonly string[]> }
-interface SchemaInfo { readonly topic: string; readonly scope: string }
+interface SchemaInfo {
+  readonly topic: string;
+  readonly scopeIn: string;
+  readonly scopeOut: string;
+}
 
 export interface WikiData {
   readonly notes: readonly NoteManifestEntry[];
   readonly graph: GraphData;
   readonly analytics: AnalyticsData;
   readonly audit: AuditData;
-  readonly searchIndex: SearchIndex;
+  // searchIndex is null when compile's search-index export failed. Handlers
+  // must check and fall back to substring search over the notes manifest.
+  readonly searchIndex: SearchIndex | null;
   readonly overviewContent: string;
   readonly schemaInfo: SchemaInfo;
   readonly wikiDir: string;
@@ -53,12 +62,21 @@ function readJsonFile<T>(path: string): T {
   return JSON.parse(raw) as T;
 }
 
+// Parse the nested YAML domain block from SCHEMA.md.
+// Canonical shape (enforced by the init template):
+//   topic: "..."
+//   scope:
+//     in: "..."
+//     out: "..."
+// Regexes are anchored per-line so they don't straddle fields.
 function parseSchemamd(content: string): SchemaInfo {
-  const topicMatch = content.match(/topic:\s*"?([^"\n]+)"?/);
-  const scopeMatch = content.match(/scope:\s*\n\s*in:\s*"?([^"\n]+)"?/);
+  const topicMatch = content.match(/^topic:\s*"?([^"\n]+?)"?\s*$/m);
+  const scopeInMatch = content.match(/^scope:\s*\r?\n\s+in:\s*"?([^"\n]+?)"?\s*$/m);
+  const scopeOutMatch = content.match(/^\s+out:\s*"?([^"\n]+?)"?\s*$/m);
   return {
     topic: topicMatch?.[1]?.trim() ?? 'Unknown',
-    scope: scopeMatch?.[1]?.trim() ?? 'Unknown',
+    scopeIn: scopeInMatch?.[1]?.trim() ?? '',
+    scopeOut: scopeOutMatch?.[1]?.trim() ?? '',
   };
 }
 
@@ -77,11 +95,28 @@ export function loadWikiData(workspacePath: string): WikiData {
   const notes = allNotes.filter((n) => !SUPPORT_PAGES.has(n.slug));
   const graph = readJsonFile<GraphData>(join(compileDir, 'graph.json'));
   const analytics = readJsonFile<AnalyticsData>(join(compileDir, 'analytics.json'));
-  const searchSerialized = readJsonFile<SerializedSearchIndex & { error?: string }>(join(compileDir, 'search-index.json'));
-  if ('error' in searchSerialized && searchSerialized.error) {
-    throw new Error(`Search index export failed during compile: ${searchSerialized.error}. Re-run /grimoire:compile.`);
+
+  // Search index may have failed to export during compile (papyr-core can
+  // occasionally throw on unusual content). Don't crash the server — fall
+  // back to a notes-backed substring search so retrieval still works.
+  let searchIndex: SearchIndex | null = null;
+  try {
+    const searchSerialized = readJsonFile<SerializedSearchIndex & { error?: string }>(
+      join(compileDir, 'search-index.json'),
+    );
+    if ('error' in searchSerialized && searchSerialized.error) {
+      process.stderr.write(
+        `serve: warning — search-index export failed during compile (${searchSerialized.error}). Falling back to substring search. Re-run /grimoire:compile to restore full-text search.\n`,
+      );
+    } else {
+      searchIndex = importSearchIndex(searchSerialized as SerializedSearchIndex);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(
+      `serve: warning — could not load search-index.json (${msg}). Falling back to substring search.\n`,
+    );
   }
-  const searchIndex = importSearchIndex(searchSerialized as SerializedSearchIndex);
 
   const auditPath = join(compileDir, 'audit.json');
   const audit = existsSync(auditPath)
@@ -152,7 +187,52 @@ const STOP_WORDS = new Set([
   'with', 'from', 'as', 'and', 'or', 'but', 'about', 'tell', 'me',
 ]);
 
-function searchWithFallback(query: string, data: WikiData, limit: number) {
+// Shared hit shape so the fallback path can substitute for papyr-core's SearchResult.
+interface SearchHit {
+  readonly slug: string;
+  readonly title: string;
+  readonly excerpt: string;
+  readonly score: number;
+}
+
+// Substring search over the notes manifest. Used when the FlexSearch index is
+// unavailable (compile's export failed or the file is corrupt). Deterministic,
+// no external dependencies — token-efficient but lower quality than FlexSearch.
+function substringSearch(query: string, data: WikiData, limit: number): SearchHit[] {
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+
+  const keywords = q.split(/\s+/).filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+  const needles = keywords.length > 0 ? keywords : [q];
+
+  const scored: SearchHit[] = [];
+  for (const note of data.notes) {
+    const haystack = `${note.title} ${note.summary} ${note.tags.join(' ')}`.toLowerCase();
+    let score = 0;
+    for (const needle of needles) {
+      if (note.title.toLowerCase().includes(needle)) score += 3;
+      else if (note.summary.toLowerCase().includes(needle)) score += 2;
+      else if (haystack.includes(needle)) score += 1;
+    }
+    if (score > 0) {
+      scored.push({
+        slug: note.slug,
+        title: note.title,
+        excerpt: note.summary || `${note.title} — ${note.tags.join(', ')}`,
+        score,
+      });
+    }
+  }
+
+  return scored.sort((a, b) => b.score - a.score).slice(0, limit);
+}
+
+function searchWithFallback(query: string, data: WikiData, limit: number): readonly SearchHit[] {
+  // If the search index failed to load, use substring search over notes.
+  if (data.searchIndex === null) {
+    return substringSearch(query, data, limit);
+  }
+
   // First try: exact query as-is
   let hits = searchNotes(query, data.searchIndex, { limit });
   if (hits.length > 0) return hits;
@@ -182,10 +262,12 @@ function searchWithFallback(query: string, data: WikiData, limit: number) {
       }
       if (merged.length >= limit) break;
     }
-    return merged;
+    if (merged.length > 0) return merged;
   }
 
-  return [];
+  // Last resort: substring search over the manifest. Catches cases where
+  // FlexSearch tokenization misses content that a simple text scan would hit.
+  return substringSearch(query, data, limit);
 }
 
 export function handleQuery(query: string, data: WikiData): string {
@@ -199,7 +281,17 @@ export function handleQuery(query: string, data: WikiData): string {
   }
 
   const topHits = hits.slice(0, 3);
+  const notesBySlug = new Map(data.notes.map((n) => [n.slug, n]));
+
+  // Prefer the one-line summary (token-efficient routing signal) over a
+  // body excerpt. Fall back to excerpt if the article has no summary yet.
   const sections = topHits.map((hit) => {
+    const note = notesBySlug.get(hit.slug);
+    const summary = note?.summary?.trim() ?? '';
+    if (summary) {
+      return `### ${hit.title} (${hit.slug})\n\n${summary}\n\n_Fetch full article via \`grimoire_get_article(slug: "${hit.slug}")\`, or a specific section via \`grimoire_get_section\`._`;
+    }
+    // Legacy fallback: article predates the summary field.
     const content = readArticle(data.wikiDir, hit.slug);
     const excerpt = content ? extractExcerpt(content) : hit.excerpt;
     return `### ${hit.title} (${hit.slug})\n\n${excerpt}`;
@@ -224,18 +316,29 @@ export function handleListTopics(data: WikiData): string {
     }
   }
 
-  const sorted = Object.entries(tagCounts).sort(
-    ([, a], [, b]) => b - a
-  );
+  const sorted = Object.entries(tagCounts).sort(([, a], [, b]) => b - a);
+  const tagLines = sorted.map(([tag, count]) => `- **${tag}**: ${count} article(s)`);
 
-  const lines = sorted.map(([tag, count]) => `- **${tag}**: ${count} article(s)`);
+  // Article index with one-line summaries. This is the routing table an
+  // LLM client uses to decide which articles to pull in full — structurally
+  // equivalent to Karpathy's LLM-wiki routing pattern.
+  const articleLines = data.notes.map((n) => {
+    const summary = n.summary?.trim() || '_(no summary)_';
+    return `- **${n.title}** (\`${n.slug}\`) — ${summary}`;
+  });
 
   return [
     `## Topics in: ${data.schemaInfo.topic}`,
     `Total articles: ${data.notes.length}`,
     `Total tags: ${sorted.length}`,
     '',
-    ...lines,
+    '### Articles',
+    '',
+    ...articleLines,
+    '',
+    '### Tags',
+    '',
+    ...tagLines,
   ].join('\n');
 }
 

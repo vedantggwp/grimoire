@@ -211,10 +211,16 @@ After collecting all answers and the workspace path, create the structure:
 Use the schema template from:
 `${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/schema-template.md`
 
-Replace placeholders:
-- `[YOUR TOPIC HERE]` → Q1 answer
-- `[WHAT'S IN / WHAT'S OUT]` → Q2 answer (format: "IN: ... | OUT: ...")
-- `[WHO READS THIS AND AT WHAT LEVEL]` → Q3 answer
+Replace placeholders in the YAML domain block. Keep the nested `scope.in` /
+`scope.out` structure — all downstream skills parse that exact shape:
+
+- `"[YOUR TOPIC HERE]"` → Q1 answer, quoted string
+- `"[WHAT IS IN SCOPE]"` → Q2 IN answer, quoted string
+- `"[WHAT IS OUT OF SCOPE]"` → Q2 OUT answer, quoted string
+- `"[WHO READS THIS AND AT WHAT LEVEL]"` → Q3 answer, quoted string
+
+Set `taxonomy: "emergent"` (Q5 default) or `taxonomy: "defined"` if the user
+specified categories.
 
 If Q5 = defined, populate the taxonomy table with the user's categories.
 If Q5 = emergent, leave the table empty with the explanatory note.

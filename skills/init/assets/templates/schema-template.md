@@ -7,11 +7,20 @@
 
 ## Domain
 
+```yaml
+topic: "[YOUR TOPIC HERE]"
+scope:
+  in: "[WHAT IS IN SCOPE]"
+  out: "[WHAT IS OUT OF SCOPE]"
+audience: "[WHO READS THIS AND AT WHAT LEVEL]"
+taxonomy: "emergent"
 ```
-topic: [YOUR TOPIC HERE]
-scope: [WHAT'S IN / WHAT'S OUT]
-audience: [WHO READS THIS AND AT WHAT LEVEL]
-```
+
+The domain block is YAML. Keep it exactly this shape — scout, ingest, compile,
+present, and serve all parse the nested `scope.in` / `scope.out` fields.
+Set `taxonomy: "emergent"` to let the compile stage propose categories after
+5-10 sources are ingested, or `taxonomy: "defined"` and populate the table
+below during onboarding.
 
 ---
 
@@ -24,8 +33,8 @@ Categories organize wiki articles into directories under `wiki/`.
 | | | |
 
 > If using emergent taxonomy, this table is empty until the compile stage
-> proposes categories after 5-10 sources are ingested. If using defined
-> taxonomy, populate this table during onboarding.
+> proposes categories. If using defined taxonomy, populate this table during
+> onboarding.
 
 ---
 
@@ -69,6 +78,7 @@ Required fields:
 ```yaml
 ---
 title: "Human-readable title"
+summary: "One sentence under 180 characters describing what this article covers."
 tags: [lowercase, hyphenated, relevant]
 sources:
   - url: "https://..."
@@ -78,6 +88,10 @@ updated: YYYY-MM-DD
 confidence: P0 | P1 | P2
 ---
 ```
+
+The `summary` field is load-bearing: LLMs querying the wiki use it to decide
+which articles to fetch in full. Keep it factual, specific, and one sentence.
+No marketing language. Must be under 180 characters.
 
 ### Raw Sources
 
@@ -99,13 +113,14 @@ title: "Original Title"
 ## Conventions
 
 1. **One article, one concept** — Split broad topics into focused articles
-2. **No orphan pages** — Every article must have at least one incoming or outgoing cross-reference
-3. **Sources are immutable** — Never edit files in `raw/`. Fix errors in the wiki article instead
-4. **Tags are lowercase and hyphenated** — `design-systems`, not `Design Systems` or `design_systems`
-5. **Dates are ISO 8601** — `YYYY-MM-DD`, no exceptions
-6. **Filenames are slugified** — Lowercase, hyphens, no spaces. `getting-started.md`, not `Getting Started.md`
-7. **Overview evolves** — `wiki/overview.md` is rewritten after every compile, never manually edited
-8. **Log is append-only** — `wiki/log.md` records every operation chronologically, never truncated
+2. **Every article has a one-line summary** — LLM routing depends on it
+3. **No orphan pages** — Every article must have at least one incoming or outgoing cross-reference
+4. **Sources are immutable** — Never edit files in `raw/`. Fix errors in the wiki article instead
+5. **Tags are lowercase and hyphenated** — `design-systems`, not `Design Systems` or `design_systems`
+6. **Dates are ISO 8601** — `YYYY-MM-DD`, no exceptions
+7. **Filenames are slugified** — Lowercase, hyphens, no spaces. `getting-started.md`, not `Getting Started.md`
+8. **Overview evolves** — `wiki/overview.md` is rewritten after every compile, never manually edited
+9. **Log is append-only** — `wiki/log.md` records every operation chronologically, never truncated
 
 ---
 

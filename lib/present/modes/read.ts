@@ -66,10 +66,15 @@ function buildArticleSection(
     ? `<a href="#${esc(sorted[index + 1].slug)}" class="btn">${esc(sorted[index + 1].title)} &rarr;</a>`
     : '<span></span>';
 
+  const summaryBlock = article.summary
+    ? `<p class="article__summary" style="font-size:var(--text-lg);color:var(--color-muted);font-style:italic;margin:var(--space-3) 0 var(--space-5)">${esc(article.summary)}</p>`
+    : '';
+
   return `<article class="article" id="${esc(article.slug)}">
   <header>
     <h2>${esc(article.title)}</h2>
     <div class="article__meta">${tags} <span style="color:var(--color-muted);font-size:var(--text-sm)">${meta}</span></div>
+    ${summaryBlock}
   </header>
   <div class="article__content content-column">
     ${article.html}

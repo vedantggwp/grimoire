@@ -1,5 +1,6 @@
 ---
 title: "Vue Reactivity System"
+summary: "How Vue uses JavaScript Proxies to transparently track dependencies and trigger updates without explicit state management."
 tags: [vue, reactivity, proxy]
 sources:
   - url: "https://vuejs.org/guide/essentials/reactivity-fundamentals.html"

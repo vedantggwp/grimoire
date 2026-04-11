@@ -1,5 +1,6 @@
 ---
 title: "The Signals Pattern"
+summary: "Signals as a fine-grained reactive primitive: synchronous, glitch-free, auto-tracking, now adopted by Solid, Preact, Angular, and Qwik."
 tags: [signals, reactivity, patterns]
 sources:
   - url: "https://example.com/signals-pattern"

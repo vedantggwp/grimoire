@@ -68,6 +68,22 @@ describe('serve', () => {
       const result = handleQuery('xyzzy_nonexistent_term_42', data);
       expect(result).toContain('No results found');
     });
+
+    // Frontmatter extension pass: handleQuery returns the article's one-line
+    // summary (token-efficient routing) instead of a 500-char body excerpt
+    // when the summary is available. Fallback to excerpt for legacy articles.
+    it('prefers article summary over body excerpt for token efficiency', () => {
+      const result = handleQuery('react', data);
+      // The react fixture's summary appears verbatim in the response.
+      const reactNote = data.notes.find(n => n.slug === 'react-fundamentals');
+      expect(reactNote?.summary).toBeTruthy();
+      expect(result).toContain(reactNote!.summary);
+    });
+
+    it('includes hint to fetch full article or section for each hit', () => {
+      const result = handleQuery('react', data);
+      expect(result).toContain('grimoire_get_article');
+    });
   });
 
   describe('handleListTopics', () => {
@@ -81,6 +97,30 @@ describe('serve', () => {
     it('lists correct total article count', () => {
       const result = handleListTopics(data);
       expect(result).toContain(`Total articles: ${data.notes.length}`);
+    });
+
+    // Frontmatter extension pass: list_topics now surfaces article summaries
+    // as a routing table so LLM clients can decide which articles to fetch
+    // in full without burning tokens reading each one.
+    it('includes an article index with summaries', () => {
+      const result = handleListTopics(data);
+      expect(result).toContain('### Articles');
+      expect(result).toContain('React Fundamentals');
+      // Every content article's summary must appear in the listing.
+      for (const note of data.notes) {
+        if (note.summary) {
+          expect(result, `summary for ${note.slug} missing from list_topics`).toContain(note.summary);
+        }
+      }
+    });
+
+    it('separates article index from tag index', () => {
+      const result = handleListTopics(data);
+      const articlesIdx = result.indexOf('### Articles');
+      const tagsIdx = result.indexOf('### Tags');
+      expect(articlesIdx).toBeGreaterThan(-1);
+      expect(tagsIdx).toBeGreaterThan(-1);
+      expect(articlesIdx).toBeLessThan(tagsIdx);
     });
   });
 

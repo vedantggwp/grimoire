@@ -1,5 +1,6 @@
 ---
 title: "Article Title"
+summary: "One sentence, under 180 characters. What is this article about, in language a reader can use to decide whether to read it."
 tags: [tag-one, tag-two]
 sources:
   - url: "https://example.com/source"

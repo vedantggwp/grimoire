@@ -1,5 +1,6 @@
 ---
 title: "Svelte Compilation Model"
+summary: "How Svelte's compile-time transformation eliminates the virtual DOM and ships minimal runtime code by generating imperative DOM updates."
 tags: [svelte, compiler, reactivity]
 sources:
   - url: "https://svelte.dev/docs"

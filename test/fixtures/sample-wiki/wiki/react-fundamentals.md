@@ -1,5 +1,6 @@
 ---
 title: "React Fundamentals"
+summary: "How React builds user interfaces through composable components, a virtual DOM, and JSX for declarative UI description."
 tags: [react, components, jsx]
 sources:
   - url: "https://react.dev"

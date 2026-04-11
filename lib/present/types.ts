@@ -34,6 +34,7 @@ export interface PaletteDef {
 export interface ArticleData {
   readonly slug: string;
   readonly title: string;
+  readonly summary: string;
   readonly tags: readonly string[];
   readonly html: string;
   readonly wordCount: number;
@@ -77,7 +78,7 @@ export interface SiteData {
   readonly logEntries: readonly LogEntry[];
   readonly schema: {
     readonly topic: string;
-    readonly scope: unknown;
+    readonly scope: { readonly in: string; readonly out: string };
     readonly audience: string;
   };
 }
