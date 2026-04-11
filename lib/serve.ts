@@ -630,7 +630,7 @@ export function handleSearch(
 function createServer(data: WikiData): McpServer {
   const server = new McpServer({
     name: 'grimoire',
-    version: '0.2.1',
+    version: '0.2.2',
   });
 
   server.tool(

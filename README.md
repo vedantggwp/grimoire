@@ -127,16 +127,19 @@ Theming is driven by `_config/design.md`: **7 palettes** (midnight-teal, noir-ci
 
 ## The MCP server
 
-`serve` starts a stdio MCP server that exposes six tools:
+`serve` starts a stdio MCP server that exposes seven tools designed for token-efficient LLM retrieval:
 
 | Tool | Returns |
 |---|---|
-| `grimoire_query` | Top 3 matching article excerpts with source slugs (retrieval, not synthesis — the client LLM does the synthesis) |
-| `grimoire_list_topics` | All tags and taxonomy entries with article counts |
-| `grimoire_get_article` | Full content of a specific article by slug |
+| `grimoire_query` | Top 3 matching articles with their one-line summaries (hybrid FlexSearch + substring rerank that prefers title/summary matches). Token-efficient routing — the client LLM fetches full content only when it needs to. |
+| `grimoire_list_topics` | The LLM routing table: every article's slug + one-line summary, plus tag counts. Designed so a client can scan the whole corpus cheaply and decide what to read. |
+| `grimoire_get_article` | A specific article by slug. Takes an optional `mode: "auto" \| "summary" \| "full"`. Auto mode returns a summary envelope (title + summary + section index + hints) for articles over 15 KB to stay under MCP token caps; `full` forces complete markdown. |
+| `grimoire_get_section` | A specific H2 section of an article, case-insensitive heading match. Token-efficient retrieval when you only need one part of a long article. |
 | `grimoire_open_questions` | Unresolved questions parsed from `overview.md` |
 | `grimoire_coverage_gaps` | Topics with thin or missing coverage |
 | `grimoire_search` | Full-text search across all articles via Papyr Core |
+
+Every article's `summary` frontmatter field is the load-bearing routing signal: LLM clients read the routing table first (cheap), pick the right article (free), and pull just the relevant section (also cheap). This is the Karpathy LLM-wiki pattern, built into the MCP server.
 
 The server reads `wiki/.compile/` once on startup — restart to pick up changes. Validation is Zod-based; the data layer uses immutable readonly types throughout.
 
@@ -183,6 +186,10 @@ See `package.json` for versions.
 ## Architecture
 
 Grimoire follows ICM (Interpreted Context Methodology): one stage, one job, plain text as the interface between stages. See `SOUL.md` for the product bible and identity, `docs/` for detailed specs (architecture, mcp-spec, design-engine, frontend-modes, scout-spec), and `docs/decisions.md` for the decision log.
+
+## Reference example
+
+[`examples/mcp/`](./examples/mcp/) is a complete, inspectable Grimoire workspace about the Model Context Protocol itself — 5 P0-confidence articles synthesized from canonical sources, cross-linked with `[[wikilinks]]`, and designed with the cold-steel + technical palette. It ships in the repo as the end-to-end launch-readiness validation for v0.2.2 and doubles as a living example of what world-class Grimoire output looks like. Spin up the present frontend against it to see all 6 study modes, or point your MCP client at `node dist/serve.js /path/to/grimoire/examples/mcp` to query it.
 
 ## Development
 

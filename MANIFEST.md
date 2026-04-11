@@ -4,12 +4,12 @@
 - `README.md` — Comprehensive install guide, quick start, working skill statuses, complete pipeline doc, MCP client config example, dependencies, development section
 - `CLAUDE.md` — Project instructions, plugin structure overview, core rules
 - `SOUL.md` — Product soul: identity, vision, boundaries, principles
-- `package.json` — v0.2.1; runtime deps (papyr-core, @modelcontextprotocol/sdk, zod, d3); esbuild@0.28.0 dev dep (exact pin) for production bundling; `build` / `build:watch` / `prepack` scripts
+- `package.json` — v0.2.2; runtime deps (papyr-core, @modelcontextprotocol/sdk, zod, d3); esbuild@0.28.0 dev dep (exact pin) for production bundling; `build` / `build:watch` / `prepack` scripts
 - `LICENSE` — MIT license (full text, created 2026-04-10)
-- `.gitignore` — Standard ignores; `package-lock.json` is NOT ignored (ships for reproducibility)
+- `.gitignore` — Standard ignores; `**/.compile/`, `**/site/` derived artifacts excluded; `package-lock.json` is NOT ignored (ships for reproducibility)
 
 ## Plugin
-- `.claude-plugin/plugin.json` — Plugin manifest v0.2.1; top-level `homepage` and `repository` fields pointing at vedantggwp/grimoire (required by the Claude Code marketplace schema); published through the Athanor marketplace at vedantggwp/athanor
+- `.claude-plugin/plugin.json` — Plugin manifest v0.2.2; top-level `homepage` and `repository` fields pointing at vedantggwp/grimoire; published through the Athanor marketplace at vedantggwp/athanor
 
 ## Skills
 - `skills/init/SKILL.md` — v0.2.0: project auto-discovery (detects existing projects, pre-fills answers, confirmation step) + workspace location checkpoint; 7 steps
@@ -58,12 +58,16 @@
 - `lib/present/modes/feed.ts` — Feed mode: chronological activity feed
 - `lib/present/modes/gaps.ts` — Gaps mode: coverage gap visualizer
 - `lib/present/modes/quiz.ts` — Quiz mode: study quiz generator (extractSentences handles bullet-list content without terminal punctuation)
-- `lib/serve.ts` — MCP server exposing wiki as queryable knowledge engine via 6 tools; `searchWithFallback` for natural-language resilience; `SUPPORT_PAGES` filter; search index error sentinel check
+- `lib/serve.ts` — MCP server exposing wiki as queryable knowledge engine via 7 tools (v0.2.2: added `grimoire_get_section` for section-level addressing, `grimoire_get_article` token guard with `mode: auto|summary|full`, hybrid query reranking that unions FlexSearch + substring search and bonuses title/summary matches, graceful fallback to substring search when FlexSearch export fails, `parseSchemamd` rewritten for canonical nested SCHEMA.md format, summary field carried through every response shape for Karpathy-style LLM routing)
+
+## Examples
+- `examples/mcp/` — Reference knowledge base used as the v0.2.2 end-to-end launch-readiness validation. 5 P0-confidence articles about the Model Context Protocol (mcp-overview, mcp-transports, typescript-sdk, tool-design-patterns, client-integration), canonical nested SCHEMA.md, cold-steel + technical design palette, 23 cross-reference links, graph density 0.411. Derived artifacts (`.compile/`, `site/`) gitignored. Ships in the repo as a living example of what world-class Grimoire output looks like.
 
 ## Test
-- `test/compile.test.ts` — Integration tests for compile script (18 tests)
-- `test/present.test.ts` — Integration tests for present generator (42 tests)
-- `test/serve.test.ts` — Integration tests for MCP serve handlers (19 tests)
+- `test/compile.test.ts` — Integration tests for compile script (23 tests: +5 v0.2.2 assertions that notes.json carries summary/confidence/sources extracted from frontmatter)
+- `test/present.test.ts` — Integration tests for present generator (43 tests: +1 v0.2.2 regression for quiz bullet-content extraction)
+- `test/serve.test.ts` — Integration tests for MCP serve handlers (36 tests: +17 v0.2.2 covering support-page filter regression, stop-word query fallback regression, list_topics article index rendering, query summary preference, get_article mode parameter, get_section handler)
+- `test/examples-mcp.smoke.test.ts` — End-to-end regression suite running the full pipeline against examples/mcp (22 tests covering compile frontmatter extraction, present mode generation, serve handler quality on natural-language queries, hybrid reranking correctness, token-efficiency invariants)
 - `test/fixtures/sample-wiki/SCHEMA.md` — Test schema (topic: Modern Web Frameworks)
 - `test/fixtures/sample-wiki/_config/design.md` — Midnight-teal design config fixture
 - `test/fixtures/sample-wiki/raw/` — Empty raw source directory (test placeholder)
@@ -95,7 +99,9 @@
 - `docs/integration.md` — CLAUDE.md integration rules
 - `docs/mcp-spec.md` — MCP server specification
 - `docs/plugin-spec.md` — Claude Code plugin format reference
-- `docs/roadmap.md` — Phased roadmap
+- `docs/roadmap.md` — Phased roadmap (updated 2026-04-11 to reflect v0.2.2 launch-ready status and explicit deferrals to v0.3)
+- `docs/launch-readiness.md` — v0.2.2 launch-readiness scratchpad consolidating research findings, runtime audit, and decisions (MUST/DEFER scope cuts)
+- `docs/launch-announcement-draft.md` — Draft launch post for Ved's review (not published)
 - `docs/scout-spec.md` — Research engine specification
 - `docs/references/papyr-core.md` — Papyr Core evaluation ("Evaluation Result" — verified adopted, npm-confirmed)
 - `docs/references/quartz-patterns.md` — Quartz patterns evaluation
@@ -129,4 +135,5 @@
 - 2026-04-10: esbuild bundling — added `scripts/build.mjs` with ESM Node banner; produces self-contained `dist/{compile,present,serve}.js` bundles; SKILL.md invocations updated from `npx tsx lib/X.ts` → `node dist/X.js`; defensive `npm install` prerequisite checks removed from compile/present/serve SKILL.md. Marketplace installs now work without `npm install` (the whole point)
 - 2026-04-10: plugin.json v0.2.0 — added `homepage` and `repository` top-level string fields (verified against code.claude.com/docs/en/plugins-reference current schema)
 - 2026-04-10: Published through Athanor marketplace (separate repo at vedantggwp/athanor). Install via `/plugin marketplace add vedantggwp/athanor && /plugin install grimoire@athanor`
+- 2026-04-11: **v0.2.2 launch-readiness session.** Five parallel research agents + code audit → token-efficiency pass end-to-end: new `summary` frontmatter field (Karpathy LLM-routing signal) flowing init template → ingest SKILL.md → compile.ts frontmatter extraction (via gray-matter) → notes.json manifest → serve handlers surfacing summary in query/list_topics responses → present.ts rendering summary as article subtitle. New `grimoire_get_section` MCP tool for section-level addressing. `grimoire_get_article` token guard with `mode: auto|summary|full` — auto mode returns summary envelope for articles >15KB. Hybrid query reranking (FlexSearch ∪ substring, title/summary match bonus) fixes a real retrieval quality gap surfaced by end-to-end testing. Graceful search-index fallback replaces hard crash when compile's export fails. `parseSchemamd` and `parseSchema` rewritten for canonical nested SCHEMA.md format; schema template updated to match. Regression tests added for all 3 dry-run bugs from 2026-04-10 (committed debt closed). New `examples/mcp/` reference wiki — 5 P0-confidence articles about MCP synthesized from canonical sources, running through the full pipeline as the launch-readiness validation artifact. New `test/examples-mcp.smoke.test.ts` end-to-end regression suite (22 assertions). Scout SKILL.md gains 0-results recovery path; ingest SKILL.md creates `wiki/index.md` from template if missing. Versions bumped everywhere: `package.json` / `plugin.json` / `lib/serve.ts serverInfo` → 0.2.2. Roadmap updated: Phase 6 launch items reconciled with reality (GitHub repo public, Athanor published, real-project validation complete). Claude Desktop end-to-end MCP test + pagination + per-claim confidence + freshness telemetry explicitly deferred to v0.3. All 129 tests pass (was 79). dist bundles regenerated.
 - 2026-04-10: **v0.2.1 ship-readiness sweep.** Removed bogus `npm install` prereq from `skills/init/SKILL.md` (false positive — init is a pure markdown scaffolder, needs zero runtime deps). Rewrote `README.md` install section to describe the marketplace flow and moved `git clone + npm install + npm run build` to a contributor subsection. Replaced stale MCP client config (`npx tsx .../lib/serve.ts`) with `node .../dist/serve.js`. Fixed `skills/compile/references/stage-contract.md:13` which still told Claude to run `npx tsx .../lib/compile.ts`. Rewrote `skills/present/references/stage-contract.md` and `skills/serve/references/stage-contract.md` — both were 100% leftover ICM stage specs pointing at deleted `stages/*` paths, `CONTEXT.md`, L0-L4 layers, and review-checkpoint flows that no longer exist. Fixed `skills/init/references/questionnaire.md:166` (old `stages/01-scout/output/` path → `scout-queue.md`) and `skills/scout/references/confidence-scoring.md:117` footer. Bumped README Node requirement from 18+ → 20+ to match `scripts/build.mjs` esbuild `target: node20`. **Inlined d3.min.js into the present bundle** (replaced `<script type="module">import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7/+esm'</script>` with a plain `<script>${d3MinSource}</script>` where `d3MinSource` is baked into `dist/present.js` at build time via a new esbuild `d3-inline` plugin); generated static site is now fully self-contained and needs zero network to view the graph. Added `d3@^7.9.0` runtime dep + new `lib/present/modes/d3-source.ts`. Updated graph-mode vitest assertion to verify the d3 UMD banner is present and no CDN refs remain. Version bumped to v0.2.1. All 79 tests still green.

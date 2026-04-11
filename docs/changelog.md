@@ -1,5 +1,214 @@
 # Changelog
 
+## 2026-04-11 — v0.2.2 Launch-Readiness: Token Efficiency + End-to-End Validation
+
+### Overview
+
+Pre-launch session to validate the plugin delivers on its core promise: produce
+a world-class knowledge base for any topic, readable by humans, queryable by
+LLMs, token-efficient. Started from a clean v0.2.1 working tree (marketplace-
+published, 79 tests green) and ran a structured audit → fix → validate loop.
+
+Five parallel research agents mapped the 2026 state of the art for KB building,
+MCP SDK best practices, papyr-core freshness, Claude Code plugin format
+currency, and a deep runtime trace of Grimoire's own pipeline. Findings were
+cross-checked against actual code before fixing anything (several "HIGH"
+claims from the runtime audit were downgraded as false positives).
+
+The single biggest gap identified was **no enforced per-article summary** —
+Karpathy's load-bearing routing signal for LLM-queryable wikis. Grimoire had
+the structure for articles but no contract forcing authors to write the
+one-line summary that lets an LLM client decide which articles to fetch
+without reading their bodies. That gap was closed end-to-end and the whole
+launch story was built around it.
+
+### Research findings (consolidated in docs/launch-readiness.md)
+
+- **Plugin format:** CURRENT. plugin.json schema, SKILL.md auto-discovery,
+  dist/ bundle pattern all aligned with 2026 conventions. No changes required.
+- **MCP SDK:** CURRENT. @modelcontextprotocol/sdk ^1.29.0 is the latest
+  stable. Token-efficiency patterns (excerpts over full docs, pagination,
+  configurable verbosity) were the real gap, not the SDK version.
+- **papyr-core:** KEEP. v1.0.0, 0 CVEs, modern deps, trivially forkable if
+  the solo maintainer vanishes.
+- **KB best practices (2026):** Karpathy LLM-wiki pattern + YAML frontmatter
+  bridge + section-level addressing + per-claim confidence. The first three
+  made the launch cut; per-claim confidence deferred as architectural.
+
+### Token-efficiency pass — the core launch story
+
+**Summary field end-to-end (Karpathy routing signal):**
+- `skills/init/assets/templates/article-template.md`: added `summary` to
+  frontmatter, with 180-char hard limit and guidance on good vs bad summaries
+- `skills/init/assets/templates/schema-template.md`: canonical nested YAML
+  domain block (`topic`, `scope.in`, `scope.out`, `audience`, `taxonomy`),
+  replacing the inconsistent flat-string format that parsers had to guess at
+- `skills/init/SKILL.md`: Step 6 writes the canonical shape
+- `skills/ingest/SKILL.md` v0.2.0: hard rule — every article ships with a
+  summary; includes good/bad examples and a validation rule
+- `lib/compile.ts`: extracts frontmatter directly via gray-matter (transitive
+  papyr-core dep) and emits `summary`, `confidence`, `sources` into
+  `notes.json`. Downstream skills now read from this canonical manifest
+  instead of fishing through `graph.json.metadata`, which was a fragile path
+- `lib/present/data.ts`: reads summary/confidence/sources from notes.json;
+  parseSchema rewritten to handle the canonical nested format
+- `lib/present/types.ts`: `summary` added to ArticleData; `schema.scope`
+  typed concretely instead of `unknown`
+- `lib/present/modes/read.ts`: article header renders the summary as an
+  italic subtitle below the title
+- `lib/serve.ts`: NoteManifestEntry carries summary/confidence/sources;
+  parseSchemamd rewritten for canonical format; handleListTopics now emits
+  an "### Articles" routing table listing slug + summary per article;
+  handleQuery prefers the summary over the 500-char body excerpt when
+  available
+
+**Section-level MCP addressing (`grimoire_get_section`):**
+- New MCP tool that takes `slug` + `heading` and returns just that H2 section
+- Markdown-native section splitter (splitSectionsByH2) — no HTML parsing
+- Case-insensitive heading match
+- Unknown heading returns the list of available sections
+- Back-reference to full article in every response
+
+**Token guard on `grimoire_get_article`:**
+- New `mode` parameter: `auto` (default), `summary`, `full`
+- Auto mode returns full content for articles under 15KB (~3,750 tokens,
+  well under Claude Code's 25k-token tool response cap)
+- For large articles, returns a summary envelope: title + one-line summary +
+  list of H2 section headings + explicit hint pointing at `get_section` or
+  `mode: "full"`
+- Calculates approximate token cost so callers know what they'd pay
+
+**Hybrid query reranking (surfaced by the end-to-end test):**
+- `handleQuery` now unions FlexSearch hits with a substring search over
+  title + summary + tags, then reranks the pool with title-match bonus (+5)
+  and summary-match bonus (+2)
+- Fixes a real retrieval quality gap where the query "how do I design tools
+  for my mcp server" surfaced `mcp-overview` (body mentions "tools") instead
+  of `tool-design-patterns` (the authoritative article whose title IS "Tool
+  Design Patterns"). FlexSearch's default term-frequency scoring was
+  biasing toward overview articles with broad keyword coverage.
+- `handleSearch` still returns raw FlexSearch ordering so direct full-text
+  search is unmodified.
+
+### Runtime fragility fixes
+
+**CRITICAL from the audit — all verified real and fixed:**
+
+1. `lib/serve.ts` search-index hard crash on startup when compile's
+   FlexSearch export had an `{error: ...}` sentinel. Now logs a warning to
+   stderr and falls back to substring search over `notes.json`. Server
+   still starts and serves queries instead of exiting.
+2. `lib/serve.ts` `parseSchemamd` regex only extracted a broken partial
+   match for scope. Rewritten to parse the canonical nested format
+   correctly, exposing `scopeIn` and `scopeOut` on `SchemaInfo`.
+3. Same fragility in `lib/present/data.ts` `parseSchema` — fixed identically.
+
+**Workflow guardrails in SKILL.md files:**
+
+- `skills/scout/SKILL.md`: if searches return zero candidates after dedup,
+  present three recovery paths via AskUserQuestion (broaden / seed URLs /
+  abort) instead of writing an empty report.
+- `skills/ingest/SKILL.md`: Step 6 creates `wiki/index.md` from the template
+  if missing, rather than failing on first update.
+
+### Regression tests from the 2026-04-10 dry-run bugs
+
+Closed the explicit test-debt committed in the previous session. Nine new
+assertions as tripwires for the three dry-run bugs:
+
+1. `quiz.ts extractSentences` — bullet-list sections must produce cards with
+   non-empty backs (specifically "Key Capabilities" sections across articles)
+2. `serve loadWikiData` SUPPORT_PAGES filter — `index`/`overview`/`log` must
+   not leak into `handleSearch`, `handleQuery`, or `handleListTopics`
+3. `serve searchWithFallback` — natural-language queries with leading stop
+   words ("what is X", "how does X work") must return real hits
+
+### End-to-end validation: examples/mcp
+
+Built a real 5-article knowledge base about the Model Context Protocol as
+the launch-readiness validation artifact. Articles synthesized from canonical
+sources (spec.modelcontextprotocol.io, modelcontextprotocol/typescript-sdk,
+Anthropic's "Writing effective tools for agents") by a research agent that
+I ran as the `ingest` stage, following the article-template frontmatter
+contract strictly.
+
+**Workspace shape:**
+- `examples/mcp/SCHEMA.md` — canonical nested YAML domain
+- `examples/mcp/_config/design.md` — cold-steel + technical palette
+- `examples/mcp/wiki/{mcp-overview, mcp-transports, typescript-sdk,
+  tool-design-patterns, client-integration}.md` — 5 P0-confidence articles
+  with full frontmatter (summary + tags + sources), cross-linked via
+  `[[slug]]` wikilinks
+- 23 cross-reference links, graph density 0.411, zero orphaned links
+- Derived artifacts (wiki/.compile/, site/) stay gitignored
+
+**Pipeline runs:**
+- `node dist/compile.js examples/mcp/wiki` → 8 notes processed, JSON
+  artifacts emitted, summary/confidence/sources extracted for every content
+  article (empty for support pages, as expected)
+- `node dist/present.js examples/mcp` → 8 files, 447 KB total site output,
+  all 6 study modes generated clean
+- Handler tests (see below) → all 22 assertions pass against the loaded
+  workspace
+
+**`test/examples-mcp.smoke.test.ts` — 22 permanent regression assertions**
+covering compile extraction, present rendering, serve loading, every handler,
+and cross-cutting token-efficiency invariants (list_topics > 5x smaller
+than reading all articles; every section < 75% of its parent article).
+
+### Test summary
+
+- **Total tests: 129** (was 79 at session start) — all passing
+- `test/compile.test.ts` — 23 tests (+5 summary/confidence/sources assertions)
+- `test/present.test.ts` — 43 tests (+1 bullet-content quiz regression)
+- `test/serve.test.ts` — 36 tests (+17 covering support-page filter, stop-word
+  fallback, list_topics article index, query summary preference,
+  get_article modes, get_section)
+- `test/examples-mcp.smoke.test.ts` — 22 tests (new end-to-end suite)
+
+Build clean. dist/ bundles regenerated (compile.js 662KB, present.js 949KB,
+serve.js 926KB — serve grew ~5KB from get_section + rerank logic).
+
+### Version bumps
+
+- `package.json` → 0.2.2
+- `.claude-plugin/plugin.json` → 0.2.2
+- `lib/serve.ts` McpServer serverInfo → 0.2.2
+
+### Deferred to v0.3
+
+Consistent with the Launch-Readiness Assessment decisions — scope discipline,
+not feature maximalism:
+
+- Claude Desktop MCP end-to-end compatibility test (needs real Desktop instance)
+- Cursor pagination on list-returning tools (get_section + token guard already
+  close the biggest leak)
+- Per-claim confidence + provenance triples (architectural)
+- Freshness / staleness telemetry (needs time infrastructure)
+- Code-execution retrieval pattern (architectural)
+- Comparison tables + learning paths study modes
+- Standalone CLI wrapper
+- v2 SDK migration (@modelcontextprotocol/sdk 2.x when stable)
+
+### Pipeline status
+
+| Skill | Status | Notes |
+|-------|--------|-------|
+| `init` | Complete (v0.2.0) | Writes canonical nested SCHEMA.md format |
+| `scout` | Complete | 0-results recovery path added |
+| `ingest` | Complete (v0.2.0) | Summary field required, index.md fallback |
+| `compile` | Complete | Extracts frontmatter into notes.json manifest |
+| `present` | Complete | Renders summaries as article subtitles |
+| `serve` | Complete | 7 tools (+ get_section), hybrid reranking, token guards, graceful search-index fallback |
+
+**v0.2.2 is launch-ready.** The plugin produces world-class knowledge bases
+that are readable by humans (the static frontend with 6 study modes) and
+queryable by LLMs (the 7-tool MCP server with token-efficient routing via
+one-line summaries, section-level addressing, and guard against oversized
+article responses). Real-world validated against the examples/mcp workspace.
+
+---
+
 ## 2026-04-10 — Pre-Launch Hardening + Real-World Readiness
 
 ### Overview
