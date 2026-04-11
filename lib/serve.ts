@@ -342,12 +342,125 @@ export function handleListTopics(data: WikiData): string {
   ].join('\n');
 }
 
-export function handleGetArticle(slug: string, data: WikiData): string {
+// Threshold above which get_article (in "auto" mode) returns a summary
+// envelope instead of the full article body. Well under Claude Code's 25k-token
+// tool response cap, generous enough that typical wiki articles pass through.
+const LARGE_ARTICLE_CHARS = 15_000;
+
+export type GetArticleMode = 'auto' | 'summary' | 'full';
+
+export function handleGetArticle(
+  slug: string,
+  data: WikiData,
+  mode: GetArticleMode = 'auto',
+): string {
   const content = readArticle(data.wikiDir, slug);
   if (content === null) {
-    return `Article not found: "${slug}". Available slugs: ${data.notes.map((n) => n.slug).join(', ')}`;
+    const preview = data.notes.slice(0, 10).map((n) => n.slug).join(', ');
+    const more = data.notes.length > 10 ? ` (+${data.notes.length - 10} more)` : '';
+    return `Article not found: "${slug}". Available slugs: ${preview}${more}`;
   }
-  return content;
+
+  const effectiveMode: GetArticleMode =
+    mode === 'full' ? 'full'
+      : mode === 'summary' ? 'summary'
+        : content.length > LARGE_ARTICLE_CHARS ? 'summary' : 'full';
+
+  if (effectiveMode === 'full') {
+    return content;
+  }
+
+  // Summary envelope: let the LLM client decide whether to fetch the full
+  // article or a specific section without paying the full-article token cost.
+  const note = data.notes.find((n) => n.slug === slug);
+  const title = note?.title ?? slug;
+  const summary = note?.summary?.trim() ?? '';
+  const h2Headings = (note?.headings ?? []).filter((h) => h.level === 2);
+  const approxTokens = Math.round(content.length / 4);
+  const sizeKB = (content.length / 1024).toFixed(1);
+
+  const lines: string[] = [`# ${title}`, ''];
+  if (summary) lines.push(`**Summary:** ${summary}`, '');
+  lines.push(
+    `_Article is ${sizeKB}KB (≈${approxTokens} tokens). This is a summary envelope to save context. Use \`grimoire_get_section(slug: "${slug}", heading: "...")\` to fetch a specific section, or \`grimoire_get_article(slug: "${slug}", mode: "full")\` to get the complete article._`,
+    '',
+    '## Sections',
+    '',
+  );
+  if (h2Headings.length > 0) {
+    for (const h of h2Headings) lines.push(`- ${h.text}`);
+  } else {
+    lines.push('_(no H2 sections detected)_');
+  }
+
+  return lines.join('\n');
+}
+
+// Split an article body into sections keyed by H2 heading. Markdown-native,
+// no HTML parsing required — mirrors the quiz module's splitByH2 but works
+// directly on the markdown source so get_section returns raw markdown.
+function splitSectionsByH2(body: string): Array<{ heading: string; content: string }> {
+  const lines = body.split('\n');
+  const parts: Array<{ heading: string; content: string[] }> = [];
+  let current: { heading: string; content: string[] } | null = null;
+
+  for (const line of lines) {
+    const h2 = line.match(/^##\s+(.+?)\s*$/);
+    if (h2) {
+      if (current) parts.push(current);
+      current = { heading: h2[1].trim(), content: [] };
+    } else if (current) {
+      current.content.push(line);
+    }
+  }
+  if (current) parts.push(current);
+
+  return parts.map((p) => ({
+    heading: p.heading,
+    content: p.content.join('\n').trim(),
+  }));
+}
+
+export function handleGetSection(slug: string, heading: string, data: WikiData): string {
+  const content = readArticle(data.wikiDir, slug);
+  if (content === null) {
+    return `Article not found: "${slug}". Use \`grimoire_list_topics\` to see available articles.`;
+  }
+
+  // Strip frontmatter so we only scan the body.
+  const body = content.replace(/^---[\s\S]*?---\s*/, '');
+  const sections = splitSectionsByH2(body);
+
+  if (sections.length === 0) {
+    return `Article "${slug}" has no H2 sections. Fetch the full article via \`grimoire_get_article(slug: "${slug}", mode: "full")\`.`;
+  }
+
+  const target = heading.trim().toLowerCase();
+  const match = sections.find((s) => s.heading.toLowerCase() === target);
+
+  if (!match) {
+    const available = sections.map((s) => `- ${s.heading}`).join('\n');
+    return [
+      `Section "${heading}" not found in article "${slug}".`,
+      '',
+      'Available sections:',
+      available,
+    ].join('\n');
+  }
+
+  const note = data.notes.find((n) => n.slug === slug);
+  const title = note?.title ?? slug;
+
+  return [
+    `# ${title}`,
+    '',
+    `## ${match.heading}`,
+    '',
+    match.content,
+    '',
+    '---',
+    `_Section of \`${slug}\`. Use \`grimoire_get_article(slug: "${slug}", mode: "full")\` for the complete article._`,
+  ].join('\n');
 }
 
 export function handleOpenQuestions(data: WikiData): string {
@@ -487,10 +600,28 @@ function createServer(data: WikiData): McpServer {
 
   server.tool(
     'grimoire_get_article',
-    'Retrieve a specific wiki article by slug',
-    { slug: z.string().describe('The article slug (e.g. "react-fundamentals")') },
-    async ({ slug }) => ({
-      content: [{ type: 'text' as const, text: handleGetArticle(slug, data) }],
+    'Retrieve a specific wiki article by slug. Large articles (>15KB) return a summary envelope by default to save tokens — pass mode:"full" to force the complete markdown, or use grimoire_get_section to fetch a single section.',
+    {
+      slug: z.string().describe('The article slug (e.g. "react-fundamentals")'),
+      mode: z
+        .enum(['auto', 'summary', 'full'])
+        .optional()
+        .describe('Response mode. "auto" (default): return full content if small, summary envelope if large. "summary": always return summary + section list. "full": always return complete markdown.'),
+    },
+    async ({ slug, mode }) => ({
+      content: [{ type: 'text' as const, text: handleGetArticle(slug, data, mode ?? 'auto') }],
+    }),
+  );
+
+  server.tool(
+    'grimoire_get_section',
+    'Retrieve a specific section of an article (matched by H2 heading, case-insensitive). Use this instead of grimoire_get_article when you only need one part — token-efficient retrieval for large articles.',
+    {
+      slug: z.string().describe('The article slug (e.g. "react-fundamentals")'),
+      heading: z.string().describe('The H2 section heading to fetch (e.g. "Overview", "Key Capabilities"). Case-insensitive exact match.'),
+    },
+    async ({ slug, heading }) => ({
+      content: [{ type: 'text' as const, text: handleGetSection(slug, heading, data) }],
     }),
   );
 

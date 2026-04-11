@@ -8,6 +8,7 @@ import {
   handleQuery,
   handleListTopics,
   handleGetArticle,
+  handleGetSection,
   handleOpenQuestions,
   handleCoverageGaps,
   handleSearch,
@@ -135,6 +136,97 @@ describe('serve', () => {
       const result = handleGetArticle('does-not-exist', data);
       expect(result).toContain('Article not found');
       expect(result).toContain('Available slugs');
+    });
+
+    // Token-efficiency pass: articles under LARGE_ARTICLE_CHARS (15KB) return
+    // full content by default. Large articles return a summary envelope.
+    it('returns full content for small articles in auto mode', () => {
+      const result = handleGetArticle('react-fundamentals', data, 'auto');
+      // The fixture article is small (~1KB); full mode should return the body.
+      expect(result).toContain('Component model');
+      expect(result).toContain('Virtual DOM');
+      expect(result).not.toContain('Summary envelope');
+    });
+
+    it('honors explicit mode: "summary" even for small articles', () => {
+      const result = handleGetArticle('react-fundamentals', data, 'summary');
+      expect(result).toContain('**Summary:**');
+      expect(result).toContain('## Sections');
+      // Should list the H2 headings
+      expect(result).toContain('- Overview');
+      expect(result).toContain('- Key Capabilities');
+      // Should NOT include full body
+      expect(result).not.toContain('Component model');
+    });
+
+    it('honors explicit mode: "full" and returns complete markdown', () => {
+      const result = handleGetArticle('react-fundamentals', data, 'full');
+      expect(result).toContain('Component model');
+      expect(result).not.toContain('Summary envelope');
+      expect(result).not.toContain('## Sections');
+    });
+
+    it('summary envelope includes hint to use get_section', () => {
+      const result = handleGetArticle('react-fundamentals', data, 'summary');
+      expect(result).toContain('grimoire_get_section');
+    });
+  });
+
+  describe('handleGetSection', () => {
+    // New tool for section-level addressing — matches the 2026 MCP best
+    // practice of retrieving the minimum content needed for a query.
+    it('retrieves a section by case-insensitive heading match', () => {
+      const result = handleGetSection('react-fundamentals', 'Overview', data);
+      expect(result).toContain('React Fundamentals');
+      expect(result).toContain('## Overview');
+      expect(result).toContain('React is a JavaScript library');
+      // Should NOT include the full article
+      expect(result).not.toContain('## Key Capabilities');
+      expect(result).not.toContain('## How It Works');
+    });
+
+    it('matches headings case-insensitively', () => {
+      const result1 = handleGetSection('react-fundamentals', 'overview', data);
+      const result2 = handleGetSection('react-fundamentals', 'OVERVIEW', data);
+      const result3 = handleGetSection('react-fundamentals', 'Overview', data);
+      expect(result1).toContain('React is a JavaScript library');
+      expect(result2).toContain('React is a JavaScript library');
+      expect(result3).toContain('React is a JavaScript library');
+    });
+
+    it('retrieves different sections correctly', () => {
+      const result = handleGetSection('react-fundamentals', 'Key Capabilities', data);
+      expect(result).toContain('Component model');
+      expect(result).toContain('Virtual DOM');
+      expect(result).toContain('Hooks');
+      // Should NOT include Overview or How It Works content
+      expect(result).not.toContain('React is a JavaScript library');
+    });
+
+    it('returns available sections when heading is not found', () => {
+      const result = handleGetSection('react-fundamentals', 'Nonexistent Section', data);
+      expect(result).toContain('not found');
+      expect(result).toContain('Available sections');
+      expect(result).toContain('Overview');
+      expect(result).toContain('Key Capabilities');
+    });
+
+    it('returns article-not-found error for unknown slug', () => {
+      const result = handleGetSection('does-not-exist', 'Overview', data);
+      expect(result).toContain('Article not found');
+    });
+
+    it('includes a back-reference to the full article', () => {
+      const result = handleGetSection('react-fundamentals', 'Overview', data);
+      expect(result).toContain('grimoire_get_article');
+      expect(result).toContain('mode: "full"');
+    });
+
+    it('returned section is substantially smaller than the full article', () => {
+      const fullArticle = handleGetArticle('react-fundamentals', data, 'full');
+      const section = handleGetSection('react-fundamentals', 'Overview', data);
+      // The single section must be meaningfully smaller than the full article.
+      expect(section.length).toBeLessThan(fullArticle.length * 0.7);
     });
   });
 
