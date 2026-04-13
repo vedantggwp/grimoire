@@ -204,7 +204,7 @@ describe('examples/mcp — end-to-end smoke test', () => {
     it('retrieves just the Limitations section of typescript-sdk', () => {
       const result = handleGetSection('typescript-sdk', 'Limitations', data);
       expect(result).toContain('## Limitations');
-      expect(result).toContain('v1 and v2 are not drop-in compatible');
+      expect(result).toContain('Node.js only');
       // Must NOT contain other sections
       expect(result).not.toContain('## Overview');
       expect(result).not.toContain('## Usage Examples');

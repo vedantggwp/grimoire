@@ -98,7 +98,7 @@ That matters because knowledge accumulates over years and has to survive every S
 
 6 skills auto-discover. Run them one at a time. Each stage produces editable markdown so humans stay in the loop.
 
-Also in `examples/mcp/` of the repo: a real 5-article knowledge base about the Model Context Protocol itself, built as the v0.2.2 launch-readiness validation. Spin it up locally, run `serve` against it, and you have a meta knowledge base — a wiki about the protocol that powers the wiki.
+Also in `examples/mcp/` of the repo: a real 5-article knowledge base about the Model Context Protocol itself, built using the full Grimoire pipeline — scout found and scored 9 real web sources (official MCP spec, TypeScript SDK docs, MCP blog, community pattern articles), ingest fetched and preserved the raw text, compile built the cross-reference graph, present generated the frontend. Every article cites the URLs it was compiled from. Spin it up locally, run `serve` against it, and you have a meta knowledge base — a wiki about the protocol that powers the wiki.
 
 ### What's next
 

@@ -1,93 +1,126 @@
 ---
-title: "MCP Transport Layer: stdio, SSE, and Streamable HTTP"
-summary: "MCP defines stdio for local servers and Streamable HTTP for remote servers; the older HTTP+SSE transport was deprecated in the 2025-03-26 revision."
-tags: [mcp, transport, stdio, http, sse, streamable-http]
+title: "MCP Transports"
+summary: "MCP defines two transports: stdio for local subprocess servers and Streamable HTTP for remote servers, with SSE streaming, session management, and resumability."
+tags: [mcp, transport, stdio, http, sse, streaming, session-management]
 sources:
-  - url: "https://modelcontextprotocol.io/docs/concepts/transports"
-    title: "MCP Docs — Transports"
-    accessed: 2026-04-11
-  - url: "https://spec.modelcontextprotocol.io/specification/2025-06-18/basic/transports/"
-    title: "Spec 2025-06-18 — Transports"
-    accessed: 2026-04-11
-  - url: "https://github.com/modelcontextprotocol/typescript-sdk"
-    title: "TypeScript SDK"
-    accessed: 2026-04-11
-updated: 2026-04-11
+  - url: "https://modelcontextprotocol.io/specification/2025-03-26/basic/transports"
+    title: "MCP Transport Specification"
+    accessed: 2026-04-13
+  - url: "https://blog.fka.dev/blog/2025-06-06-why-mcp-deprecated-sse-and-go-with-streamable-http/"
+    title: "Why MCP Deprecated SSE and Went with Streamable HTTP"
+    accessed: 2026-04-13
+updated: 2026-04-13
 confidence: P0
 ---
 
-# MCP Transport Layer: stdio, SSE, and Streamable HTTP
+# MCP Transports
 
 ## Overview
 
-MCP is a message protocol, not a network protocol — every JSON-RPC 2.0 frame has to ride *something*. The spec defines two officially supported transports: **stdio** for local, process-spawned servers, and **Streamable HTTP** for remote servers reached over the network. A third mode, the original **HTTP+SSE** dual-endpoint transport, shipped in 2024-11-05 and was deprecated in favor of Streamable HTTP in the 2025-03-26 revision. It remains in the spec for backward compatibility but new servers should not implement it.
+MCP is transport-agnostic — the protocol defines message semantics, not how bytes move. The specification provides two standard transports: **stdio** for local subprocess communication and **Streamable HTTP** for network-accessible servers. A third transport, HTTP+SSE, was deprecated in the March 2025 specification update and replaced by Streamable HTTP.
 
-Choosing a transport is a meaningful architectural decision. stdio is cheap, private, and ideal for tools that live on the user's machine and share its filesystem and credentials. Streamable HTTP is the only reasonable option when the server is hosted remotely, multi-tenant, or needs OAuth. The transport choice also affects your threat model: stdio inherits the host process's trust; HTTP introduces origin, CORS, and DNS-rebinding concerns the spec explicitly calls out.
+All MCP messages are JSON-RPC 2.0 encoded as UTF-8. The choice of transport determines deployment topology, security model, and multi-client capability.
 
 ## Key Capabilities
 
-- **stdio transport** — the server is launched as a subprocess; JSON-RPC messages are newline-delimited on `stdin`/`stdout`, logs go to `stderr`. Zero network surface.
-- **Streamable HTTP (2025-03-26+)** — a single HTTP endpoint handles both POSTed client requests and optional server-to-client streaming via SSE on GET, with a `Mcp-Session-Id` header tying messages to a session.
-- **HTTP+SSE (deprecated)** — the legacy two-endpoint design: one SSE stream for server messages, a separate HTTP POST endpoint for client messages. Kept for compatibility with pre-March-2025 clients.
-- **Protocol version header** — since 2025-06-18, HTTP clients MUST send `MCP-Protocol-Version` on every request after `initialize`; servers reject mismatches.
-- **Custom transports** — the spec explicitly allows implementers to define their own transports (WebSocket, named pipes, Unix sockets) as long as JSON-RPC 2.0 framing is preserved.
+- **stdio** — zero-config local integration; the client spawns the server as a subprocess and communicates over stdin/stdout. Most common, most interoperable.
+- **Streamable HTTP** — remote-capable transport using POST/GET with optional SSE streaming. Supports multiple concurrent clients, session management, and connection resumability.
+- **Custom transports** — the protocol allows any bidirectional channel, as long as it preserves JSON-RPC message format and lifecycle.
 
 ## How It Works
 
-### stdio
+### stdio Transport
 
-1. The host spawns the server binary with configured args and env vars.
-2. Each JSON-RPC message is written as a single line of UTF-8 to the pipe, terminated by `\n`. Messages MUST NOT contain embedded newlines.
-3. `stderr` is reserved for logging; the host typically forwards it to a log file.
-4. The host terminates the session by closing `stdin`; the server SHOULD exit cleanly.
+The client launches the MCP server as a child process. Communication happens over the process's standard I/O streams:
 
-### Streamable HTTP
+1. Client writes JSON-RPC messages to the server's **stdin**
+2. Server writes JSON-RPC messages to **stdout**
+3. Messages are newline-delimited and **must not** contain embedded newlines
+4. Server **may** write logging to **stderr** (clients may capture, forward, or ignore)
+5. Nothing other than valid MCP messages may appear on stdin or stdout
 
-1. The client POSTs the `initialize` request to the server's single MCP endpoint (e.g. `https://api.example.com/mcp`).
-2. The server responds either with a JSON body (single response) or an `text/event-stream` response containing a session's stream of messages. It sets `Mcp-Session-Id` on the response; the client echoes it on all subsequent requests.
-3. For server-initiated messages, the client opens a long-lived `GET` on the same endpoint with `Accept: text/event-stream`. The server pushes notifications and server→client requests down that stream.
-4. Resumability: the spec supports `Last-Event-ID` so a dropped SSE stream can resume mid-session.
-5. Auth: Streamable HTTP servers SHOULD implement OAuth 2.1 as defined in the spec's authorization section; bearer tokens travel in the `Authorization` header.
+```
+Client ──── stdin ────→ Server Process
+       ←─── stdout ───
+       ←─── stderr ─── (optional logging)
+```
 
-### Security notes from the spec
+stdio is the recommended transport for local tools. It requires no network configuration, no authentication, and no port management. The security boundary is the process boundary — the server runs with the permissions of the user who launched it.
 
-The transports doc explicitly warns implementers to **validate the `Origin` header**, **bind local HTTP servers to `127.0.0.1` (not `0.0.0.0`)**, and **require authentication for remote servers**, to prevent DNS-rebinding attacks against localhost MCP endpoints.
+### Streamable HTTP Transport
+
+Introduced in spec version 2025-03-26, replacing the deprecated HTTP+SSE transport. The server is an independent process exposing a single HTTP endpoint (the "MCP endpoint") that accepts both POST and GET:
+
+**Sending messages (client → server):**
+
+1. Every message from the client is a new HTTP POST to the MCP endpoint
+2. The `Accept` header must list both `application/json` and `text/event-stream`
+3. The POST body is a JSON-RPC request, notification, response, or a batch array
+4. For notifications/responses only: server returns `202 Accepted` with no body
+5. For requests: server returns either `application/json` (single response) or `text/event-stream` (SSE stream with one response per request, plus optional server-initiated messages)
+
+**Listening for server messages (server → client):**
+
+1. Client issues HTTP GET to the MCP endpoint
+2. Server returns an SSE stream for server-initiated requests and notifications
+3. Server may close the stream at any time; client may reconnect
+
+**Session management:**
+
+1. Server optionally assigns a session ID via `Mcp-Session-Id` header during initialization
+2. Client must include this header on all subsequent requests
+3. Server may terminate sessions at any time (responds 404 to stale session IDs)
+4. Clients should send HTTP DELETE to explicitly end sessions
+
+**Resumability:**
+
+1. Servers may attach `id` fields to SSE events (globally unique within the session)
+2. On reconnection, client includes `Last-Event-ID` header
+3. Server replays missed messages from the disconnected stream only
 
 ## Usage Examples
 
-A typical stdio server launch (as configured by a client):
+### Example: stdio Server Startup
 
-```json
-{
-  "command": "node",
-  "args": ["/abs/path/to/server.js"],
-  "env": { "API_KEY": "sk-..." }
-}
+```bash
+# Claude Code launches a stdio MCP server
+claude mcp add --transport stdio my-db -- npx -y @my-org/db-server
+
+# Under the hood:
+# 1. Claude Code spawns: npx -y @my-org/db-server
+# 2. Writes InitializeRequest to stdin
+# 3. Reads InitializeResponse from stdout
+# 4. Session established
 ```
 
-A Streamable HTTP POST from client to server:
+### Example: Streamable HTTP Session
 
-```http
+```
 POST /mcp HTTP/1.1
-Host: api.example.com
 Content-Type: application/json
 Accept: application/json, text/event-stream
-Mcp-Session-Id: 01HXYZ...
-MCP-Protocol-Version: 2025-06-18
-Authorization: Bearer eyJ...
 
-{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"search","arguments":{"q":"mcp"}}}
+{"jsonrpc": "2.0", "method": "initialize", "params": {...}, "id": 1}
+
+→ Response:
+HTTP/1.1 200 OK
+Content-Type: application/json
+Mcp-Session-Id: a8f2e9c1-...
+
+{"jsonrpc": "2.0", "result": {"capabilities": {...}}, "id": 1}
 ```
+
+All subsequent requests include `Mcp-Session-Id: a8f2e9c1-...`
 
 ## Limitations
 
-- **stdio cannot be multiplexed.** One subprocess per client session; there is no built-in way for two clients to share a server process.
-- **Streamable HTTP requires session state on the server.** The `Mcp-Session-Id` model rules out pure stateless load balancers without sticky sessions or an external session store.
-- **HTTP+SSE is a trap for new servers.** It still appears in blog posts and older SDK releases; implementing it today locks you out of 2025-03-26+ clients that only speak Streamable HTTP.
+- **stdio requires local execution** — the server must run on the same machine as the client, limiting deployment to local tools and dev workflows
+- **Streamable HTTP adds complexity** — session management, Origin validation (DNS rebinding defense), authentication, and SSE stream lifecycle all require careful implementation
+- **No built-in encryption for stdio** — security depends entirely on the process boundary; sensitive data in transit between stdin/stdout is not encrypted (but it never leaves the machine)
+- **SSE resumability is optional** — servers may not implement it, so clients must handle message loss gracefully
 
 ## See Also
 
-- [[mcp-overview]] — the protocol messages that ride these transports
-- [[typescript-sdk]] — concrete transport classes (`StdioServerTransport`, `StreamableHTTPServerTransport`)
-- [[client-integration]] — how hosts configure stdio vs HTTP servers
-- [Transports spec, 2025-06-18](https://spec.modelcontextprotocol.io/specification/2025-06-18/basic/transports/) — canonical transport definitions
+- [[mcp-overview]] — the protocol architecture that transports serve
+- [[typescript-sdk]] — transport setup code using the official SDK (StdioServerTransport, NodeStreamableHTTPServerTransport)
+- [[client-integration]] — how Claude Code, Claude Desktop, and Cursor configure transport selection

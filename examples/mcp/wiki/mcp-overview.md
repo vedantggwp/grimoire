@@ -1,82 +1,124 @@
 ---
-title: "Model Context Protocol: Overview"
-summary: "MCP is an open JSON-RPC 2.0 protocol standardizing how LLM applications discover and call tools, resources, and prompts from external servers."
-tags: [mcp, protocol, jsonrpc, architecture, spec]
+title: "Model Context Protocol Overview"
+summary: "MCP is an open JSON-RPC 2.0 protocol connecting LLM applications to external tools, data, and services through a host→client→server architecture with capability negotiation."
+tags: [mcp, protocol, architecture, json-rpc, capability-negotiation]
 sources:
-  - url: "https://modelcontextprotocol.io/"
-    title: "Model Context Protocol — Introduction"
-    accessed: 2026-04-11
-  - url: "https://spec.modelcontextprotocol.io/"
-    title: "MCP Specification"
-    accessed: 2026-04-11
-  - url: "https://github.com/modelcontextprotocol/modelcontextprotocol"
-    title: "modelcontextprotocol/modelcontextprotocol on GitHub"
-    accessed: 2026-04-11
-updated: 2026-04-11
+  - url: "https://modelcontextprotocol.io/specification/2025-11-25"
+    title: "MCP Specification (2025-11-25)"
+    accessed: 2026-04-13
+  - url: "https://modelcontextprotocol.io/specification/2025-11-25/architecture"
+    title: "MCP Architecture Specification"
+    accessed: 2026-04-13
+  - url: "https://blog.modelcontextprotocol.io/posts/2025-11-25-first-mcp-anniversary/"
+    title: "One Year of MCP: November 2025 Spec Release"
+    accessed: 2026-04-13
+updated: 2026-04-13
 confidence: P0
 ---
 
-# Model Context Protocol: Overview
+# Model Context Protocol Overview
 
 ## Overview
 
-The Model Context Protocol (MCP) is an open, vendor-neutral protocol that standardizes how LLM-powered applications connect to external data, tools, and workflows. Anthropic published the first draft in November 2024 to solve the "N×M integration" problem: every new model client and every new data source previously required a bespoke adapter, producing a combinatorial explosion of one-off glue code. MCP collapses that matrix by defining a single wire protocol so any compliant client can talk to any compliant server.
+The Model Context Protocol (MCP) is an open protocol that standardizes how LLM applications integrate with external data sources, tools, and services. Originally created by Anthropic and released in November 2024, it was donated to the Agentic AI Foundation (AAIF) under the Linux Foundation in December 2025, with co-founding from Anthropic, Block, and OpenAI.
 
-Conceptually, MCP is to AI tools what the Language Server Protocol is to code editors. It standardizes three primitives that a server can expose — **tools** (model-invoked functions), **resources** (application-controlled read-only context), and **prompts** (user-triggered templates) — plus a handshake, capability negotiation, and a typed notification channel. Everything rides on JSON-RPC 2.0, which makes it easy to implement in any language and trivially inspectable over the wire.
+MCP draws inspiration from the Language Server Protocol (LSP), which standardized how IDEs interact with programming language tooling. MCP does the same for AI applications — it defines a universal way to connect LLMs with the context they need, regardless of which host application or server implementation you choose.
 
-MCP matters for engineers because it turns "my chatbot can use a custom tool" into "any MCP-aware host can load my server and immediately use it." A single server you write today works in Claude Desktop, Claude Code, Cursor, Zed, and any other client that speaks MCP.
+The protocol uses JSON-RPC 2.0 over stateful connections. As of the November 2025 specification (version 2025-11-25), the ecosystem includes nearly 2,000 registry entries, 58 maintainers, and adoption from GitHub, Stripe, Notion, OpenAI, AWS, Google Cloud, and Microsoft.
 
 ## Key Capabilities
 
-- **JSON-RPC 2.0 wire format** — every request, response, and notification is a standard JSON-RPC envelope, so tracing and debugging use existing tools.
-- **Three server primitives** — `tools/*`, `resources/*`, and `prompts/*` method families cover the full surface: model actions, application context, and user-triggered templates.
-- **Capability negotiation** — the `initialize` handshake lets client and server declare which features they support (e.g. `tools.listChanged`, `resources.subscribe`, `roots`, `sampling`).
-- **Bidirectional** — servers can issue requests back to the client (e.g. `sampling/createMessage` to ask the host model for a completion, or `roots/list` to discover workspace folders).
-- **Host / client / server roles** — a host application (Claude Desktop) manages one or more clients, each of which owns a persistent connection to exactly one server.
+- **Standardized context exchange** — a single protocol for sharing data, tools, and prompts between any LLM application and any external service, eliminating per-integration glue code
+- **Security-first design** — explicit user consent for all tool invocations, data access, and sampling; servers cannot see the full conversation or other servers
+- **Progressive capability negotiation** — clients and servers declare what they support at initialization; unused features add zero overhead
 
 ## How It Works
 
-1. **Spawn or connect.** The host launches a server process over stdio or opens a Streamable HTTP session to a remote server.
-2. **Initialize.** The client sends `initialize` with its `protocolVersion`, `clientInfo`, and `capabilities`. The server replies with its own version, `serverInfo`, `capabilities`, and optional `instructions`.
-3. **Notify ready.** The client sends `notifications/initialized` to confirm the handshake is done.
-4. **Discover.** The client calls `tools/list`, `resources/list`, and `prompts/list` to enumerate what the server exposes, caching schemas locally.
-5. **Invoke.** When the model decides to use a tool, the client sends `tools/call` with the tool name and arguments; the server runs the operation and returns structured `content` blocks (text, image, embedded resource, or `resource_link`).
-6. **React to change.** If the server declared `listChanged`, it can push `notifications/tools/list_changed` so the client refreshes its cache.
+MCP follows a client-host-server architecture:
 
-### Specification history
+1. **Host** — the LLM application (Claude Desktop, Claude Code, Cursor, VS Code Copilot). Creates and manages client instances, enforces security policies, coordinates AI sampling, and aggregates context across clients.
+2. **Client** — a connector within the host. Each client maintains a 1:1 stateful session with one server. Handles protocol negotiation, capability exchange, and bidirectional message routing.
+3. **Server** — a service providing context and capabilities. Exposes resources, tools, and prompts via MCP primitives. Can be a local subprocess (stdio) or a remote HTTP endpoint.
 
-The spec is versioned by calendar date. The published revisions are **2024-11-05** (initial public draft), **2025-03-26** (OAuth 2.1 auth, audio content, tool annotations), **2025-06-18** (structured tool output, elicitation, resource links in tool results, `MCP-Protocol-Version` header requirement), and **2025-11-25** (the current stable revision at time of writing). A `draft` branch tracks ongoing work between releases. Clients and servers advertise the version they speak during `initialize` and are expected to negotiate down to a shared revision.
+```
+Host (e.g. Claude Desktop)
+  ├── Client 1 ──── Server 1 (Files & Git)     ── Local Resource
+  ├── Client 2 ──── Server 2 (Database)         ── Local Resource
+  └── Client 3 ──── Server 3 (External APIs)    ── Remote Resource
+```
+
+### Protocol Primitives
+
+**Server-provided features:**
+
+| Primitive | Purpose | Control |
+|-----------|---------|---------|
+| Resources | Read-only context and data | Host-controlled — the application decides which resources to attach |
+| Prompts | Templated interaction workflows | User-invoked — explicit selection by the human |
+| Tools | Executable functions | Model-invoked — the LLM decides when to call, with user consent |
+
+**Client-provided features:**
+
+| Primitive | Purpose |
+|-----------|---------|
+| Sampling | Server-initiated LLM interactions (agentic loops) |
+| Roots | Server queries about filesystem or URI boundaries |
+| Elicitation | Server requests for additional user information |
+
+### Capability Negotiation
+
+During initialization, both sides declare supported features:
+
+1. Client sends `InitializeRequest` with its capabilities (sampling support, notification handling)
+2. Server responds with its capabilities (tool support, resource subscriptions, prompt templates)
+3. Both parties respect declared capabilities for the session duration
+4. Undeclared capabilities cannot be used — the protocol fails safe
+
+### The November 2025 Specification
+
+The 2025-11-25 release introduced several major features:
+
+- **Tasks** (SEP-1686) — a new primitive for tracking long-running server operations with states (working, input_required, completed, failed, cancelled)
+- **Simplified authorization** (SEP-991) — URL-based client registration via OAuth Client ID Metadata Documents, replacing complex Dynamic Client Registration
+- **Sampling with tools** (SEP-1577) — servers can implement agentic loops using client tokens, with parallel tool execution
+- **Extensions framework** — optional, additive protocol enhancements that can be experimented with before core integration
+- **URL mode elicitation** (SEP-1036) — secure out-of-band credential flows via browser authentication
+- **Standardized tool naming** (SEP-986) — consistent naming format across the ecosystem
 
 ## Usage Examples
 
-A minimal `initialize` request on the wire:
+### Example: Minimal Server Registration
+
+A server declares its capabilities during the initialization handshake:
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "initialize",
-  "params": {
-    "protocolVersion": "2025-06-18",
-    "capabilities": { "roots": { "listChanged": true }, "sampling": {} },
-    "clientInfo": { "name": "claude-code", "version": "1.0.0" }
+  "capabilities": {
+    "tools": { "listChanged": true },
+    "resources": { "subscribe": true },
+    "prompts": { "listChanged": true }
   }
 }
 ```
 
-The server responds with its declared capabilities and `serverInfo`; a subsequent `tools/list` returns an array of `{ name, description, inputSchema }` entries the model can reason over.
+### Example: Tool Invocation Flow
+
+1. Host sends user message to LLM
+2. LLM decides to call a tool → sends `tools/call` request via client
+3. Host shows the user what the tool will do → user approves
+4. Client forwards request to server → server executes → returns result
+5. Result goes back through client → host → LLM → user
 
 ## Limitations
 
-- **Not a transport by itself.** MCP defines message shapes, not networking; you still choose stdio, Streamable HTTP, or a custom transport and handle auth, timeouts, and reconnects.
-- **Trust boundary is the host.** Servers run with the privileges the host gives them. A malicious or compromised server can exfiltrate anything the host exposes via `roots` or `sampling`.
-- **Schema quality is on you.** Tool schemas are JSON Schema; poorly named or under-documented tools degrade model routing quality — MCP does not validate usefulness, only shape.
+- **Stateful sessions** — each connection maintains state, so servers must handle session lifecycle (unlike stateless REST APIs)
+- **No cross-server visibility** — servers cannot see each other or the full conversation, which is a security feature but limits multi-server coordination (the host must orchestrate)
+- **Tasks are experimental** — the long-running operation primitive shipped in November 2025 but is not yet widely implemented
+- **No built-in discovery** — servers must be manually configured per client; the MCP Registry exists but is not part of the protocol itself
 
 ## See Also
 
-- [[mcp-transports]] — the three wire formats MCP runs over
-- [[typescript-sdk]] — reference implementation for servers and clients
-- [[tool-design-patterns]] — how to design tool shapes a model can actually use well
-- [[client-integration]] — wiring servers into Claude Desktop, Claude Code, and Cursor
-- [MCP specification](https://spec.modelcontextprotocol.io/) — the canonical spec site
-- [modelcontextprotocol GitHub org](https://github.com/modelcontextprotocol) — SDKs and example servers
+- [[mcp-transports]] — the two transport mechanisms (stdio and Streamable HTTP) and when to use each
+- [[typescript-sdk]] — building MCP servers with the official TypeScript SDK
+- [[tool-design-patterns]] — patterns for designing token-efficient, agent-friendly tools
+- [[client-integration]] — connecting MCP servers to Claude Code, Claude Desktop, Cursor, and VS Code

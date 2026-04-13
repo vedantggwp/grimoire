@@ -189,11 +189,11 @@ Grimoire follows ICM (Interpreted Context Methodology): one stage, one job, plai
 
 ## Reference example
 
-[`examples/mcp/`](./examples/mcp/) is a complete, inspectable Grimoire workspace about the Model Context Protocol itself — 5 P0-confidence articles synthesized from canonical sources, cross-linked with `[[wikilinks]]`, and designed with the cold-steel + technical palette. It ships in the repo as the end-to-end launch-readiness validation for v0.2.2 and doubles as a living example of what world-class Grimoire output looks like. Spin up the present frontend against it to see all 6 study modes, or point your MCP client at `node dist/serve.js /path/to/grimoire/examples/mcp` to query it.
+[`examples/mcp/`](./examples/mcp/) is a complete, inspectable Grimoire workspace about the Model Context Protocol itself — built using the full pipeline (scout→ingest→compile→present) against 9 real web sources from the official MCP spec, TypeScript SDK docs, MCP blog, and community pattern articles. Raw source text is preserved in `raw/mcp/`, scout scores are in `scout-report.md`, and all 5 wiki articles cite the URLs they were compiled from. Spin up the present frontend against it to see all 6 study modes, or point your MCP client at `node dist/serve.js /path/to/grimoire/examples/mcp` to query it.
 
 ## Development
 
-Run the tests (79 total across three suites):
+Run the tests (129 total across four suites):
 
 ```bash
 npm test          # vitest run

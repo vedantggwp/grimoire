@@ -87,4 +87,4 @@ which articles to fetch in full. Keep it factual, specific, and one sentence.
 
 ---
 
-*This example workspace was built as the end-to-end launch-readiness validation for Grimoire v0.2.2. Articles cover the Model Context Protocol as a reference topic AI engineers actually care about.*
+*This example workspace was rebuilt on 2026-04-13 using the full Grimoire pipeline: scout (9 real web sources scored on 6-signal rubric), ingest (all sources fetched via WebFetch, raw text preserved in `raw/mcp/`), compile, and present. It replaces a prior version that was synthesized from training knowledge without running scout/ingest.*
