@@ -71,9 +71,11 @@ From there, run the pipeline one stage at a time:
 > /grimoire:scout      # research sources, produce approved-sources.md
 > /grimoire:ingest     # fetch, preserve raw, compile articles
 > /grimoire:compile    # graph, backlinks, overview, gaps
-> /grimoire:present    # build the static frontend
+> /grimoire:present    # build the static frontend → open site/index.html to view
 > /grimoire:serve      # start the MCP server
 ```
+
+After `present`, open `site/index.html` in your browser to explore the knowledge base.
 
 ## The six skills
 
@@ -189,7 +191,25 @@ Grimoire follows ICM (Interpreted Context Methodology): one stage, one job, plai
 
 ## Reference example
 
-[`examples/mcp/`](./examples/mcp/) is a complete, inspectable Grimoire workspace about the Model Context Protocol itself — built using the full pipeline (scout→ingest→compile→present) against 9 real web sources from the official MCP spec, TypeScript SDK docs, MCP blog, and community pattern articles. Raw source text is preserved in `raw/mcp/`, scout scores are in `scout-report.md`, and all 5 wiki articles cite the URLs they were compiled from. Spin up the present frontend against it to see all 6 study modes, or point your MCP client at `node dist/serve.js /path/to/grimoire/examples/mcp` to query it.
+[`examples/mcp/`](./examples/mcp/) is a complete, inspectable Grimoire workspace about the Model Context Protocol itself — built using the full pipeline (scout→ingest→compile→present) against 9 real web sources from the official MCP spec, TypeScript SDK docs, MCP blog, and community pattern articles. Raw source text is preserved in `raw/mcp/`, scout scores are in `scout-report.md`, and all 5 wiki articles cite the URLs they were compiled from.
+
+**View the frontend** — after `present` runs, the `site/` directory contains a self-contained static site. Open it directly in your browser:
+
+```bash
+open examples/mcp/site/index.html        # macOS
+xdg-open examples/mcp/site/index.html    # Linux
+start examples/mcp/site/index.html       # Windows
+```
+
+No server needed. No network requests. Everything (including the D3 graph visualization) is inlined. The landing page links to all 6 study modes: read, graph, search, feed, gaps, and quiz.
+
+**Query via MCP** — point any MCP client at the serve bundle:
+
+```bash
+node dist/serve.js examples/mcp
+```
+
+This starts a stdio MCP server exposing 7 tools (`grimoire_query`, `grimoire_list_topics`, `grimoire_get_article`, `grimoire_get_section`, `grimoire_open_questions`, `grimoire_coverage_gaps`, `grimoire_search`). See [The MCP server](#the-mcp-server) for client configuration.
 
 ## Development
 
