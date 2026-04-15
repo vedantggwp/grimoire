@@ -27,8 +27,8 @@ export function htmlHead(title: string, config: DesignConfig): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="generator" content="Grimoire">
-  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
-  <meta name="theme-color" content="#f8fafb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0F0F0F" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
   <title>${esc(title)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,8 +45,8 @@ export function hubHead(title: string, config: DesignConfig): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="generator" content="Grimoire">
-  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
-  <meta name="theme-color" content="#f8fafb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0F0F0F" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
   <title>${esc(title)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -65,36 +65,42 @@ const MODES = [
 ] as const;
 
 export function navBar(currentMode: string, data: SiteData): string {
-  const links = MODES.map(m => {
-    const active = m.id === currentMode ? ' nav__link--active' : '';
-    const href = m.id === currentMode ? '#' : `../${m.id}/`;
-    return `<a href="${href}" class="nav__link${active}">${m.label}</a>`;
-  }).join('\n      ');
+  const tabs = MODES.map(m => {
+    const active = m.id === currentMode ? ' active' : '';
+    const href = m.id === currentMode ? '#' : `../${m.id}/index.html`;
+    return `<a href="${href}" class="tab${active}">${m.label}</a>`;
+  }).join('\n        ');
 
-  return `<nav class="nav container">
-  <a href="../" class="nav__title">${esc(data.schema.topic)}</a>
-  <div class="nav__links">
-    ${links}
+  return `<nav>
+  <a href="../index.html" class="brand">${esc(data.schema.topic)}</a>
+  <div class="tabs">
+    ${tabs}
   </div>
-  <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
-    <span id="theme-icon">&#9790;</span>
-  </button>
+  <div class="nav-right">
+    <kbd>&#8984;K</kbd>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+      <span id="theme-icon">&#9681;</span>
+    </button>
+  </div>
 </nav>`;
 }
 
 export function hubNav(data: SiteData): string {
-  const links = MODES.map(m => {
-    return `<a href="${m.id}/" class="nav__link">${m.label}</a>`;
-  }).join('\n      ');
+  const tabs = MODES.map(m => {
+    return `<a href="${m.id}/index.html" class="tab">${m.label}</a>`;
+  }).join('\n        ');
 
-  return `<nav class="nav container">
-  <a href="./" class="nav__title">${esc(data.schema.topic)}</a>
-  <div class="nav__links">
-    ${links}
+  return `<nav>
+  <a href="index.html" class="brand">${esc(data.schema.topic)}</a>
+  <div class="tabs">
+    ${tabs}
   </div>
-  <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
-    <span id="theme-icon">&#9790;</span>
-  </button>
+  <div class="nav-right">
+    <kbd>&#8984;K</kbd>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+      <span id="theme-icon">&#9681;</span>
+    </button>
+  </div>
 </nav>`;
 }
 
@@ -150,8 +156,9 @@ export function pageShell(
 <html lang="en">
 ${htmlHead(title, config)}
 <body class="mode-${mode}">
+<a href="#main" class="skip-link">Skip to content</a>
 ${navBar(mode, data)}
-<main class="container">
+<main id="main" class="container">
 ${bodyContent}
 </main>
 ${footer(data)}
@@ -170,8 +177,9 @@ export function hubShell(
 <html lang="en">
 ${hubHead(title, config)}
 <body>
+<a href="#main" class="skip-link">Skip to content</a>
 ${hubNav(data)}
-<main class="container">
+<main id="main" class="container">
 ${bodyContent}
 </main>
 ${footer(data)}

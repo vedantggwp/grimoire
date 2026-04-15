@@ -58,6 +58,16 @@ const PALETTES: Readonly<Record<string, PaletteDef>> = {
     { bg: '#ffffff', surface: '#fafafa', text: '#000000', muted: '#666666', accent: '#000000' },
     { bg: '#000000', surface: '#0a0a0a', text: '#ffffff', muted: '#999999', accent: '#ffffff' },
   ),
+  'linear-editorial': {
+    light: {
+      bg: '#FFFFFF', surface: '#F6F6F6', text: '#1A1A1A', muted: '#707070', accent: '#0D9488',
+      success: '#16A34A', warning: '#CA8A04', error: '#DC2626', info: '#0D9488',
+    },
+    dark: {
+      bg: '#0E0E0E', surface: '#1C1C1C', text: '#EDEDED', muted: '#8A8A8A', accent: '#2dd4bf',
+      success: '#4ADE80', warning: '#FBBF24', error: '#F87171', info: '#2dd4bf',
+    },
+  },
 };
 
 // --- Typography maps ---
@@ -74,13 +84,14 @@ const TYPOGRAPHY_MAPS: Readonly<Record<string, TypographySet>> = {
   playful: { headings: 'Nunito', body: 'Nunito', mono: 'Fira Code' },
   brutalist: { headings: 'Space Grotesk', body: 'Inter', mono: 'Space Mono' },
   minimal: { headings: 'Inter', body: 'Inter', mono: 'JetBrains Mono' },
+  'linear-editorial': { headings: 'Source Serif 4', body: 'Inter', mono: 'JetBrains Mono' },
 };
 
 // --- Default config ---
 
 const DEFAULT_CONFIG: DesignConfig = {
-  palette: 'midnight-teal',
-  typography: 'editorial',
+  palette: 'linear-editorial',
+  typography: 'linear-editorial',
   motion: 'subtle',
   density: 'comfortable',
 };
@@ -142,7 +153,7 @@ export function parseDesignConfig(configPath: string): DesignConfig {
 }
 
 export function resolvePalette(config: DesignConfig): PaletteDef {
-  const base = PALETTES[config.palette] ?? PALETTES['midnight-teal'];
+  const base = PALETTES[config.palette] ?? PALETTES['linear-editorial'];
 
   if (!config.overrides?.accent) return base;
 
@@ -154,7 +165,7 @@ export function resolvePalette(config: DesignConfig): PaletteDef {
 }
 
 export function resolveTypography(config: DesignConfig): TypographySet {
-  const base = TYPOGRAPHY_MAPS[config.typography] ?? TYPOGRAPHY_MAPS['editorial'];
+  const base = TYPOGRAPHY_MAPS[config.typography] ?? TYPOGRAPHY_MAPS['linear-editorial'];
 
   return {
     headings: config.overrides?.fontDisplay ?? base.headings,
@@ -166,7 +177,12 @@ export function resolveTypography(config: DesignConfig): TypographySet {
 export function getGoogleFontsUrl(typo: TypographySet): string {
   const families = new Set([typo.headings, typo.body, typo.mono]);
   const params = [...families]
-    .map(f => `family=${encodeURIComponent(f)}:wght@400;500;600;700`)
+    .map(f => {
+      if (f === 'Source Serif 4') {
+        return 'family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700';
+      }
+      return `family=${encodeURIComponent(f)}:wght@400;500;600;700`;
+    })
     .join('&');
   return `https://fonts.googleapis.com/css2?${params}&display=swap`;
 }

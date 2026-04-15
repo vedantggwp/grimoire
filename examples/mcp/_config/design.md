@@ -1,8 +1,8 @@
 ---
 # Grimoire Design Configuration for the MCP example wiki
 
-palette: cold-steel
-typography: technical
+palette: linear-editorial
+typography: linear-editorial
 motion: subtle
 density: comfortable
 ---
