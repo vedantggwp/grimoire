@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grimoire — Option B: Stripe Editorial</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg: #FFFFFF;
+  --surface: #F9FAFB;
+  --surface-hover: #F3F4F6;
+  --text: #111827;
+  --text-secondary: #6B7280;
+  --text-tertiary: #9CA3AF;
+  --border: #E5E7EB;
+  --border-hover: #D1D5DB;
+  --accent: #3B82F6;
+  --accent-muted: rgba(59,130,246,0.08);
+  --accent-strong: rgba(59,130,246,0.15);
+  --success: #16A34A;
+  --warning: #D97706;
+  --error: #DC2626;
+  --font-heading: 'Fraunces', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.08);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html { background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 15px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+
+.option-label { position: fixed; top: 12px; right: 16px; background: var(--accent); color: #fff; font-family: var(--font-mono); font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px; z-index: 999; letter-spacing: 0.5px; }
+
+/* === Nav === */
+nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 32px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); z-index: 100; }
+nav .title { font-family: var(--font-heading); font-weight: 700; font-size: 16px; color: var(--text); }
+nav .tabs { display: flex; gap: 0; border-bottom: none; }
+nav .tab { padding: 8px 16px; font-size: 14px; font-weight: 500; color: var(--text-secondary); cursor: pointer; border: none; background: none; font-family: inherit; position: relative; transition: color 150ms; }
+nav .tab:hover { color: var(--text); }
+nav .tab.active { color: var(--accent); }
+nav .tab.active::after { content: ''; position: absolute; bottom: -15px; left: 16px; right: 16px; height: 2px; background: var(--accent); border-radius: 1px; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 32px; }
+
+/* === Hub === */
+.hub-hero { padding: 56px 0 32px; max-width: 640px; }
+.hub-hero h1 { font-family: var(--font-heading); font-size: 36px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 14px; line-height: 1.15; }
+.hub-hero p { color: var(--text-secondary); font-size: 16px; line-height: 1.7; margin-bottom: 24px; }
+.hub-stats { display: flex; gap: 32px; margin-bottom: 48px; padding: 20px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.hub-stat { font-size: 13px; color: var(--text-secondary); }
+.hub-stat strong { font-family: var(--font-heading); font-size: 22px; color: var(--text); display: block; margin-bottom: 2px; }
+
+.cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.editorial-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; cursor: pointer; transition: all 200ms var(--ease); box-shadow: var(--shadow-sm); }
+.editorial-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-hover); transform: translateY(-2px); }
+.editorial-card.recommended { border-color: var(--accent); border-width: 2px; }
+.editorial-card .icon { font-size: 24px; margin-bottom: 12px; display: block; }
+.editorial-card h3 { font-family: var(--font-heading); font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+.editorial-card p { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
+.editorial-card .when { font-size: 12px; color: var(--text-tertiary); }
+
+/* === Read === */
+.read-3col { display: grid; grid-template-columns: 220px 1fr 180px; gap: 32px; }
+.read-sidebar { position: sticky; top: 72px; align-self: flex-start; }
+.read-sidebar h4 { font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--text-tertiary); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.read-sidebar ul { list-style: none; }
+.read-sidebar li { padding: 7px 12px; font-size: 13px; color: var(--text-secondary); cursor: pointer; border-radius: var(--radius-sm); transition: all 150ms; }
+.read-sidebar li:hover { background: var(--surface); color: var(--text); }
+.read-sidebar li.active { background: var(--accent-muted); color: var(--accent); font-weight: 500; }
+.read-content { max-width: 680px; }
+.read-content h1 { font-family: var(--font-heading); font-size: 30px; font-weight: 700; margin-bottom: 6px; }
+.read-content .summary { font-size: 15px; color: var(--text-secondary); font-style: italic; margin-bottom: 20px; line-height: 1.7; }
+.read-content h2 { font-family: var(--font-heading); font-size: 22px; font-weight: 600; margin-top: 36px; margin-bottom: 12px; }
+.read-content p { margin-bottom: 14px; line-height: 1.7; color: #374151; }
+.read-content code { font-family: var(--font-mono); font-size: 13px; background: #F3F4F6; padding: 2px 6px; border-radius: 4px; color: #DC2626; }
+.read-toc-right { position: sticky; top: 72px; align-self: flex-start; }
+.read-toc-right h4 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-tertiary); margin-bottom: 10px; }
+.read-toc-right ul { list-style: none; border-left: 2px solid var(--border); }
+.read-toc-right li { padding: 4px 0 4px 12px; font-size: 12px; color: var(--text-tertiary); cursor: pointer; }
+.read-toc-right li.active { color: var(--accent); border-left: 2px solid var(--accent); margin-left: -2px; }
+.article-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.badge { font-family: var(--font-mono); font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; }
+.badge-p0 { background: rgba(22,163,74,0.08); color: var(--success); }
+.tag-pill { font-size: 11px; padding: 3px 8px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); font-family: var(--font-mono); }
+
+/* === Search === */
+.search-page { max-width: 640px; margin: 0 auto; padding-top: 32px; }
+.search-box { width: 100%; padding: 14px 18px; font-size: 16px; font-family: inherit; border: 2px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--text); outline: none; transition: border-color 200ms; }
+.search-box:focus { border-color: var(--accent); }
+.search-filters { display: flex; gap: 8px; margin: 16px 0; }
+.filter-btn { font-size: 12px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 20px; background: var(--bg); color: var(--text-secondary); cursor: pointer; font-family: inherit; transition: all 150ms; }
+.filter-btn:hover, .filter-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-muted); }
+.result-card { padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 10px; cursor: pointer; transition: all 150ms; }
+.result-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-sm); }
+.result-card h4 { font-family: var(--font-heading); font-size: 15px; margin-bottom: 4px; }
+.result-card .excerpt { font-size: 13px; color: var(--text-secondary); }
+.result-card mark { background: var(--accent-strong); color: var(--text); padding: 0 2px; border-radius: 2px; }
+
+/* === Feed === */
+.timeline { max-width: 640px; border-left: 2px solid var(--border); margin-left: 100px; }
+.timeline-entry { position: relative; padding: 20px 0 20px 28px; }
+.timeline-entry::before { content: ''; width: 10px; height: 10px; background: var(--bg); border: 2px solid var(--border); border-radius: 50%; position: absolute; left: -6px; top: 24px; }
+.timeline-entry:first-child::before { border-color: var(--accent); background: var(--accent-muted); }
+.timeline-date { position: absolute; left: -130px; top: 20px; font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); width: 90px; text-align: right; }
+.timeline-entry h4 { font-family: var(--font-heading); font-size: 16px; margin-bottom: 6px; }
+.timeline-entry p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+.feed-tag { display: inline-block; font-family: var(--font-mono); font-size: 10px; padding: 2px 6px; border-radius: 3px; margin-right: 4px; }
+.feed-tag.scout { background: rgba(59,130,246,0.08); color: var(--accent); }
+.feed-tag.compile { background: rgba(22,163,74,0.08); color: var(--success); }
+
+/* === Gaps === */
+.heatmap-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.heat-cell { aspect-ratio: 1; border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 150ms var(--ease); }
+.heat-cell:hover { transform: scale(1.08); }
+.heat-cell.h-full { background: rgba(22,163,74,0.12); color: var(--success); border: 1px solid rgba(22,163,74,0.2); }
+.heat-cell.h-partial { background: rgba(217,119,6,0.1); color: var(--warning); border: 1px solid rgba(217,119,6,0.2); }
+.heat-cell.h-thin { background: rgba(220,38,38,0.08); color: var(--error); border: 1px solid rgba(220,38,38,0.15); }
+.heat-cell.h-missing { background: var(--surface); color: var(--text-tertiary); border: 1px dashed var(--border); }
+.heat-cell .count { font-family: var(--font-heading); font-size: 20px; font-weight: 700; margin-bottom: 2px; }
+.gaps-legend { display: flex; gap: 16px; margin-top: 20px; font-size: 12px; color: var(--text-tertiary); }
+.gaps-legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+
+/* === Quiz === */
+.quiz-wrap { max-width: 480px; margin: 40px auto; text-align: center; }
+.quiz-progress-bar { height: 4px; background: var(--surface); border-radius: 2px; margin-bottom: 28px; }
+.quiz-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; width: 16%; transition: width 300ms; }
+.quiz-counter { font-family: var(--font-mono); font-size: 13px; color: var(--text-tertiary); margin-bottom: 24px; }
+.flashcard { perspective: 1000px; cursor: pointer; margin-bottom: 24px; }
+.flashcard-inner { transition: transform 600ms ease; transform-style: preserve-3d; position: relative; min-height: 220px; }
+.flashcard.flipped .flashcard-inner { transform: rotateY(180deg); }
+.flashcard-front, .flashcard-back { backface-visibility: hidden; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 32px; border-radius: var(--radius-lg); border: 1px solid var(--border); }
+.flashcard-front { background: var(--bg); box-shadow: var(--shadow-md); font-family: var(--font-heading); font-size: 19px; font-weight: 600; line-height: 1.4; }
+.flashcard-back { background: var(--surface); box-shadow: var(--shadow-sm); transform: rotateY(180deg); font-size: 14px; line-height: 1.7; color: var(--text-secondary); text-align: left; }
+.quiz-btns { display: flex; gap: 12px; justify-content: center; }
+.quiz-btn { padding: 10px 28px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 150ms; }
+.quiz-btn.correct { background: var(--success); color: #fff; border: none; }
+.quiz-btn.correct:hover { opacity: 0.9; }
+.quiz-btn.again { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+.quiz-btn.again:hover { border-color: var(--border-hover); }
+
+.screen { display: none; }
+.screen.active { display: block; }
+footer { text-align: center; padding: 32px; font-size: 12px; color: var(--text-tertiary); border-top: 1px solid var(--border); margin-top: 48px; }
+</style>
+</head>
+<body>
+
+<div class="option-label">OPTION B: STRIPE EDITORIAL</div>
+
+<nav>
+  <div class="title">Grimoire</div>
+  <div class="tabs">
+    <button class="tab active" data-screen="hub">Hub</button>
+    <button class="tab" data-screen="read">Read</button>
+    <button class="tab" data-screen="graph">Graph</button>
+    <button class="tab" data-screen="search">Search</button>
+    <button class="tab" data-screen="feed">Feed</button>
+    <button class="tab" data-screen="gaps">Gaps</button>
+    <button class="tab" data-screen="quiz">Quiz</button>
+  </div>
+</nav>
+
+<!-- HUB -->
+<div class="screen active" id="hub">
+<div class="container">
+  <div class="hub-hero">
+    <h1>Model Context Protocol for AI Engineers</h1>
+    <p>The MCP specification, server design, TypeScript SDK, tool-response token efficiency, and client integration with Claude Desktop, Claude Code, and Cursor.</p>
+  </div>
+  <div class="hub-stats">
+    <div class="hub-stat"><strong>5</strong>articles</div>
+    <div class="hub-stat"><strong>10</strong>sources</div>
+    <div class="hub-stat"><strong>27</strong>tags</div>
+    <div class="hub-stat"><strong>23</strong>cross-refs</div>
+    <div class="hub-stat"><strong>44%</strong>graph density</div>
+  </div>
+  <div class="cards-grid">
+    <div class="editorial-card recommended" onclick="switchTo('read')">
+      <span class="icon">📖</span>
+      <h3>Read</h3>
+      <p>Articles sorted by graph centrality. Deep, linear study.</p>
+      <div class="when">Recommended starting point</div>
+    </div>
+    <div class="editorial-card" onclick="switchTo('graph')"><span class="icon">🕸</span><h3>Graph</h3><p>Force-directed knowledge map</p><div class="when">Explore connections</div></div>
+    <div class="editorial-card" onclick="switchTo('search')"><span class="icon">🔍</span><h3>Search</h3><p>Full-text search with filters</p><div class="when">Find a concept</div></div>
+    <div class="editorial-card" onclick="switchTo('feed')"><span class="icon">📋</span><h3>Feed</h3><p>Chronological changelog</p><div class="when">Recent changes</div></div>
+    <div class="editorial-card" onclick="switchTo('gaps')"><span class="icon">🔬</span><h3>Gaps</h3><p>Coverage gap heatmap</p><div class="when">What needs depth</div></div>
+    <div class="editorial-card" onclick="switchTo('quiz')"><span class="icon">🧠</span><h3>Quiz</h3><p>Flashcard study quiz</p><div class="when">Test knowledge</div></div>
+  </div>
+</div>
+</div>
+
+<!-- READ -->
+<div class="screen" id="read">
+<div class="container">
+  <div class="read-3col">
+    <div class="read-sidebar">
+      <h4>Articles</h4>
+      <ul>
+        <li class="active">MCP Overview</li>
+        <li>MCP Transports</li>
+        <li>TypeScript SDK</li>
+        <li>Tool Design Patterns</li>
+        <li>Client Integration</li>
+      </ul>
+    </div>
+    <div class="read-content">
+      <div class="article-meta">
+        <span class="badge badge-p0">P0</span>
+        <span class="tag-pill">3 sources</span>
+        <span style="font-size:12px;color:var(--text-tertiary)">4,200 words &middot; 17 min</span>
+      </div>
+      <h1>Model Context Protocol Overview</h1>
+      <div class="summary">MCP is an open JSON-RPC 2.0 protocol connecting LLM applications to external tools, data, and services through a host-client-server architecture with capability negotiation.</div>
+      <div style="display:flex;gap:6px;margin-bottom:24px">
+        <span class="tag-pill">mcp</span><span class="tag-pill">protocol</span><span class="tag-pill">architecture</span>
+      </div>
+      <h2>Overview</h2>
+      <p>The Model Context Protocol (MCP) is an open protocol that standardizes how LLM applications integrate with external data sources, tools, and services. Originally created by Anthropic and released in November 2024, it was donated to the <strong>Agentic AI Foundation (AAIF)</strong> under the Linux Foundation.</p>
+      <p>MCP draws inspiration from the Language Server Protocol (LSP), which standardized how IDEs interact with programming language tooling. MCP does the same for AI applications &mdash; it defines a universal way to connect LLMs with the context they need.</p>
+      <h2>How It Works</h2>
+      <p>MCP follows a <strong>client-host-server architecture</strong>. The host (e.g., Claude Desktop) creates client instances that each maintain a 1:1 session with a server. Servers expose resources, tools, and prompts via MCP primitives. Communication uses JSON-RPC 2.0 over <code>stdio</code> or Streamable HTTP.</p>
+    </div>
+    <div class="read-toc-right">
+      <h4>On this page</h4>
+      <ul>
+        <li class="active">Overview</li>
+        <li>How It Works</li>
+        <li>Key Capabilities</li>
+        <li>Limitations</li>
+        <li>See Also</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- GRAPH (placeholder) -->
+<div class="screen" id="graph">
+<div class="container">
+  <h2 style="font-family:var(--font-heading);font-size:22px;margin-bottom:20px">Knowledge Graph</h2>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);height:450px;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary)">
+    <div style="text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">🕸</div>
+      <div style="font-size:14px">Interactive D3 force graph renders here</div>
+      <div style="font-size:12px;margin-top:4px">Same graph engine, light theme, warm palette</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- SEARCH -->
+<div class="screen" id="search">
+<div class="container">
+  <div class="search-page">
+    <input type="text" class="search-box" placeholder="Search articles, concepts, tags...">
+    <div class="search-filters">
+      <button class="filter-btn active">All</button>
+      <button class="filter-btn">Articles</button>
+      <button class="filter-btn">Tags</button>
+      <button class="filter-btn">P0 only</button>
+    </div>
+    <div style="margin-top:16px">
+      <div class="result-card"><h4>Model Context Protocol Overview</h4><div class="excerpt">MCP is an open <mark>JSON-RPC</mark> 2.0 protocol connecting LLM applications to external tools...</div></div>
+      <div class="result-card"><h4>MCP Transports</h4><div class="excerpt">Two transports: <mark>stdio</mark> for local subprocess servers and Streamable HTTP for remote...</div></div>
+      <div class="result-card"><h4>TypeScript SDK</h4><div class="excerpt">The official <mark>@modelcontextprotocol/sdk</mark> provides McpServer for registering tools...</div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- FEED -->
+<div class="screen" id="feed">
+<div class="container">
+  <h2 style="font-family:var(--font-heading);font-size:22px;margin-bottom:32px">Activity Feed</h2>
+  <div class="timeline">
+    <div class="timeline-entry">
+      <div class="timeline-date">Apr 13, 2026</div>
+      <h4>Rebuilt from real web sources</h4>
+      <p><span class="feed-tag scout">scouted</span><span class="feed-tag compile">compiled</span><br>9 real sources fetched. 5 articles compiled from official MCP spec, TypeScript SDK docs, and community articles.</p>
+    </div>
+    <div class="timeline-entry">
+      <div class="timeline-date">Apr 11, 2026</div>
+      <h4>Initial bootstrap</h4>
+      <p><span class="feed-tag compile">compiled</span><br>Created workspace. Topic: Model Context Protocol for AI engineers.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- GAPS -->
+<div class="screen" id="gaps">
+<div class="container">
+  <h2 style="font-family:var(--font-heading);font-size:22px;margin-bottom:8px">Coverage Heatmap</h2>
+  <p style="color:var(--text-secondary);font-size:13px;margin-bottom:24px">5 articles &middot; 27 tags &middot; 3 thin topics</p>
+  <div class="heatmap-grid">
+    <div class="heat-cell h-full"><div class="count">5</div>mcp</div>
+    <div class="heat-cell h-full"><div class="count">2</div>tools</div>
+    <div class="heat-cell h-partial"><div class="count">2</div>transport</div>
+    <div class="heat-cell h-partial"><div class="count">2</div>architecture</div>
+    <div class="heat-cell h-full"><div class="count">2</div>client</div>
+    <div class="heat-cell h-thin"><div class="count">1</div>patterns</div>
+    <div class="heat-cell h-thin"><div class="count">1</div>token-eff</div>
+    <div class="heat-cell h-thin"><div class="count">1</div>context</div>
+    <div class="heat-cell h-partial"><div class="count">1</div>json-rpc</div>
+    <div class="heat-cell h-missing"><div class="count">0</div>oauth</div>
+    <div class="heat-cell h-missing"><div class="count">0</div>tasks</div>
+    <div class="heat-cell h-partial"><div class="count">1</div>streaming</div>
+  </div>
+  <div class="gaps-legend">
+    <span style="color:var(--success)">&#9632; Full</span>
+    <span style="color:var(--warning)">&#9632; Partial</span>
+    <span style="color:var(--error)">&#9632; Thin</span>
+    <span style="color:var(--text-tertiary)">&#9633; Missing</span>
+  </div>
+</div>
+</div>
+
+<!-- QUIZ -->
+<div class="screen" id="quiz">
+<div class="container">
+  <div class="quiz-wrap">
+    <div class="quiz-progress-bar"><div class="quiz-progress-fill"></div></div>
+    <div class="quiz-counter">1 / 25</div>
+    <div class="flashcard" onclick="this.classList.toggle('flipped')">
+      <div class="flashcard-inner">
+        <div class="flashcard-front">Why was Model Context Protocol created and what problem does it solve?</div>
+        <div class="flashcard-back">
+          <div>MCP standardizes how LLM applications connect to external tools and data, eliminating per-integration glue code. It provides a universal protocol (like LSP did for IDEs) so any host can connect to any server through capability negotiation.</div>
+        </div>
+      </div>
+    </div>
+    <div class="quiz-btns">
+      <button class="quiz-btn correct">Got it</button>
+      <button class="quiz-btn again">Review again</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<footer>Generated 2026-04-13 &middot; 5 articles &middot; Built with Grimoire</footer>
+
+<script>
+function switchTo(s){document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.getElementById(s).classList.add('active');document.querySelector(`[data-screen="${s}"]`).classList.add('active')}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchTo(t.dataset.screen)));
+document.querySelectorAll('.read-sidebar li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('.read-sidebar li').forEach(l=>l.classList.remove('active'));li.classList.add('active')}));
+document.querySelectorAll('.filter-btn').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.filter-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active')}));
+</script>
+</body>
+</html>

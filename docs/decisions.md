@@ -5,6 +5,28 @@
 
 ---
 
+## 2026-04-15 — Option F: Linear Editorial ships as the launch frontend (v0.2.3)
+
+**Decision:** The generated frontend is rewritten around an "Option F — Linear Editorial" dual-theme design system and becomes the launch target for v0.2.3. Source Serif 4 + Inter + JetBrains Mono typography, `linear-editorial` palette as default (`#FFFFFF`/`#0E0E0E` backgrounds, `#0D9488`/`#2dd4bf` accent), dark mode via `.theme-dark` + `prefers-color-scheme`. Eighteen concrete fixes landed across `lib/present/`:
+
+- Bento grid uses `grid-auto-rows: min-content` with an explicit `span 2×2` featured card populated with a top-4 centrality preview so the wide slot has real content instead of empty padding.
+- Hub drops its duplicate H1 — the nav brand already carries the full topic name (per Ved: the KB is the topic's KB, no wordmark), the hero leads with the `scope.in` line.
+- Read strips the leading markdown `<h1>` during render so the template H1 is the only title visible.
+- Density stat de-duplicates undirected edge pairs and caps at 100%; previous display of "82%" was a Papyr-directed-vs-present-undirected formula mismatch amplified by the compile tool writing to the wrong `.compile` dir.
+- Graph filters support pages (`index`, `log`, `overview`) from both nodes and edges at the data layer — same filter shared with `serve.ts`. Force simulation parameters scale with node count; labels render below nodes with `paint-order: stroke` so they stay legible over edges.
+- Feed renders as a real vertical timeline with a spine line, dot markers, and multi-tag inference (scouted/ingested/compiled/edited can co-occur on one entry).
+- Gaps is now an actual `d3.treemap()` layout sized by `articleCount × sqrt(totalWords)` with a 4-tier classification (full ≥3 / partial 2 / thin 1 / missing 0), legend, and hover tooltip. The previous CSS-grid "treemap" was the same size for every cell.
+- Quiz replaces the broken 3D flip flashcard with an Anki-style reveal: question visible → "Show answer" button → inline reveal → feedback buttons. Keyboard support via Space/Enter.
+- Search grows a substantive default state: example queries derived from top centrality articles, a tag cloud with click-to-filter, and a centrality-sorted article grid with summaries and tag chips. The empty "Type at least 2 characters" void is gone.
+- Fluid typography via `clamp()` across all headings, body, and card scales. New 479/767/1023 breakpoints. `overflow-x: hidden` on html+body prevents surprise horizontal scroll. Graph detail panel is hidden on mobile. Gaps treemap labels truncate per-cell based on measured width.
+- Dark mode lifts card surfaces to `#1C1C1C`, adds an inset `rgba(255,255,255,0.045)` highlight for card edges, and raises `--text-secondary` to `#C4C4C4` for WCAG AA.
+
+**Why:** On the first visual QA pass, five of seven generated pages failed Ved's quality bar: hub had a duplicate H1 and stretched featured card with huge empty space, Read showed its title three times, graph nodes clumped into an unreadable blob, gaps was a uniform grid not a treemap, quiz had no visible flashcard flip or inline reveal, search was 80% empty whitespace, and the density stat was mathematically wrong. Ved's position (saved as durable feedback) is that frontend quality is a hard launch gate on a knowledge-base tool whose value prop is "a beautiful frontend for humans" — fixing these was not polish, it was the launch condition. Shipping the pre-rewrite frontend would have failed the product's own `docs/design-engine.md` rule "No AI slop" and cost the trust of the first visitors before they read any wiki content.
+
+**Trail:** Pre-work explored 6 options (A–F) in `mockups/option-*.html`. Option F "Linear Editorial" won because it already satisfied the dual-theme + editorial-typography + bento-grid non-negotiables from `docs/design-engine.md` without requiring a new palette concept. Alternatives rejected: ship the pre-rewrite frontend and iterate on user feedback (wrong for visual-artifact tools — users don't give feedback on ugly v1, they close the tab); make the featured Read card smaller to avoid the empty-space problem (would have lost the editorial hierarchy); keep the CSS-grid "treemap" (not a treemap, users would see through it). The ui-ux-pro-max skill was invoked for polish guidance; its typography recommendation (Newsreader + Roboto) was rejected in favor of the already-decided Source Serif 4 + Inter, but its rules on `clamp()`, touch targets ≥36px, mobile-first breakpoints, and inner-highlight dark surfaces were adopted. All 129 tests still pass, with three regressions updated to reflect intentional UI changes (gaps moved from `.treemap-cell` classes to `.treemap-leaf` SVG nodes; quiz from `#flashcard`/`#card-front` to `#quiz-card`/`#quiz-question`; search debounce threshold softened from literal `300` to ≥100ms). Desktop + dark + mobile verified across all 7 pages at `/tmp/grimoire-shots/v2/`.
+
+---
+
 ## 2026-04-10 — grimoire-init v0.2.0: project auto-discovery
 
 **Decision:** Init now detects existing projects (`.git`, `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Gemfile`, `pom.xml`, `CLAUDE.md`, `README.md`, `docs/`), offers auto-discovery mode, reads project files to pre-fill the 7 questionnaire answers, and asks the user to confirm. Also: workspace location is now a checkpoint question with 4 options (inside project, inside `docs/`, sibling directory, custom path) instead of a hardcoded default.

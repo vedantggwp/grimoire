@@ -628,14 +628,16 @@ export function handleSearch(
 // --- MCP server setup ---
 
 function createServer(data: WikiData): McpServer {
-  const server = new McpServer({
-    name: 'grimoire',
-    version: '0.2.2',
-  });
+  const server = new McpServer(
+    { name: 'grimoire', version: '0.2.3' },
+    {
+      instructions: `Grimoire is a curated knowledge base about "${data.schemaInfo.topic}". Routing pattern for efficient retrieval:\n1. Call grimoire_list_topics first to see all articles with summaries\n2. Use grimoire_get_article(slug) for a specific article\n3. Use grimoire_get_section(slug, heading) for just one section (most token-efficient)\nFor questions: grimoire_query. For keyword search: grimoire_search.\nPrefer get_section over get_article when you know which section you need.`,
+    },
+  );
 
   server.tool(
     'grimoire_query',
-    'Synthesize an answer about a topic from the wiki\'s curated knowledge base',
+    'Answer a natural-language question by finding the most relevant articles. Returns top-3 matches with summaries and slugs for deeper retrieval. Use this FIRST for factual questions. For keyword search, use grimoire_search instead.',
     { query: z.string().describe('The question to answer') },
     async ({ query }) => ({
       content: [{ type: 'text' as const, text: handleQuery(query, data) }],
@@ -644,7 +646,7 @@ function createServer(data: WikiData): McpServer {
 
   server.tool(
     'grimoire_list_topics',
-    'List all topics and categories in the knowledge base with article counts',
+    'Get the routing table: every article slug, title, and one-line summary, plus tag categories with counts. Call this FIRST in a new session to understand what the wiki covers — summaries let you decide which articles to fetch without wasting tokens.',
     {},
     async () => ({
       content: [{ type: 'text' as const, text: handleListTopics(data) }],
@@ -680,7 +682,7 @@ function createServer(data: WikiData): McpServer {
 
   server.tool(
     'grimoire_open_questions',
-    'List unresolved questions and areas needing more research',
+    'List unresolved research questions extracted from the wiki overview. Use when asking what is still unknown, what needs more research, or where the knowledge base has gaps.',
     {},
     async () => ({
       content: [{ type: 'text' as const, text: handleOpenQuestions(data) }],
@@ -689,7 +691,7 @@ function createServer(data: WikiData): McpServer {
 
   server.tool(
     'grimoire_coverage_gaps',
-    'Identify topics with thin or missing coverage',
+    'Identify structural weaknesses: tags with only one article, articles below median word count, and topics referenced but not yet written. Use when asking about wiki health or what to write next.',
     {},
     async () => ({
       content: [{ type: 'text' as const, text: handleCoverageGaps(data) }],
@@ -698,7 +700,7 @@ function createServer(data: WikiData): McpServer {
 
   server.tool(
     'grimoire_search',
-    'Full-text search across all wiki articles',
+    'Keyword search across all article titles, summaries, tags, and body text. Returns scored results with excerpts. Use for specific terms to look up. For natural-language questions, prefer grimoire_query which adds synthesis.',
     {
       query: z.string().describe('The search query'),
       limit: z.number().optional().describe('Max results (default 10)'),

@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grimoire — Option E: Linear Editorial</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  /* A's dark palette — near-black charcoal */
+  --bg: #0F0F0F;
+  --surface: #1A1A1A;
+  --surface-hover: #242424;
+  --surface-overlay: #2A2A2A;
+  --text: #E5E5E5;
+  --text-secondary: #A3A3A3;
+  --text-tertiary: #666666;
+  --border: #2A2A2A;
+  --border-hover: #3A3A3A;
+  --accent: #2dd4bf;
+  --accent-muted: rgba(45,212,191,0.12);
+  --accent-strong: rgba(45,212,191,0.25);
+  --success: #58cc02;
+  --success-muted: rgba(88,204,2,0.12);
+  --warning: #ff9600;
+  --warning-muted: rgba(255,150,0,0.12);
+  --error: #ff4b4b;
+  --error-muted: rgba(255,75,75,0.12);
+
+  /* B's editorial typography */
+  --font-heading: 'Fraunces', Georgia, serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* A's radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* A's shadow system */
+  --shadow-card: 0 0 0 1px rgba(255,255,255,0.04), 0 2px 4px rgba(0,0,0,0.3);
+  --shadow-card-hover: 0 0 0 1px rgba(45,212,191,0.15), 0 8px 24px rgba(0,0,0,0.4);
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html {
+  background: var(--bg); color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px; line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+body { min-height: 100vh; }
+
+.option-label {
+  position: fixed; top: 12px; right: 16px;
+  background: var(--accent); color: #000;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  padding: 4px 10px; border-radius: 4px; z-index: 999;
+  letter-spacing: 0.5px;
+}
+
+/* ═══════════════════════════════════════════════
+   NAV — A's pill tabs, B's clean spacing
+   ═══════════════════════════════════════════════ */
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 28px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0;
+  background: rgba(15,15,15,0.88);
+  backdrop-filter: blur(14px);
+  z-index: 100;
+}
+nav .brand {
+  font-family: var(--font-heading);
+  font-weight: 700; font-size: 16px;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+nav .tabs {
+  display: flex; gap: 2px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 3px;
+}
+nav .tab {
+  padding: 6px 14px; border-radius: 7px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 150ms var(--ease);
+  border: none; background: none;
+  font-family: var(--font-body);
+}
+nav .tab:hover { color: var(--text); background: var(--surface-hover); }
+nav .tab.active {
+  color: var(--text);
+  background: var(--surface-hover);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06);
+}
+nav .nav-right {
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--text-tertiary);
+  display: flex; align-items: center; gap: 6px;
+}
+nav .nav-right kbd {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  padding: 2px 6px; border-radius: 4px;
+  color: var(--text-tertiary);
+}
+
+.container { max-width: 1100px; margin: 0 auto; padding: 32px 28px; }
+
+/* ═══════════════════════════════════════════════
+   HUB — A's bento grid + B's editorial type
+   ═══════════════════════════════════════════════ */
+.hub-hero { text-align: center; padding: 52px 0 28px; }
+.hub-hero h1 {
+  font-family: var(--font-heading);
+  font-size: 36px; font-weight: 700;
+  letter-spacing: -0.5px; line-height: 1.15;
+  margin-bottom: 14px;
+}
+.hub-hero p {
+  color: var(--text-secondary);
+  max-width: 540px; margin: 0 auto 28px;
+  font-size: 15px; line-height: 1.65;
+}
+.hub-stats {
+  display: flex; justify-content: center; gap: 32px;
+  margin-bottom: 48px;
+  padding: 20px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.hub-stat { font-size: 13px; color: var(--text-secondary); }
+.hub-stat strong {
+  font-family: var(--font-heading);
+  font-size: 22px; font-weight: 600;
+  color: var(--text);
+  display: block; margin-bottom: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bento {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.bento-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  cursor: pointer;
+  transition: all 200ms var(--ease);
+  box-shadow: var(--shadow-card);
+  position: relative; overflow: hidden;
+}
+.bento-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+.bento-card.featured {
+  grid-column: span 2; grid-row: span 2;
+  padding: 36px;
+}
+.bento-card .icon { font-size: 28px; margin-bottom: 16px; display: block; }
+.bento-card h3 {
+  font-family: var(--font-heading);
+  font-size: 17px; font-weight: 600;
+  margin-bottom: 6px;
+}
+.bento-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+.bento-card .when {
+  font-size: 12px; color: var(--text-tertiary);
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.bento-card.featured .icon { font-size: 36px; }
+.bento-card.featured h3 { font-size: 22px; }
+.bento-card.featured .badge {
+  display: inline-block;
+  background: var(--accent-muted); color: var(--accent);
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-mono);
+  padding: 3px 8px; border-radius: 4px;
+  margin-bottom: 16px;
+}
+.bento-card.featured p { font-size: 14px; }
+
+/* ═══════════════════════════════════════════════
+   READ — B's 3-column Stripe layout on dark
+   ═══════════════════════════════════════════════ */
+.read-progress {
+  height: 3px; background: var(--accent);
+  position: fixed; top: 49px; left: 0;
+  z-index: 101; width: 35%;
+  transition: width 200ms;
+}
+.read-3col {
+  display: grid;
+  grid-template-columns: 210px 1fr 180px;
+  gap: 36px;
+}
+
+/* Left sidebar — article nav */
+.read-sidebar { position: sticky; top: 72px; align-self: flex-start; }
+.read-sidebar h4 {
+  font-family: var(--font-heading);
+  font-size: 12px; font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 14px;
+}
+.read-sidebar ul { list-style: none; }
+.read-sidebar li {
+  padding: 7px 12px; font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer; border-radius: var(--radius-sm);
+  transition: all 150ms; margin-bottom: 2px;
+}
+.read-sidebar li:hover { background: var(--surface); color: var(--text); }
+.read-sidebar li.active {
+  background: var(--accent-muted);
+  color: var(--accent); font-weight: 500;
+}
+
+/* Center content */
+.read-content { max-width: 680px; }
+.article-meta {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 16px; flex-wrap: wrap;
+}
+.confidence-badge {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600;
+  padding: 3px 8px; border-radius: 4px;
+}
+.confidence-badge.p0 { background: var(--success-muted); color: var(--success); }
+.source-count {
+  font-size: 12px; color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.read-content h1 {
+  font-family: var(--font-heading);
+  font-size: 30px; font-weight: 700;
+  letter-spacing: -0.3px; line-height: 1.15;
+  margin-bottom: 8px;
+}
+.read-content .summary {
+  font-size: 15px; color: var(--text-secondary);
+  font-style: italic; line-height: 1.7;
+  margin-bottom: 20px;
+}
+.tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px; }
+.tag {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--accent-muted); color: var(--accent);
+  padding: 3px 8px; border-radius: 4px;
+}
+.read-content h2 {
+  font-family: var(--font-heading);
+  font-size: 22px; font-weight: 600;
+  margin-top: 36px; margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.read-content p { margin-bottom: 14px; color: var(--text-secondary); line-height: 1.7; }
+.read-content strong { color: var(--text); }
+.read-content code {
+  font-family: var(--font-mono); font-size: 13px;
+  background: var(--surface-hover);
+  padding: 2px 6px; border-radius: 4px;
+}
+
+/* Right TOC — B's on-page nav */
+.read-toc-right { position: sticky; top: 72px; align-self: flex-start; }
+.read-toc-right h4 {
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1.2px;
+  color: var(--text-tertiary); margin-bottom: 12px;
+  font-family: var(--font-mono);
+}
+.read-toc-right ul { list-style: none; border-left: 2px solid var(--border); }
+.read-toc-right li {
+  padding: 4px 0 4px 12px; font-size: 12px;
+  color: var(--text-tertiary); cursor: pointer;
+  transition: all 150ms;
+}
+.read-toc-right li:hover { color: var(--text-secondary); }
+.read-toc-right li.active {
+  color: var(--accent);
+  border-left: 2px solid var(--accent);
+  margin-left: -2px;
+}
+
+/* ═══════════════════════════════════════════════
+   GRAPH — A's sidebar + canvas
+   ═══════════════════════════════════════════════ */
+.graph-wrap { display: flex; gap: 16px; height: 520px; }
+.graph-sidebar { width: 200px; flex-shrink: 0; }
+.graph-sidebar input {
+  width: 100%; padding: 8px 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text); font-size: 13px;
+  font-family: var(--font-body);
+  margin-bottom: 12px; outline: none;
+}
+.graph-sidebar input:focus { border-color: var(--accent); }
+.graph-sidebar .tag-list { display: flex; flex-direction: column; gap: 4px; }
+.graph-sidebar .tag-btn {
+  padding: 5px 8px; font-size: 12px;
+  background: none; border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary); cursor: pointer;
+  text-align: left; font-family: var(--font-mono);
+  transition: all 150ms;
+}
+.graph-sidebar .tag-btn:hover { border-color: var(--accent); color: var(--text); }
+.graph-sidebar .tag-btn.active {
+  background: var(--accent-muted);
+  border-color: var(--accent); color: var(--accent);
+}
+.graph-legend {
+  margin-top: 16px; font-size: 11px;
+  color: var(--text-tertiary); font-family: var(--font-mono);
+}
+.graph-legend div { margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.graph-legend .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.graph-canvas {
+  flex: 1; background: #0A0A0A;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  position: relative; overflow: hidden;
+}
+.graph-canvas svg { width: 100%; height: 100%; }
+.graph-node { cursor: pointer; }
+.graph-node circle { transition: r 200ms var(--ease); }
+.graph-node:hover circle { filter: url(#glow); }
+.graph-node text {
+  font-family: var(--font-mono); font-size: 10px;
+  fill: var(--text-secondary);
+}
+.graph-edge { stroke: #333; stroke-width: 1; stroke-opacity: 0.3; }
+
+/* ═══════════════════════════════════════════════
+   SEARCH — A's command palette
+   ═══════════════════════════════════════════════ */
+.search-page { padding-top: 24px; }
+.search-hint-top {
+  text-align: center; margin-bottom: 24px;
+  color: var(--text-tertiary); font-size: 13px;
+}
+.search-hint-top kbd {
+  font-family: var(--font-mono); font-size: 12px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  padding: 2px 6px; border-radius: 4px;
+}
+.search-overlay {
+  background: rgba(15,15,15,0.7);
+  backdrop-filter: blur(8px);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  max-width: 640px; margin: 0 auto;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.5);
+}
+.search-input-wrap {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+}
+.search-input-wrap .search-icon { color: var(--text-tertiary); font-size: 18px; }
+.search-input-wrap input {
+  flex: 1; background: none; border: none;
+  color: var(--text); font-size: 16px;
+  font-family: var(--font-body); outline: none;
+}
+.search-input-wrap input::placeholder { color: var(--text-tertiary); }
+.search-input-wrap kbd {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  padding: 2px 6px; border-radius: 4px;
+  color: var(--text-tertiary);
+}
+.search-results { padding: 8px; }
+.search-group { padding: 8px 12px; }
+.search-group-title {
+  font-family: var(--font-heading);
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+.search-result {
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: background 100ms;
+}
+.search-result:hover { background: var(--surface-hover); }
+.search-result .title { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+.search-result .excerpt { font-size: 12px; color: var(--text-tertiary); }
+.search-result .match {
+  background: var(--accent-strong); color: var(--text);
+  padding: 0 2px; border-radius: 2px;
+}
+
+/* ═══════════════════════════════════════════════
+   FEED — B's timeline on dark
+   ═══════════════════════════════════════════════ */
+.feed-timeline { max-width: 640px; border-left: 2px solid var(--border); margin-left: 100px; }
+.feed-entry { position: relative; padding: 20px 0 20px 28px; }
+.feed-entry::before {
+  content: ''; width: 10px; height: 10px;
+  background: var(--bg); border: 2px solid var(--border);
+  border-radius: 50%; position: absolute;
+  left: -6px; top: 24px;
+}
+.feed-entry:first-child::before {
+  border-color: var(--accent); background: var(--accent-muted);
+}
+.feed-date {
+  position: absolute; left: -130px; top: 20px;
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--text-tertiary);
+  width: 90px; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.feed-entry h4 {
+  font-family: var(--font-heading);
+  font-size: 16px; font-weight: 600;
+  margin-bottom: 6px;
+}
+.feed-entry p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+.feed-tag {
+  display: inline-block; font-family: var(--font-mono);
+  font-size: 10px; padding: 2px 6px;
+  border-radius: 3px; margin-right: 4px;
+}
+.feed-tag.scouted { background: rgba(59,130,246,0.12); color: #60a5fa; }
+.feed-tag.compiled { background: var(--success-muted); color: var(--success); }
+
+/* ═══════════════════════════════════════════════
+   GAPS — A's treemap
+   ═══════════════════════════════════════════════ */
+.gaps-header { margin-bottom: 24px; }
+.gaps-header h2 {
+  font-family: var(--font-heading);
+  font-size: 22px; font-weight: 600;
+  margin-bottom: 6px;
+}
+.gaps-summary {
+  display: flex; gap: 16px;
+  font-size: 13px; color: var(--text-secondary);
+}
+.gaps-summary strong { color: var(--text); }
+.treemap {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.treemap-cell {
+  border-radius: var(--radius-md); padding: 16px;
+  min-height: 100px; display: flex; flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer; transition: all 200ms var(--ease);
+  position: relative;
+}
+.treemap-cell:hover { transform: scale(1.02); }
+.treemap-cell h4 {
+  font-family: var(--font-heading);
+  font-size: 14px; font-weight: 600;
+}
+.treemap-cell .coverage {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-tertiary); margin-top: 8px;
+}
+.treemap-cell.wide { grid-column: span 2; }
+.treemap-cell.full {
+  background: linear-gradient(135deg, rgba(88,204,2,0.15), rgba(88,204,2,0.05));
+  border: 1px solid rgba(88,204,2,0.2);
+}
+.treemap-cell.full h4 { color: var(--success); }
+.treemap-cell.partial {
+  background: linear-gradient(135deg, rgba(255,150,0,0.15), rgba(255,150,0,0.05));
+  border: 1px solid rgba(255,150,0,0.2);
+}
+.treemap-cell.partial h4 { color: var(--warning); }
+.treemap-cell.thin {
+  background: linear-gradient(135deg, rgba(255,75,75,0.15), rgba(255,75,75,0.05));
+  border: 1px solid rgba(255,75,75,0.2);
+}
+.treemap-cell.thin h4 { color: var(--error); }
+.treemap-cell.missing {
+  background: var(--surface); border: 1px dashed var(--border);
+}
+.treemap-cell.missing h4 { color: var(--text-tertiary); }
+.treemap-cell.missing::after {
+  content: ''; position: absolute; inset: 0;
+  border-radius: inherit;
+  animation: pulse 2.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,75,75,0); }
+  50% { box-shadow: 0 0 0 4px rgba(255,75,75,0.1); }
+}
+
+/* ═══════════════════════════════════════════════
+   QUIZ — A's Duolingo buttons + B's clean layout
+   ═══════════════════════════════════════════════ */
+.quiz-wrap { max-width: 520px; margin: 40px auto; text-align: center; }
+.quiz-progress {
+  height: 4px; background: var(--surface);
+  border-radius: 2px; margin-bottom: 28px;
+}
+.quiz-progress-fill {
+  height: 100%; background: var(--accent);
+  border-radius: 2px; width: 20%;
+  transition: width 300ms var(--ease);
+}
+.quiz-counter {
+  font-family: var(--font-mono); font-size: 13px;
+  color: var(--text-tertiary); margin-bottom: 4px;
+}
+.quiz-score {
+  font-size: 12px; color: var(--text-tertiary);
+  margin-bottom: 24px;
+}
+.flashcard { perspective: 1000px; cursor: pointer; margin-bottom: 28px; }
+.flashcard-inner {
+  transition: transform 500ms var(--ease);
+  transform-style: preserve-3d;
+  min-height: 240px; position: relative;
+}
+.flashcard.flipped .flashcard-inner { transform: rotateY(180deg); }
+.flashcard-front, .flashcard-back {
+  backface-visibility: hidden;
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 32px; border-radius: var(--radius-xl);
+}
+.flashcard-front {
+  background: var(--surface);
+  box-shadow: var(--shadow-card), 0 4px 0 var(--surface-overlay);
+  border: 1px solid var(--border);
+  font-family: var(--font-heading);
+  font-size: 19px; font-weight: 500;
+  line-height: 1.5; text-align: center;
+}
+.flashcard-back {
+  background: var(--surface-hover);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
+  transform: rotateY(180deg);
+  font-size: 14px; line-height: 1.7;
+  color: var(--text-secondary); text-align: left;
+}
+.flashcard-back strong { color: var(--text); }
+.flashcard-back code {
+  font-family: var(--font-mono); font-size: 12px;
+  background: var(--surface-overlay);
+  padding: 1px 4px; border-radius: 3px;
+}
+.quiz-buttons { display: flex; gap: 12px; justify-content: center; }
+.quiz-btn {
+  padding: 10px 28px; border-radius: var(--radius-lg);
+  font-size: 14px; font-weight: 600;
+  cursor: pointer; font-family: var(--font-body);
+  transition: all 150ms var(--ease);
+  border: none; position: relative;
+}
+.quiz-btn.got-it {
+  background: var(--success); color: #000;
+  box-shadow: 0 4px 0 #3da601;
+}
+.quiz-btn.got-it:hover { transform: translateY(-1px); }
+.quiz-btn.got-it:active { transform: translateY(2px); box-shadow: 0 1px 0 #3da601; }
+.quiz-btn.review {
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 0 var(--border);
+}
+.quiz-btn.review:hover { transform: translateY(-1px); }
+.quiz-btn.review:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--border); }
+
+/* ═══════════════════════════════════════════════ */
+.screen { display: none; }
+.screen.active { display: block; }
+footer {
+  text-align: center; padding: 32px 28px;
+  font-size: 12px; color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  border-top: 1px solid var(--border);
+  margin-top: 48px;
+}
+</style>
+</head>
+<body>
+
+<div class="option-label">OPTION E: LINEAR EDITORIAL</div>
+
+<nav>
+  <div class="brand">Grimoire</div>
+  <div class="tabs">
+    <button class="tab active" data-screen="hub">Hub</button>
+    <button class="tab" data-screen="read">Read</button>
+    <button class="tab" data-screen="graph">Graph</button>
+    <button class="tab" data-screen="search">Search</button>
+    <button class="tab" data-screen="feed">Feed</button>
+    <button class="tab" data-screen="gaps">Gaps</button>
+    <button class="tab" data-screen="quiz">Quiz</button>
+  </div>
+  <div class="nav-right"><kbd>&#8984;K</kbd></div>
+</nav>
+
+<!-- ═══════════ HUB ═══════════ -->
+<div class="screen active" id="hub">
+<div class="container">
+  <div class="hub-hero">
+    <h1>Model Context Protocol</h1>
+    <p>The MCP specification, server design, TypeScript SDK, tool-response token efficiency, and client integration with Claude Desktop, Claude Code, and Cursor.</p>
+    <div class="hub-stats">
+      <div class="hub-stat"><strong>5</strong>articles</div>
+      <div class="hub-stat"><strong>10</strong>sources</div>
+      <div class="hub-stat"><strong>27</strong>tags</div>
+      <div class="hub-stat"><strong>23</strong>cross-refs</div>
+      <div class="hub-stat"><strong>44%</strong>graph density</div>
+    </div>
+  </div>
+  <div class="bento">
+    <div class="bento-card featured" onclick="switchTo('read')">
+      <div class="badge">Recommended</div>
+      <span class="icon">📖</span>
+      <h3>Read</h3>
+      <p>Articles sorted by graph centrality. Start here for a deep, linear study of the core concepts.</p>
+      <div class="when">Best for: Deep study of key topics</div>
+    </div>
+    <div class="bento-card" onclick="switchTo('graph')"><span class="icon">🕸</span><h3>Graph</h3><p>Force-directed knowledge map showing how articles connect.</p><div class="when">Explore connections</div></div>
+    <div class="bento-card" onclick="switchTo('search')"><span class="icon">🔍</span><h3>Search</h3><p>Full-text search across all articles and tags.</p><div class="when">Find a concept fast</div></div>
+    <div class="bento-card" onclick="switchTo('feed')"><span class="icon">📋</span><h3>Feed</h3><p>Chronological changelog of all activity.</p><div class="when">See what changed</div></div>
+    <div class="bento-card" onclick="switchTo('gaps')"><span class="icon">🔬</span><h3>Gaps</h3><p>Coverage gap analysis by topic area.</p><div class="when">Find thin spots</div></div>
+    <div class="bento-card" onclick="switchTo('quiz')"><span class="icon">🧠</span><h3>Quiz</h3><p>Flashcard-style study quiz with spaced repetition.</p><div class="when">Test understanding</div></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════ READ ═══════════ -->
+<div class="screen" id="read">
+<div class="read-progress"></div>
+<div class="container">
+  <div class="read-3col">
+    <div class="read-sidebar">
+      <h4>Articles</h4>
+      <ul>
+        <li class="active">MCP Overview</li>
+        <li>MCP Transports</li>
+        <li>TypeScript SDK</li>
+        <li>Tool Design Patterns</li>
+        <li>Client Integration</li>
+      </ul>
+    </div>
+    <div class="read-content">
+      <div class="article-meta">
+        <span class="confidence-badge p0">P0</span>
+        <span class="source-count">3 sources</span>
+        <span style="color:var(--text-tertiary);font-size:12px;font-family:var(--font-mono)">4,200 words &middot; 17 min</span>
+      </div>
+      <h1>Model Context Protocol Overview</h1>
+      <div class="tag-row">
+        <span class="tag">mcp</span><span class="tag">protocol</span><span class="tag">architecture</span><span class="tag">json-rpc</span>
+      </div>
+      <div class="summary">MCP is an open JSON-RPC 2.0 protocol connecting LLM applications to external tools, data, and services through a host-client-server architecture with capability negotiation.</div>
+      <h2>Overview</h2>
+      <p>The Model Context Protocol (MCP) is an open protocol that standardizes how LLM applications integrate with external data sources, tools, and services. Originally created by Anthropic and released in November 2024, it was donated to the <strong>Agentic AI Foundation (AAIF)</strong> under the Linux Foundation in December 2025.</p>
+      <p>MCP draws inspiration from the Language Server Protocol (LSP). It defines a universal way to connect LLMs with the context they need, regardless of which host application or server implementation you choose.</p>
+      <h2>How It Works</h2>
+      <p>MCP follows a <strong>client-host-server architecture</strong>:</p>
+      <p>1. <strong>Host</strong> &mdash; the LLM application (Claude Desktop, Claude Code, Cursor). Creates client instances, enforces security policies, coordinates AI sampling.</p>
+      <p>2. <strong>Client</strong> &mdash; a connector within the host. Each client maintains a 1:1 stateful session with one server.</p>
+      <p>3. <strong>Server</strong> &mdash; a service providing context and capabilities. Can be a local subprocess (<code>stdio</code>) or a remote HTTP endpoint.</p>
+      <h2>Key Capabilities</h2>
+      <p>&bull; <strong>Standardized context exchange</strong> &mdash; a single protocol for sharing data, tools, and prompts between any LLM application and any external service</p>
+      <p>&bull; <strong>Security-first design</strong> &mdash; explicit user consent for all tool invocations, data access, and sampling</p>
+      <p>&bull; <strong>Progressive capability negotiation</strong> &mdash; clients and servers declare what they support; unused features cost nothing</p>
+    </div>
+    <div class="read-toc-right">
+      <h4>On this page</h4>
+      <ul>
+        <li class="active">Overview</li>
+        <li>How It Works</li>
+        <li>Key Capabilities</li>
+        <li>Limitations</li>
+        <li>See Also</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════ GRAPH ═══════════ -->
+<div class="screen" id="graph">
+<div class="container">
+  <h2 style="font-family:var(--font-heading);font-size:22px;font-weight:600;margin-bottom:20px">Knowledge Graph</h2>
+  <div class="graph-wrap">
+    <div class="graph-sidebar">
+      <input type="search" placeholder="Filter tags...">
+      <div class="tag-list">
+        <button class="tag-btn active">mcp (5)</button>
+        <button class="tag-btn">tools (2)</button>
+        <button class="tag-btn">transport (2)</button>
+        <button class="tag-btn">typescript (1)</button>
+        <button class="tag-btn">sdk (1)</button>
+        <button class="tag-btn">client (1)</button>
+        <button class="tag-btn">json-rpc (1)</button>
+        <button class="tag-btn">protocol (1)</button>
+      </div>
+      <div class="graph-legend">
+        <div><span class="dot" style="background:var(--accent)"></span> Node size = links</div>
+        <div><span class="dot" style="background:#60a5fa"></span> Color = category</div>
+      </div>
+    </div>
+    <div class="graph-canvas">
+      <svg viewBox="0 0 600 480">
+        <defs>
+          <filter id="glow"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <line class="graph-edge" x1="300" y1="200" x2="200" y2="300"/>
+        <line class="graph-edge" x1="300" y1="200" x2="420" y2="280"/>
+        <line class="graph-edge" x1="300" y1="200" x2="350" y2="350"/>
+        <line class="graph-edge" x1="300" y1="200" x2="160" y2="160"/>
+        <line class="graph-edge" x1="200" y1="300" x2="350" y2="350"/>
+        <line class="graph-edge" x1="420" y1="280" x2="350" y2="350"/>
+        <line class="graph-edge" x1="200" y1="300" x2="160" y2="160"/>
+        <g class="graph-node" transform="translate(300,200)">
+          <circle r="28" fill="var(--accent)" opacity="0.9" filter="url(#glow)"/>
+          <text dy="42" text-anchor="middle">MCP Overview</text>
+        </g>
+        <g class="graph-node" transform="translate(200,300)">
+          <circle r="20" fill="#60a5fa" opacity="0.9" filter="url(#glow)"/>
+          <text dy="34" text-anchor="middle">Transports</text>
+        </g>
+        <g class="graph-node" transform="translate(420,280)">
+          <circle r="22" fill="#a78bfa" opacity="0.9" filter="url(#glow)"/>
+          <text dy="36" text-anchor="middle">TypeScript SDK</text>
+        </g>
+        <g class="graph-node" transform="translate(350,350)">
+          <circle r="18" fill="#f59e0b" opacity="0.9" filter="url(#glow)"/>
+          <text dy="32" text-anchor="middle">Tool Patterns</text>
+        </g>
+        <g class="graph-node" transform="translate(160,160)">
+          <circle r="19" fill="#ec4899" opacity="0.9" filter="url(#glow)"/>
+          <text dy="33" text-anchor="middle">Client Integration</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════ SEARCH ═══════════ -->
+<div class="screen" id="search">
+<div class="container">
+  <div class="search-page">
+    <div class="search-hint-top">Press <kbd>&#8984;K</kbd> to search from anywhere</div>
+    <div class="search-overlay">
+      <div class="search-input-wrap">
+        <span class="search-icon">&#128269;</span>
+        <input type="text" placeholder="Search articles, concepts...">
+        <kbd>ESC</kbd>
+      </div>
+      <div class="search-results">
+        <div class="search-group">
+          <div class="search-group-title">Articles</div>
+          <div class="search-result"><div class="title">Model Context Protocol Overview</div><div class="excerpt">MCP is an open <span class="match">JSON-RPC</span> 2.0 protocol connecting LLM applications to external tools...</div></div>
+          <div class="search-result"><div class="title">MCP Transports</div><div class="excerpt">Two transports: <span class="match">stdio</span> for local subprocess servers and Streamable HTTP...</div></div>
+          <div class="search-result"><div class="title">TypeScript SDK</div><div class="excerpt">The official <span class="match">@modelcontextprotocol/sdk</span> provides McpServer for registering tools...</div></div>
+        </div>
+        <div class="search-group">
+          <div class="search-group-title">Tags</div>
+          <div class="search-result"><div class="title">mcp</div><div class="excerpt">5 articles</div></div>
+          <div class="search-result"><div class="title">transport</div><div class="excerpt">2 articles</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════ FEED ═══════════ -->
+<div class="screen" id="feed">
+<div class="container">
+  <h2 style="font-family:var(--font-heading);font-size:22px;font-weight:600;margin-bottom:32px">Activity Feed</h2>
+  <div class="feed-timeline">
+    <div class="feed-entry">
+      <div class="feed-date">Apr 13, 2026</div>
+      <h4>Rebuilt wiki from real web sources</h4>
+      <p><span class="feed-tag scouted">scouted</span><span class="feed-tag compiled">compiled</span><br>9 real web sources fetched. 5 articles compiled from official MCP spec, TypeScript SDK docs, and community pattern articles.</p>
+    </div>
+    <div class="feed-entry">
+      <div class="feed-date">Apr 11, 2026</div>
+      <h4>Initial bootstrap</h4>
+      <p><span class="feed-tag compiled">compiled</span><br>Created workspace as v0.2.2 validation. Topic: Model Context Protocol for AI engineers.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════ GAPS ═══════════ -->
+<div class="screen" id="gaps">
+<div class="container">
+  <div class="gaps-header">
+    <h2>Coverage Map</h2>
+    <div class="gaps-summary">
+      <span><strong>5</strong> articles</span>
+      <span><strong>27</strong> tags</span>
+      <span><strong>3</strong> thin topics</span>
+      <span><strong>2</strong> missing</span>
+    </div>
+  </div>
+  <div class="treemap">
+    <div class="treemap-cell full wide"><h4>mcp</h4><div class="coverage">5 articles &middot; 100%</div></div>
+    <div class="treemap-cell full"><h4>tools</h4><div class="coverage">2 articles &middot; 80%</div></div>
+    <div class="treemap-cell partial"><h4>transport</h4><div class="coverage">2 articles &middot; 60%</div></div>
+    <div class="treemap-cell partial"><h4>design-patterns</h4><div class="coverage">1 article &middot; 40%</div></div>
+    <div class="treemap-cell thin"><h4>token-efficiency</h4><div class="coverage">1 article &middot; 20%</div></div>
+    <div class="treemap-cell thin"><h4>context-window</h4><div class="coverage">1 article &middot; 15%</div></div>
+    <div class="treemap-cell missing"><h4>oauth</h4><div class="coverage">0 articles &middot; missing</div></div>
+    <div class="treemap-cell missing"><h4>tasks-primitive</h4><div class="coverage">0 articles &middot; missing</div></div>
+    <div class="treemap-cell full"><h4>architecture</h4><div class="coverage">2 articles &middot; 75%</div></div>
+    <div class="treemap-cell partial"><h4>json-rpc</h4><div class="coverage">1 article &middot; 50%</div></div>
+    <div class="treemap-cell thin"><h4>streaming</h4><div class="coverage">1 article &middot; 25%</div></div>
+    <div class="treemap-cell full"><h4>client</h4><div class="coverage">2 articles &middot; 70%</div></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════ QUIZ ═══════════ -->
+<div class="screen" id="quiz">
+<div class="container">
+  <div class="quiz-wrap">
+    <div class="quiz-progress"><div class="quiz-progress-fill"></div></div>
+    <div class="quiz-counter">1 / 25</div>
+    <div class="quiz-score">0 correct &middot; 0 to review</div>
+    <div class="flashcard" onclick="this.classList.toggle('flipped')">
+      <div class="flashcard-inner">
+        <div class="flashcard-front">Why was Model Context Protocol created and what problem does it solve?</div>
+        <div class="flashcard-back">
+          <div>
+            <strong>Key points:</strong><br><br>
+            &bull; Standardizes how LLM apps connect to external tools and data<br>
+            &bull; Eliminates per-integration glue code &mdash; one protocol for all<br>
+            &bull; Inspired by LSP for IDEs<br>
+            &bull; Uses <code>JSON-RPC 2.0</code> with capability negotiation
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="quiz-buttons">
+      <button class="quiz-btn got-it">Got it</button>
+      <button class="quiz-btn review">Review again</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<footer>Generated 2026-04-13 &middot; 5 articles &middot; Built with Grimoire</footer>
+
+<script>
+function switchTo(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(screen).classList.add('active');
+  document.querySelector(`[data-screen="${screen}"]`).classList.add('active');
+}
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => switchTo(t.dataset.screen));
+});
+document.querySelectorAll('.graph-sidebar .tag-btn').forEach(b => {
+  b.addEventListener('click', () => b.classList.toggle('active'));
+});
+document.querySelectorAll('.read-sidebar li').forEach(li => {
+  li.addEventListener('click', () => {
+    document.querySelectorAll('.read-sidebar li').forEach(l => l.classList.remove('active'));
+    li.classList.add('active');
+  });
+});
+document.querySelectorAll('.read-toc-right li').forEach(li => {
+  li.addEventListener('click', () => {
+    document.querySelectorAll('.read-toc-right li').forEach(l => l.classList.remove('active'));
+    li.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 {
   "name": "grimoire",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Knowledge base builder — scouts sources, compiles wiki articles, generates study frontends, serves via MCP",
   "author": {
     "name": "Ved",
