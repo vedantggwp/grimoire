@@ -26,33 +26,97 @@ function esc(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function computeStats(data: SiteData): { articleCount: number; sourceCount: number; tagCount: number; crossRefs: number; density: number } {
+  const articleCount = data.articles.length;
+  const sourceCount = data.articles.reduce((s, a) => s + a.sources.length, 0);
+  const tags = new Set(data.articles.flatMap(a => [...a.tags]));
+  // De-duplicate edges into undirected pairs — two markdown links from
+  // A->B and B->A (or A->B twice) should count as one cross-reference.
+  // Density is then this unique-pair count over the max possible for
+  // the filtered content-only node set, capped at 100 for display.
+  const uniquePairs = new Set<string>();
+  for (const edge of data.graphData.edges) {
+    const pair = [edge.source, edge.target].sort().join('::');
+    uniquePairs.add(pair);
+  }
+  const crossRefs = uniquePairs.size;
+  const n = data.graphData.nodes.length;
+  const maxEdges = n > 1 ? (n * (n - 1)) / 2 : 1;
+  const density = n > 1 ? Math.min(100, Math.round((crossRefs / maxEdges) * 100)) : 0;
+  return { articleCount, sourceCount, tagCount: tags.size, crossRefs, density };
+}
+
+function recommendedMode(data: SiteData): string {
+  if (data.articles.length < 5) return 'read';
+  const nodes = data.graphData.nodes.length;
+  const density = nodes > 1 ? data.graphData.edges.length / (nodes * (nodes - 1) / 2) : 0;
+  if (data.articles.length >= 15 && density > 0.3) return 'graph';
+  return 'read';
+}
+
 function generateHub(data: SiteData, config: DesignConfig): string {
   const modes = [
-    { id: 'read', title: 'Read', desc: 'Linear reading view sorted by centrality' },
-    { id: 'graph', title: 'Graph', desc: 'Force-directed knowledge graph' },
-    { id: 'search', title: 'Search', desc: 'Full-text search across all articles' },
-    { id: 'feed', title: 'Feed', desc: 'Chronological changelog timeline' },
-    { id: 'gaps', title: 'Gaps', desc: 'Coverage gap analysis by tag' },
-    { id: 'quiz', title: 'Quiz', desc: 'Flashcard quiz from article sections' },
+    { id: 'read', title: 'Read', icon: '📖', desc: 'Articles sorted by graph centrality. Start here for a deep, linear study of the core concepts.', when: 'Deep study of key topics' },
+    { id: 'graph', title: 'Graph', icon: '🕸', desc: 'Force-directed knowledge map showing how articles connect.', when: 'Explore connections' },
+    { id: 'search', title: 'Search', icon: '🔍', desc: 'Full-text search across all articles and tags.', when: 'Find a concept fast' },
+    { id: 'feed', title: 'Feed', icon: '📋', desc: 'Chronological changelog of all activity.', when: 'See what changed' },
+    { id: 'gaps', title: 'Gaps', icon: '🔬', desc: 'Coverage gap analysis by topic area.', when: 'Find thin spots' },
+    { id: 'quiz', title: 'Quiz', icon: '🧠', desc: 'Flashcard-style study quiz.', when: 'Test understanding' },
   ];
 
-  const cards = modes.map(m =>
-    `<a href="${m.id}/" class="card" style="text-decoration:none;color:inherit">
-      <h2 style="font-size:var(--text-lg);margin-bottom:var(--space-2)">${esc(m.title)}</h2>
-      <p style="color:var(--color-muted);font-size:var(--text-sm)">${esc(m.desc)}</p>
-    </a>`
-  ).join('\n    ');
+  const stats = computeStats(data);
+  const recommended = recommendedMode(data);
 
+  // Top articles by centrality score for the featured-card preview list.
+  const topArticles = [...data.articles]
+    .map(a => ({
+      article: a,
+      score: a.linksTo.length + data.articles.filter(x => x.linksTo.includes(a.slug)).length,
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4)
+    .map(x => x.article);
+
+  const cards = modes.map(m => {
+    const isFeatured = m.id === recommended;
+    const featuredClass = isFeatured ? ' featured' : '';
+    const badge = isFeatured ? `\n      <div class="badge">Recommended</div>` : '';
+    const preview = isFeatured && topArticles.length > 0
+      ? `\n      <ul class="bento-preview">${topArticles
+          .map(a => `<li><span class="bento-preview__num">${topArticles.indexOf(a) + 1}</span>${esc(a.title)}</li>`)
+          .join('')}</ul>`
+      : '';
+    return `<a href="${m.id}/index.html" class="bento-card${featuredClass}">${badge}
+      <span class="icon">${m.icon}</span>
+      <h3>${esc(m.title)}</h3>
+      <p>${esc(m.desc)}</p>${preview}
+      <div class="when">Best for: ${esc(m.when)}</div>
+    </a>`;
+  }).join('\n    ');
+
+  const statItems = [
+    { label: 'articles', value: String(stats.articleCount) },
+    { label: 'sources', value: String(stats.sourceCount) },
+    { label: 'tags', value: String(stats.tagCount) },
+    { label: 'cross-refs', value: String(stats.crossRefs) },
+    { label: 'graph density', value: `${stats.density}%` },
+  ].map(s =>
+    `<div class="hub-stat"><strong>${esc(s.value)}</strong>${esc(s.label)}</div>`
+  ).join('\n      ');
+
+  // Hub leads with the subtitle, not a duplicate of the topic name.
+  // The topic name already lives in the nav brand, so we skip the H1 here
+  // and let the "in-scope" line act as the orientation text for the page.
   const body = `
-<div style="padding:var(--space-8) 0">
-  <div class="content-column" style="text-align:center;margin-bottom:var(--space-8)">
-    <h1 style="margin-bottom:var(--space-2)">${esc(data.schema.topic)}</h1>
-    <p style="color:var(--color-muted)">${data.articles.length} articles &middot; ${esc(String(data.schema.audience))} level</p>
+<div class="hub-hero">
+    <p class="hub-lead">${esc(data.schema.scope.in)}</p>
+    <div class="hub-stats">
+      ${statItems}
+    </div>
   </div>
-  <div class="grid grid--3">
+  <div class="bento">
     ${cards}
-  </div>
-</div>`;
+  </div>`;
 
   return hubShell(data.schema.topic, body, config, data);
 }

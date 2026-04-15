@@ -106,7 +106,7 @@ describe('examples/mcp — end-to-end smoke test', () => {
       const html = readFileSync(join(SITE_DIR, 'read/index.html'), 'utf-8');
       // Verify at least one article summary is rendered
       expect(html).toContain('MCP is an open JSON-RPC 2.0 protocol');
-      expect(html).toContain('article__summary');
+      expect(html).toContain('class="summary"');
     });
   });
 

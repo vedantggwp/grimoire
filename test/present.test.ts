@@ -120,16 +120,15 @@ describe('present', () => {
       expect(css).toContain('.theme-dark');
     });
 
-    it('includes spacing scale variables', () => {
+    it('includes layout variables', () => {
       const css = readSiteFile('assets/style.css');
-      expect(css).toContain('--space-1:');
-      expect(css).toContain('--space-12:');
+      expect(css).toContain('--container-max:');
+      expect(css).toContain('--radius-md:');
     });
 
-    it('includes motion variables', () => {
+    it('includes easing variable', () => {
       const css = readSiteFile('assets/style.css');
-      expect(css).toContain('--transition-fast:');
-      expect(css).toContain('--transition-normal:');
+      expect(css).toContain('--ease:');
     });
 
     it('includes print styles', () => {
@@ -144,10 +143,8 @@ describe('present', () => {
 
     it('includes responsive breakpoints', () => {
       const css = readSiteFile('assets/style.css');
-      expect(css).toContain('min-width: 640px');
-      expect(css).toContain('min-width: 768px');
-      expect(css).toContain('min-width: 1024px');
-      expect(css).toContain('min-width: 1280px');
+      expect(css).toContain('max-width: 1023px');
+      expect(css).toContain('max-width: 767px');
     });
   });
 
@@ -159,12 +156,12 @@ describe('present', () => {
 
     it('links to all 6 modes', () => {
       const html = readSiteFile('index.html');
-      expect(html).toContain('href="read/"');
-      expect(html).toContain('href="graph/"');
-      expect(html).toContain('href="search/"');
-      expect(html).toContain('href="feed/"');
-      expect(html).toContain('href="gaps/"');
-      expect(html).toContain('href="quiz/"');
+      expect(html).toContain('href="read/index.html"');
+      expect(html).toContain('href="graph/index.html"');
+      expect(html).toContain('href="search/index.html"');
+      expect(html).toContain('href="feed/index.html"');
+      expect(html).toContain('href="gaps/index.html"');
+      expect(html).toContain('href="quiz/index.html"');
     });
 
     it('includes theme toggle', () => {
@@ -193,8 +190,8 @@ describe('present', () => {
 
     it('has table of contents', () => {
       const html = readSiteFile('read/index.html');
-      expect(html).toContain('id="toc"');
-      expect(html).toContain('toc__link');
+      expect(html).toContain('read-sidebar');
+      expect(html).toContain('read-toc-right');
     });
 
     it('has progress bar', () => {
@@ -238,7 +235,7 @@ describe('present', () => {
 
     it('has tag filter buttons', () => {
       const html = readSiteFile('graph/index.html');
-      expect(html).toContain('graph-tag-filter');
+      expect(html).toContain('tag-btn');
     });
 
     it('has detail panel', () => {
@@ -263,46 +260,55 @@ describe('present', () => {
     it('implements debounced search in vanilla JS', () => {
       const html = readSiteFile('search/index.html');
       expect(html).toContain('setTimeout');
-      expect(html).toContain('300');
+      // The debounce closes with a numeric literal ≥100ms — pinning the exact
+      // value made this test brittle when the UX cadence was tuned.
+      expect(/},\s*(1[0-9]{2}|[2-9][0-9]{2}|[0-9]{4})\s*\)/.test(html)).toBe(true);
     });
   });
 
   describe('feed mode', () => {
     it('shows changelog entries', () => {
       const html = readSiteFile('feed/index.html');
-      expect(html).toContain('2026-04-01');
+      expect(html).toContain('Apr 1, 2026');
       expect(html).toContain('React Documentation');
     });
 
     it('has timeline structure', () => {
       const html = readSiteFile('feed/index.html');
-      expect(html).toContain('timeline-entry');
+      expect(html).toContain('feed-timeline');
+      expect(html).toContain('feed-entry');
     });
 
     it('most recent entries first', () => {
       const html = readSiteFile('feed/index.html');
-      const idx03 = html.indexOf('2026-04-03');
-      const idx01 = html.indexOf('2026-04-01');
+      const idx03 = html.indexOf('Apr 3, 2026');
+      const idx01 = html.indexOf('Apr 1, 2026');
       expect(idx03).toBeLessThan(idx01);
     });
   });
 
   describe('gaps mode', () => {
-    it('shows tag-based cards', () => {
+    it('shows tag data in the treemap payload', () => {
       const html = readSiteFile('gaps/index.html');
       expect(html).toContain('reactivity');
       expect(html).toContain('articles');
-      expect(html).toContain('words');
+      // New D3 treemap embeds tag data in a window global that the
+      // client-side script reads into d3.hierarchy.
+      expect(html).toContain('window.GAPS_DATA');
     });
 
-    it('uses grid layout', () => {
+    it('uses the D3 treemap container and legend', () => {
       const html = readSiteFile('gaps/index.html');
-      expect(html).toContain('grid grid--3');
+      expect(html).toContain('class="treemap-container"');
+      expect(html).toContain('class="gaps-legend"');
     });
 
-    it('identifies tags needing expansion', () => {
+    it('classifies coverage tiers in the payload', () => {
       const html = readSiteFile('gaps/index.html');
-      expect(html).toContain('Needs expansion');
+      // The serialized cells include a tier per tag — at least one should
+      // be full/partial/thin/missing for a non-empty sample wiki.
+      const hasTier = /"tier":"(full|partial|thin|missing)"/.test(html);
+      expect(hasTier).toBe(true);
     });
   });
 
@@ -312,11 +318,14 @@ describe('present', () => {
       expect(html).toContain('window.QUIZ_CARDS');
     });
 
-    it('has flashcard UI elements', () => {
+    it('has Anki-style quiz UI elements', () => {
       const html = readSiteFile('quiz/index.html');
-      expect(html).toContain('id="flashcard"');
-      expect(html).toContain('id="card-front"');
-      expect(html).toContain('id="card-back"');
+      // New Anki-style reveal: question + hidden answer + show button.
+      // Replaced the 3D flip card (id="flashcard"/"card-front"/"card-back").
+      expect(html).toContain('id="quiz-card"');
+      expect(html).toContain('id="quiz-question"');
+      expect(html).toContain('id="quiz-answer"');
+      expect(html).toContain('id="btn-show"');
     });
 
     it('has got-it and review buttons', () => {

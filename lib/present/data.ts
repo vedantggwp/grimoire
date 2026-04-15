@@ -27,6 +27,13 @@ function stripFrontmatter(md: string): string {
   return md.replace(/^---[\s\S]*?---\n*/, '');
 }
 
+// Strip the leading <h1>…</h1> from rendered article HTML. Articles keep their
+// own `# Title` in markdown so they stand alone outside the site, but the
+// rendered page template already emits a single <h1>, so we avoid duplication.
+function stripLeadingH1(html: string): string {
+  return html.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>\s*/, '');
+}
+
 function parseLogEntries(logMd: string): readonly LogEntry[] {
   const entries: LogEntry[] = [];
   const regex = /^## (\d{4}-\d{2}-\d{2}) — (.+)$/gm;
@@ -83,6 +90,10 @@ function parseSchema(content: string): SiteData['schema'] {
 // --- File discovery (supports taxonomy subdirectories) ---
 
 const SKIP_FILES = new Set(['log.md', 'index.md', 'overview.md']);
+
+// Slugs that compile emits as graph nodes but are not content articles.
+// Must mirror SKIP_FILES minus the `.md` — shared loader + graph filter.
+const SUPPORT_SLUGS = new Set(['log', 'index', 'overview']);
 
 function collectMdFiles(dir: string, baseDir: string): string[] {
   const results: string[] = [];
@@ -169,7 +180,7 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
       title: manifest.title,
       summary: manifest.summary ?? '',
       tags: manifest.tags,
-      html: parsed.html,
+      html: stripLeadingH1(parsed.html),
       wordCount: manifest.wordCount,
       readingTime: manifest.readingTime,
       linksTo: manifest.linksTo,
@@ -179,24 +190,29 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
     });
   }
 
-  // Build graph data
-  const graphNodes: GraphNodeData[] = Object.values(graphRaw.nodes).map(n => {
-    const manifest = notesManifest.find(m => m.slug === n.id);
-    return {
-      id: n.id,
-      label: n.label,
-      linkCount: n.linkCount,
-      backlinkCount: n.backlinkCount,
-      forwardLinkCount: n.forwardLinkCount,
-      tags: manifest?.tags ?? [],
-      wordCount: manifest?.wordCount ?? 0,
-    };
-  });
+  // Build graph data — exclude support pages from both nodes and edges
+  // so graph mode, density stats, and centrality reflect content only.
+  const graphNodes: GraphNodeData[] = Object.values(graphRaw.nodes)
+    .filter(n => !SUPPORT_SLUGS.has(n.id))
+    .map(n => {
+      const manifest = notesManifest.find(m => m.slug === n.id);
+      return {
+        id: n.id,
+        label: n.label,
+        linkCount: n.linkCount,
+        backlinkCount: n.backlinkCount,
+        forwardLinkCount: n.forwardLinkCount,
+        tags: manifest?.tags ?? [],
+        wordCount: manifest?.wordCount ?? 0,
+      };
+    });
 
-  const graphEdges: GraphEdgeData[] = graphRaw.edges.map(e => ({
-    source: e.source,
-    target: e.target,
-  }));
+  const graphEdges: GraphEdgeData[] = graphRaw.edges
+    .filter(e => !SUPPORT_SLUGS.has(e.source) && !SUPPORT_SLUGS.has(e.target))
+    .map(e => ({
+      source: e.source,
+      target: e.target,
+    }));
 
   const graphData: GraphData = { nodes: graphNodes, edges: graphEdges };
 

@@ -1,8 +1,9 @@
 /**
  * present — Read mode
  *
- * Linear reading view: articles sorted by centrality,
- * TOC sidebar, progress bar, next/previous navigation.
+ * 3-column editorial layout: article nav sidebar (left),
+ * article content (center, max 680px), on-page TOC (right).
+ * Shows one article at a time with show/hide navigation.
  */
 
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
@@ -33,17 +34,35 @@ function esc(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function buildTOC(sorted: readonly ArticleData[]): string {
-  const items = sorted.map(a =>
-    `<li><a href="#${esc(a.slug)}" class="toc__link" data-target="${esc(a.slug)}">${esc(a.title)}</a></li>`
-  ).join('\n      ');
+function buildLeftSidebar(sorted: readonly ArticleData[]): string {
+  const items = sorted.map((a, i) =>
+    `<li data-article="${esc(a.slug)}"${i === 0 ? ' class="active"' : ''}>${esc(a.title)}</li>`
+  ).join('\n        ');
 
-  return `<aside class="read__toc" id="toc">
-    <button class="read__toc-toggle btn" id="toc-toggle" aria-label="Toggle table of contents">Contents</button>
-    <ol class="read__toc-list" id="toc-list">
-      ${items}
-    </ol>
-  </aside>`;
+  return `<div class="read-sidebar">
+      <h4>Articles</h4>
+      <ul>
+        ${items}
+      </ul>
+    </div>`;
+}
+
+function buildRightTOC(article: ArticleData): string {
+  const headings = article.headings.filter(h => h.level === 2);
+  const items = headings.map((h, i) =>
+    `<li data-heading="${esc(slugify(h.text))}"${i === 0 ? ' class="active"' : ''}>${esc(h.text)}</li>`
+  ).join('\n          ');
+
+  return `<ul>
+          ${items}
+        </ul>`;
+}
+
+function confidenceBadgeClass(confidence: string): string {
+  const lower = confidence.toLowerCase();
+  if (lower === 'p0' || lower === 'high') return 'p0';
+  if (lower === 'p1' || lower === 'medium') return 'p1';
+  return 'p2';
 }
 
 function buildArticleSection(
@@ -52,95 +71,147 @@ function buildArticleSection(
   total: number,
   sorted: readonly ArticleData[],
 ): string {
-  const tags = article.tags.map(t => `<span class="tag">${esc(t)}</span>`).join(' ');
-  const meta = [
-    `${article.wordCount} words`,
-    `${article.readingTime} min read`,
-    article.confidence ? `Confidence: ${esc(article.confidence)}` : '',
-  ].filter(Boolean).join(' &middot; ');
-
-  const prevLink = index > 0
-    ? `<a href="#${esc(sorted[index - 1].slug)}" class="btn">&larr; ${esc(sorted[index - 1].title)}</a>`
-    : '<span></span>';
-  const nextLink = index < total - 1
-    ? `<a href="#${esc(sorted[index + 1].slug)}" class="btn">${esc(sorted[index + 1].title)} &rarr;</a>`
-    : '<span></span>';
+  const tags = article.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('');
+  const confidenceBadge = article.confidence
+    ? `<span class="confidence-badge ${confidenceBadgeClass(article.confidence)}">${esc(article.confidence)}</span>`
+    : '';
+  const sourcesBadge = article.sources.length > 0
+    ? `<span class="source-count">${article.sources.length} source${article.sources.length !== 1 ? 's' : ''}</span>`
+    : '';
+  const wordsMeta = `<span style="color:var(--text-tertiary);font-size:12px;font-family:var(--font-mono)">${article.wordCount} words &middot; ${article.readingTime} min</span>`;
 
   const summaryBlock = article.summary
-    ? `<p class="article__summary" style="font-size:var(--text-lg);color:var(--color-muted);font-style:italic;margin:var(--space-3) 0 var(--space-5)">${esc(article.summary)}</p>`
+    ? `<div class="summary">${esc(article.summary)}</div>`
     : '';
 
-  return `<article class="article" id="${esc(article.slug)}">
-  <header>
-    <h2>${esc(article.title)}</h2>
-    <div class="article__meta">${tags} <span style="color:var(--color-muted);font-size:var(--text-sm)">${meta}</span></div>
-    ${summaryBlock}
-  </header>
-  <div class="article__content content-column">
-    ${article.html}
-  </div>
-  <nav class="article__nav" style="display:flex;justify-content:space-between;padding:var(--space-4) 0">
-    ${prevLink}
-    ${nextLink}
-  </nav>
-</article>`;
+  const prevLink = index > 0
+    ? `<a href="#" class="btn read-nav-btn" data-article="${esc(sorted[index - 1].slug)}">&larr; ${esc(sorted[index - 1].title)}</a>`
+    : '<span></span>';
+  const nextLink = index < total - 1
+    ? `<a href="#" class="btn read-nav-btn" data-article="${esc(sorted[index + 1].slug)}">${esc(sorted[index + 1].title)} &rarr;</a>`
+    : '<span></span>';
+
+  return `<article class="article" id="${esc(article.slug)}" data-slug="${esc(article.slug)}" style="${index > 0 ? 'display:none' : ''}">
+      <div class="article-meta">
+        ${confidenceBadge}
+        ${sourcesBadge}
+        ${wordsMeta}
+      </div>
+      <h1>${esc(article.title)}</h1>
+      <div class="tag-row">${tags}</div>
+      ${summaryBlock}
+      <div class="article-body">
+        ${article.html}
+      </div>
+      <nav class="article__nav" style="display:flex;justify-content:space-between;padding:16px 0;margin-top:32px;border-top:1px solid var(--border)">
+        ${prevLink}
+        ${nextLink}
+      </nav>
+    </article>`;
 }
 
-function readModeScript(): string {
+// Styles are in the main stylesheet (css.ts) — no inline styles needed
+
+function readModeScript(sorted: readonly ArticleData[]): string {
+  const tocData = JSON.stringify(
+    sorted.map(a => ({
+      slug: a.slug,
+      headings: a.headings.filter(h => h.level === 2).map(h => ({
+        text: h.text,
+        id: slugify(h.text),
+      })),
+    }))
+  );
+
   return `<script>
 (function() {
-  // Progress bar
+  var tocData = ${tocData};
   var bar = document.getElementById('read-progress');
+  var articles = document.querySelectorAll('.read-content .article');
+  var sidebarItems = document.querySelectorAll('.read-sidebar li');
+  var tocRight = document.querySelector('.read-toc-right');
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Progress bar
   function updateProgress() {
     var h = document.documentElement.scrollHeight - window.innerHeight;
     var pct = h > 0 ? (window.scrollY / h) * 100 : 0;
-    bar.style.width = pct + '%';
+    if (bar) bar.style.width = pct + '%';
   }
   window.addEventListener('scroll', updateProgress, { passive: true });
 
-  // TOC highlighting
-  var articles = document.querySelectorAll('.article');
-  var tocLinks = document.querySelectorAll('.toc__link');
-  var observer = new IntersectionObserver(function(entries) {
+  // Switch article
+  function showArticle(slug) {
+    articles.forEach(function(a) {
+      a.style.display = a.dataset.slug === slug ? '' : 'none';
+    });
+    sidebarItems.forEach(function(li) {
+      li.classList.toggle('active', li.dataset.article === slug);
+    });
+    // Update right TOC
+    var entry = tocData.find(function(t) { return t.slug === slug; });
+    if (entry && tocRight) {
+      var items = entry.headings.map(function(h, i) {
+        return '<li data-heading="' + esc(h.id) + '"' + (i === 0 ? ' class="active"' : '') + '>' + esc(h.text) + '</li>';
+      }).join('');
+      tocRight.querySelector('ul').innerHTML = items;
+      bindTocClicks();
+    }
+    window.scrollTo(0, 0);
+  }
+
+  // Sidebar click
+  sidebarItems.forEach(function(li) {
+    li.addEventListener('click', function() {
+      showArticle(li.dataset.article);
+    });
+  });
+
+  // Next/prev nav buttons
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.read-nav-btn');
+    if (btn) {
+      e.preventDefault();
+      showArticle(btn.dataset.article);
+    }
+  });
+
+  // Right TOC click — scroll to heading
+  function bindTocClicks() {
+    var tocItems = tocRight ? tocRight.querySelectorAll('li') : [];
+    tocItems.forEach(function(li) {
+      li.addEventListener('click', function() {
+        var id = li.dataset.heading;
+        var el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  }
+  bindTocClicks();
+
+  // TOC highlight on scroll (observe h2 within visible article)
+  var headingObserver = new IntersectionObserver(function(entries) {
     entries.forEach(function(entry) {
-      if (entry.isIntersecting) {
-        tocLinks.forEach(function(l) { l.classList.remove('nav__link--active'); });
-        var active = document.querySelector('.toc__link[data-target="' + entry.target.id + '"]');
-        if (active) active.classList.add('nav__link--active');
+      if (entry.isIntersecting && tocRight) {
+        var tocItems = tocRight.querySelectorAll('li');
+        tocItems.forEach(function(l) { l.classList.remove('active'); });
+        var active = tocRight.querySelector('li[data-heading="' + entry.target.id + '"]');
+        if (active) active.classList.add('active');
       }
     });
   }, { rootMargin: '-20% 0px -60% 0px' });
-  articles.forEach(function(a) { observer.observe(a); });
 
-  // Mobile TOC toggle
-  var toggle = document.getElementById('toc-toggle');
-  var list = document.getElementById('toc-list');
-  toggle.addEventListener('click', function() {
-    list.classList.toggle('read__toc-list--open');
+  // Observe headings in all articles (only visible ones will fire)
+  articles.forEach(function(a) {
+    a.querySelectorAll('h2[id]').forEach(function(h) {
+      headingObserver.observe(h);
+    });
   });
 })();
 </script>`;
-}
-
-function readModeStyles(): string {
-  return `<style>
-  .read__layout { display: flex; gap: var(--space-6); }
-  .read__toc {
-    position: sticky; top: 60px; align-self: flex-start;
-    width: var(--sidebar-width); flex-shrink: 0;
-  }
-  .read__toc-list { list-style: decimal; padding-left: var(--space-4); font-size: var(--text-sm); }
-  .read__toc-list li { margin-bottom: var(--space-2); }
-  .read__toc-toggle { display: none; }
-  .read__main { flex: 1; min-width: 0; }
-  @media (max-width: 767px) {
-    .read__layout { flex-direction: column; }
-    .read__toc { position: relative; top: 0; width: 100%; }
-    .read__toc-toggle { display: block; width: 100%; margin-bottom: var(--space-2); }
-    .read__toc-list { display: none; }
-    .read__toc-list--open { display: block; }
-  }
-</style>`;
 }
 
 export function generateReadMode(data: SiteData, config: DesignConfig): string {
@@ -150,16 +221,21 @@ export function generateReadMode(data: SiteData, config: DesignConfig): string {
     buildArticleSection(a, i, sorted.length, sorted)
   ).join('\n');
 
+  const firstArticleTOC = sorted.length > 0 ? buildRightTOC(sorted[0]) : '<ul></ul>';
+
   const body = `
-<div class="read-progress" id="read-progress" style="position:fixed;top:0;left:0;height:3px;background:var(--color-accent);z-index:200;width:0%;transition:width 100ms linear"></div>
-${readModeStyles()}
-<div class="read__layout">
-  ${buildTOC(sorted)}
-  <div class="read__main">
+<div class="read-progress" id="read-progress"></div>
+<div class="read-3col">
+  ${buildLeftSidebar(sorted)}
+  <div class="read-content">
     ${articleSections}
   </div>
+  <div class="read-toc-right">
+    <h4>On this page</h4>
+    ${firstArticleTOC}
+  </div>
 </div>
-${readModeScript()}`;
+${readModeScript(sorted)}`;
 
   return pageShell(`${data.schema.topic} — Read`, 'read', body, config, data);
 }
