@@ -7,11 +7,15 @@ Grimoire frontends must be beautiful. Not "AI slop." Not generic templates. Dist
 Every Grimoire wiki has `_config/design.md` that sets visual identity:
 
 ```yaml
-palette: midnight-teal
-typography: editorial
+palette: linear-editorial
+typography: linear-editorial
 motion: subtle
 density: comfortable
 ```
+
+`linear-editorial` is the shipping default (Source Serif 4 + Inter, dual-theme, WCAG AA).
+Available palettes: `linear-editorial`, `midnight-teal`, `noir-cinematic`, `cold-steel`, `warm-concrete`, `electric-dusk`, `smoke-light`, `obsidian-chalk`.
+Available typography sets: `linear-editorial`, `editorial`, `technical`, `minimal`, `playful`, `brutalist`.
 
 See `_config/design.md` for all options and descriptions.
 

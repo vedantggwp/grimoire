@@ -1,8 +1,20 @@
 # Grimoire
 
-Your knowledge, structured for machines and humans.
+**Your knowledge, structured for machines and humans.**
 
-Grimoire is a Claude Code plugin that turns a topic into a structured knowledge base. It runs a five-stage pipeline — **scout** the web for sources, **ingest** them into wiki articles, **compile** a cross-referenced graph, **present** a study-oriented static frontend, and **serve** the whole thing to LLMs over MCP. Every stage is an editable markdown checkpoint, so humans stay in the loop between steps. The result is a local-first, LLM-readable wiki that compounds over time.
+[![Version](https://img.shields.io/badge/version-0.2.3-0d9488)](https://github.com/vedantggwp/grimoire/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![Tests](https://img.shields.io/badge/tests-129%20passing-16a34a)](./test) [![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-plugin-1a1a1a)](https://github.com/vedantggwp/athanor)
+
+Grimoire turns any topic into a structured, compounding knowledge base. It's a Claude Code plugin that runs a five-stage pipeline — **scout** the web for sources, **ingest** them into wiki articles, **compile** a cross-referenced graph, **present** a study-oriented static frontend, and **serve** the whole thing to LLMs over MCP.
+
+Every handoff between stages is a plain markdown file you can edit. Scout, ingest, and present all pause for your review before the next stage runs, so humans stay in control. The output is **local-first**, **LLM-readable**, and **yours** — a wiki you own on disk, a website you open from `file://`, and an MCP server any LLM client can query.
+
+```
+/plugin marketplace add vedantggwp/athanor
+/plugin install grimoire@athanor
+/grimoire:init
+```
+
+— or in natural language to Claude Code: *"Create a new grimoire about reinforcement learning from human feedback."*
 
 ## Install
 
@@ -114,18 +126,58 @@ serve    MCP server over stdio
 
 Every handoff between stages is a plain markdown or JSON file you can inspect and edit. Scout, ingest, and present all have mandatory human checkpoints — you review before the next stage runs.
 
+## Example use cases
+
+Grimoire is built for people who want to **understand something deeply** and end up with a structured artifact they keep.
+
+#### Learn a new technology in depth
+
+You want to understand WebGPU, CRDTs, Rust async, or reinforcement learning from the ground up. Grimoire scouts the best specs, papers, and tutorials; scores them; compiles a linked wiki ordered by graph centrality; and lets you quiz yourself on what you just read. The MCP server plugs into Claude so you can ask questions and get answers grounded in your own curated sources, not the open web.
+
+```
+/grimoire:init      # "A deep study of WebGPU for engineers building compute shaders"
+/grimoire:scout     # finds the WebGPU spec, W3C drafts, Chrome dev blog, conference talks
+/grimoire:ingest    # fetches, preserves raw, writes 8–12 cross-linked articles
+/grimoire:compile   # builds the graph, surfaces gaps you didn't realize you had
+/grimoire:present   # opens a study-oriented site in your browser
+```
+
+#### Onboard to a new codebase's ecosystem
+
+New job, new stack. Build a grimoire about the frameworks, tools, and conventions your team uses. Commit it to the repo next to `CLAUDE.md`. Every new hire after you gets a local wiki *and* an LLM expert for the stack — and when someone updates a tool, they update the grimoire in the same PR.
+
+#### Research a market or product space before building
+
+You're about to ship a product in an area you don't know well — creator tools, observability, vector databases, whatever. Scout the public research: competitor docs, G2 and Reddit, conference talks, academic surveys. Use **gaps mode** to see which parts of the space you still don't understand. Use **feed mode** to keep the research rolling as the market moves.
+
+#### Give Claude expert knowledge on a niche
+
+Your LLM tools don't know about your internal framework, your proprietary SDK, or that obscure scientific field you work in. Build a grimoire about it. Point Claude Desktop (or Claude Code, or any MCP client) at the generated MCP server. Now Claude is an expert — it queries your curated corpus via `grimoire_query` and cites the exact articles it pulled from.
+
+#### Maintain a long-running personal wiki
+
+Knowledge compounds across years, not weekends. Every new source goes through scout and ingest. The wiki evolves. `log.md` tracks the history. `overview.md` auto-updates. The graph grows denser. Git tracks every change. No SaaS can delete it, reprice it, or quietly degrade the UX.
+
+In each case, the output is the same two artifacts: a static site you open in a browser, and an MCP server any LLM client can talk to.
+
 ## The frontend
 
-`present` generates a self-contained static site with six study modes:
+`present` generates a self-contained static site with six study modes, each designed for a specific learning mode:
 
-- **Read** — linear reading ordered by graph centrality, with table of contents, "next article" navigation, and a reading progress indicator
-- **Graph** — D3 force-directed concept map; articles are nodes, cross-references are edges
-- **Search** — client-side full-text search with highlighted results and source links
-- **Feed** — changelog timeline parsed from `wiki/log.md`
-- **Gaps** — tag-based coverage grid showing which topics are well-covered, thin, or missing
-- **Quiz** — auto-generated flashcards from article sections
+- **Read** — articles ordered by graph centrality in a 3-column editorial layout: article nav (left), centered content (right max 680px), on-page TOC (right). Reading progress bar, keyboard-navigable, self-contained from `file://`.
+- **Graph** — D3 force-directed knowledge map. Articles are nodes, cross-references are edges. Force parameters scale with graph size so small and large corpora both render readably. Click a node for details; drag to reposition; filter by tag.
+- **Search** — command-palette style with ⌘K shortcut. Default state shows example queries, a tag cloud with counts (click-to-filter), and a centrality-sorted article grid with summaries. Typing 2+ chars flips to live results with highlighted matches.
+- **Feed** — vertical timeline parsed from `wiki/log.md`. Dates on the left rail, spine line with dot markers, color-coded action tags (scouted / ingested / compiled / edited) that co-occur on a single entry when an operation touched multiple pipeline phases.
+- **Gaps** — real D3 treemap sized by `articleCount × sqrt(totalWords)`, classified into 4 coverage tiers (full ≥3 articles · partial 2 · thin 1 · missing 0). Legend and hover tooltip showing which articles cover a tag. Makes uncovered ground visible.
+- **Quiz** — Anki-style flashcards auto-generated from article H2 sections. Question visible → "Show answer" button → inline reveal → "Got it / Review again" feedback. Shuffled deck, progress tracking, keyboard-navigable (Space/Enter reveals).
 
-Theming is driven by `_config/design.md`: **7 palettes** (midnight-teal, noir-cinematic, cold-steel, warm-concrete, electric-dusk, smoke-light, obsidian-chalk), **5 typography systems** (editorial, technical, playful, brutalist, minimal), dark/light mode, three motion levels, three density levels. Everything compiles to CSS custom properties on `:root`, so palette switching is a class change with no rebuild. Mobile-first.
+**Theming.** Everything compiles to CSS custom properties on `:root`, so palette switching is a single class change — no rebuild. Configured via `_config/design.md`:
+
+- **8 palettes**: `linear-editorial` (default, Source Serif 4 + Inter), `midnight-teal`, `noir-cinematic`, `cold-steel`, `warm-concrete`, `electric-dusk`, `smoke-light`, `obsidian-chalk`
+- **6 typography systems**: `linear-editorial`, `editorial`, `technical`, `minimal`, `playful`, `brutalist`
+- **Dual theme** — light default, explicit `.theme-dark` toggle, automatic `prefers-color-scheme` support
+- **Fluid typography** via `clamp()` — same CSS renders from 375px phone to 1440px desktop
+- **Mobile-first** with 479 / 767 / 1023 / 1024 breakpoints, WCAG AA contrast, reduced-motion respected, print stylesheet
 
 ## The MCP server
 
