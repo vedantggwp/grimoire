@@ -14,8 +14,9 @@ export function generateModesCSS(): string {
   height: 3px;
   background: var(--color-accent);
   position: fixed;
-  top: 49px;
+  top: var(--nav-height, 56px);
   left: 0;
+  right: 0;
   z-index: 101;
   width: 0%;
   transition: width 200ms;

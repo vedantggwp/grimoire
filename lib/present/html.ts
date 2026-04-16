@@ -158,6 +158,7 @@ ${htmlHead(title, config)}
 <body class="mode-${mode}">
 <a href="#main" class="skip-link">Skip to content</a>
 ${navBar(mode, data)}
+${mode === 'read' ? '<div class="read-progress" id="read-progress"></div>' : ''}
 <main id="main" class="container">
 ${bodyContent}
 </main>

@@ -125,11 +125,18 @@ describe('present', () => {
       const css = readSiteFile('assets/style.css');
       expect(css).toContain('--container-max:');
       expect(css).toContain('--radius-md:');
+      expect(css).toContain('--nav-height: 56px;');
     });
 
     it('includes easing variable', () => {
       const css = readSiteFile('assets/style.css');
       expect(css).toContain('--ease:');
+    });
+
+    it('positions read-progress with the nav-height variable', () => {
+      const css = readSiteFile('assets/style.css');
+      expect(css).toContain('top: var(--nav-height, 56px);');
+      expect(css).toContain('right: 0;');
     });
 
     it('includes print styles', () => {
@@ -204,6 +211,15 @@ describe('present', () => {
     it('has progress bar', () => {
       const html = readSiteFile('read/index.html');
       expect(html).toContain('read-progress');
+    });
+
+    it('renders the progress bar outside main', () => {
+      const html = readSiteFile('read/index.html');
+      const progressIndex = html.indexOf('<div class="read-progress" id="read-progress"></div>');
+      const mainIndex = html.indexOf('<main id="main" class="container">');
+      expect(progressIndex).toBeGreaterThan(-1);
+      expect(mainIndex).toBeGreaterThan(-1);
+      expect(progressIndex).toBeLessThan(mainIndex);
     });
 
     it('has next/previous navigation', () => {

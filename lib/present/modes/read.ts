@@ -248,7 +248,6 @@ export function generateReadMode(data: SiteData, config: DesignConfig): string {
   const firstArticleTOC = sorted.length > 0 ? buildRightTOC(sorted[0]) : '<ul></ul>';
 
   const body = `
-<div class="read-progress" id="read-progress"></div>
 <div class="read-3col">
   ${buildLeftSidebar(sorted)}
   <div class="read-content">
