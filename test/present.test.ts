@@ -9,6 +9,7 @@ const WIKI_DIR = join(WORKSPACE, 'wiki');
 const COMPILE_DIR = join(WIKI_DIR, '.compile');
 const PRESENT_SCRIPT = join(__dirname, '../lib/present/index.ts');
 const COMPILE_SCRIPT = join(__dirname, '../lib/compile.ts');
+const TSX_RUNNER = 'node --import tsx/esm';
 
 function readSiteFile(relativePath: string): string {
   return readFileSync(join(SITE_DIR, relativePath), 'utf-8');
@@ -17,7 +18,7 @@ function readSiteFile(relativePath: string): string {
 describe('present', () => {
   beforeAll(() => {
     // Always rebuild compile artifacts (other tests may have cleaned them)
-    execSync(`npx tsx ${COMPILE_SCRIPT} ${WIKI_DIR}`, {
+    execSync(`${TSX_RUNNER} ${COMPILE_SCRIPT} ${WIKI_DIR}`, {
       cwd: join(__dirname, '..'),
       stdio: 'pipe',
       timeout: 30000,
@@ -29,7 +30,7 @@ describe('present', () => {
     }
 
     // Run the present script
-    execSync(`npx tsx ${PRESENT_SCRIPT} ${WORKSPACE}`, {
+    execSync(`${TSX_RUNNER} ${PRESENT_SCRIPT} ${WORKSPACE}`, {
       cwd: join(__dirname, '..'),
       stdio: 'pipe',
       timeout: 30000,

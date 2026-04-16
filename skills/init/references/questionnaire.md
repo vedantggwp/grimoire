@@ -36,8 +36,9 @@ Scope prevents the scout from drifting. Define what you want covered AND what yo
 **Your answer:**
 
 ```
-in_scope: ___
-out_of_scope: ___
+scope:
+  in: ___
+  out: ___
 ```
 
 ---

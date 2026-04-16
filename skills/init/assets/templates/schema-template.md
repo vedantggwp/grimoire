@@ -7,14 +7,12 @@
 
 ## Domain
 
-```yaml
 topic: "[YOUR TOPIC HERE]"
 scope:
   in: "[WHAT IS IN SCOPE]"
   out: "[WHAT IS OUT OF SCOPE]"
 audience: "[WHO READS THIS AND AT WHAT LEVEL]"
 taxonomy: "emergent"
-```
 
 The domain block is YAML. Keep it exactly this shape — scout, ingest, compile,
 present, and serve all parse the nested `scope.in` / `scope.out` fields.

@@ -39,6 +39,7 @@ const COMPILE_DIR = join(WIKI_DIR, '.compile');
 const SITE_DIR = join(WORKSPACE, 'site');
 const COMPILE_SCRIPT = join(__dirname, '../lib/compile.ts');
 const PRESENT_SCRIPT = join(__dirname, '../lib/present/index.ts');
+const TSX_RUNNER = 'node --import tsx/esm';
 
 const CONTENT_SLUGS = [
   'mcp-overview',
@@ -54,7 +55,7 @@ describe('examples/mcp — end-to-end smoke test', () => {
   beforeAll(() => {
     // Always rebuild compile artifacts to exercise the full path
     if (existsSync(COMPILE_DIR)) rmSync(COMPILE_DIR, { recursive: true });
-    execSync(`npx tsx ${COMPILE_SCRIPT} ${WIKI_DIR}`, {
+    execSync(`${TSX_RUNNER} ${COMPILE_SCRIPT} ${WIKI_DIR}`, {
       cwd: join(__dirname, '..'),
       stdio: 'pipe',
       timeout: 30000,
@@ -62,7 +63,7 @@ describe('examples/mcp — end-to-end smoke test', () => {
 
     // And re-generate the site
     if (existsSync(SITE_DIR)) rmSync(SITE_DIR, { recursive: true });
-    execSync(`npx tsx ${PRESENT_SCRIPT} ${WORKSPACE}`, {
+    execSync(`${TSX_RUNNER} ${PRESENT_SCRIPT} ${WORKSPACE}`, {
       cwd: join(__dirname, '..'),
       stdio: 'pipe',
       timeout: 30000,

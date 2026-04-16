@@ -6,6 +6,7 @@ import { join } from 'node:path';
 const WIKI_DIR = join(__dirname, 'fixtures/sample-wiki/wiki');
 const COMPILE_DIR = join(WIKI_DIR, '.compile');
 const SCRIPT = join(__dirname, '../lib/compile.ts');
+const TSX_RUNNER = 'node --import tsx/esm';
 
 function readJSON(filename: string): unknown {
   return JSON.parse(readFileSync(join(COMPILE_DIR, filename), 'utf-8'));
@@ -19,7 +20,7 @@ describe('compile', () => {
     }
 
     // Run the compile script
-    execSync(`npx tsx ${SCRIPT} ${WIKI_DIR}`, {
+    execSync(`${TSX_RUNNER} ${SCRIPT} ${WIKI_DIR}`, {
       cwd: join(__dirname, '..'),
       stdio: 'pipe',
       timeout: 30000,

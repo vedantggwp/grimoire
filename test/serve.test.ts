@@ -19,6 +19,7 @@ const FIXTURES_DIR = join(__dirname, 'fixtures/sample-wiki');
 const WIKI_DIR = join(FIXTURES_DIR, 'wiki');
 const COMPILE_DIR = join(WIKI_DIR, '.compile');
 const COMPILE_SCRIPT = join(__dirname, '../lib/compile.ts');
+const TSX_RUNNER = 'node --import tsx/esm';
 
 let data: WikiData;
 
@@ -26,7 +27,7 @@ describe('serve', () => {
   beforeAll(() => {
     // Ensure compile output exists
     if (!existsSync(join(COMPILE_DIR, 'notes.json'))) {
-      execSync(`npx tsx ${COMPILE_SCRIPT} ${WIKI_DIR}`, {
+      execSync(`${TSX_RUNNER} ${COMPILE_SCRIPT} ${WIKI_DIR}`, {
         cwd: join(__dirname, '..'),
         stdio: 'pipe',
         timeout: 30000,
