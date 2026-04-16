@@ -83,7 +83,7 @@ function darkVars(colors: PaletteColors): string {
     `--graph-bg: #0A0A0A;`,
     `--graph-edge: #3A3A3A;`,
     `--code-bg: #1F1F1F;`,
-    `--code-color: #5eead4;`,
+    `--code-color: #80f1f0;`,
   ].join('\n  ');
 }
 
@@ -238,6 +238,10 @@ nav, .nav {
 .tabs::-webkit-scrollbar,
 .nav__tabs::-webkit-scrollbar,
 .nav__links::-webkit-scrollbar { display: none; }
+.tabs, .nav__tabs, .nav__links {
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 20px), transparent 100%);
+}
 
 .tab, .nav__tab, .nav__link {
   padding: 8px 14px; border-radius: 7px;
@@ -1344,7 +1348,7 @@ footer, .footer {
 .screen.active { display: block; }
 
 /* === Responsive === */
-@media (max-width: 1023px) {
+@media (max-width: 1024px) {
   .read-3col {
     grid-template-columns: 1fr;
     gap: clamp(20px, 3vw, 32px);

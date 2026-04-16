@@ -119,6 +119,7 @@ describe('present', () => {
       const css = readSiteFile('assets/style.css');
       expect(css).toContain('prefers-color-scheme: dark');
       expect(css).toContain('.theme-dark');
+      expect(css).toContain('#80f1f0');
     });
 
     it('includes layout variables', () => {
@@ -157,8 +158,14 @@ describe('present', () => {
 
     it('includes responsive breakpoints', () => {
       const css = readSiteFile('assets/style.css');
-      expect(css).toContain('max-width: 1023px');
+      expect(css).toContain('max-width: 1024px');
+      expect(css).not.toContain('max-width: 1023px');
       expect(css).toContain('max-width: 767px');
+    });
+
+    it('adds an overflow cue to the nav tabs', () => {
+      const css = readSiteFile('assets/style.css');
+      expect(css).toContain('mask-image: linear-gradient(to right, black calc(100% - 20px), transparent 100%)');
     });
   });
 
