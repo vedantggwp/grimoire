@@ -139,6 +139,12 @@ describe('present', () => {
       expect(css).toContain('right: 0;');
     });
 
+    it('styles the feed empty state', () => {
+      const css = readSiteFile('assets/style.css');
+      expect(css).toContain('.feed-empty');
+      expect(css).toContain('font-style: italic;');
+    });
+
     it('includes print styles', () => {
       const css = readSiteFile('assets/style.css');
       expect(css).toContain('@media print');

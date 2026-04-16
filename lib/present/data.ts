@@ -344,6 +344,15 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
     });
   }
 
+  const knownSlugs = new Set(articles.map(article => article.slug));
+  for (const article of articles) {
+    for (const target of article.linksTo) {
+      if (!knownSlugs.has(target)) {
+        console.warn(`[present] Dangling link: ${article.slug} -> ${target} (target not in article set)`);
+      }
+    }
+  }
+
   // Build graph data — exclude support pages from both nodes and edges
   // so graph mode, density stats, and centrality reflect content only.
   const graphNodes: GraphNodeData[] = Object.values(graphRaw.nodes)

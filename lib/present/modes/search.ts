@@ -19,11 +19,11 @@ function esc(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function sortByCentrality(articles: readonly ArticleData[]): readonly ArticleData[] {
+export function sortByCentrality(articles: readonly ArticleData[]): readonly ArticleData[] {
   return [...articles].sort((a, b) => {
     const scoreA = a.linksTo.length + articles.filter(x => x.linksTo.includes(a.slug)).length;
     const scoreB = b.linksTo.length + articles.filter(x => x.linksTo.includes(b.slug)).length;
-    return scoreB - scoreA;
+    return scoreB - scoreA || a.slug.localeCompare(b.slug);
   });
 }
 
@@ -48,9 +48,10 @@ function buildTagCloud(articles: readonly ArticleData[]): string {
       tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
     }
   }
+  const cap = Math.min(40, Math.max(20, Math.ceil(articles.length * 3)));
   const sorted = [...tagCounts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 28); // cap so the cloud doesn't sprawl
+    .slice(0, cap);
   return sorted
     .map(([tag, count]) =>
       `<button type="button" class="search-tag-pill" data-tag="${esc(tag)}">${esc(tag)}<span class="search-tag-pill__count">${count}</span></button>`,

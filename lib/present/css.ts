@@ -419,6 +419,13 @@ nav, .nav {
 .hub-card__when { font-size: 12px; color: var(--text-tertiary); margin-top: auto; }
 .hub-card--recommended { border-color: var(--color-accent); border-width: 2px; }
 
+.feed-empty {
+  text-align: center;
+  color: var(--text-tertiary);
+  padding: 40px 20px;
+  font-style: italic;
+}
+
 /* === Read — 3-column layout === */
 .read-3col {
   display: grid;

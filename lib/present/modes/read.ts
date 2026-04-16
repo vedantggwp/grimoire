@@ -13,13 +13,13 @@ function slugify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-function sortByCentrality(
+export function sortByCentrality(
   articles: readonly ArticleData[],
 ): readonly ArticleData[] {
   return [...articles].sort((a, b) => {
     const scoreA = a.linksTo.length + countBacklinks(a, articles);
     const scoreB = b.linksTo.length + countBacklinks(b, articles);
-    return scoreB - scoreA;
+    return scoreB - scoreA || a.slug.localeCompare(b.slug);
   });
 }
 
