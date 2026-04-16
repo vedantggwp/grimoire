@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { sortByCentrality as sortReadByCentrality } from '../lib/present/modes/read.js';
-import { sortByCentrality as sortSearchByCentrality } from '../lib/present/modes/search.js';
+import { buildTagCloud, sortByCentrality as sortSearchByCentrality } from '../lib/present/modes/search.js';
 import type { ArticleData } from '../lib/present/types.js';
 
 function article(slug: string, linksTo: readonly string[]): ArticleData {
@@ -47,5 +47,15 @@ describe('present mode helpers', () => {
       'beta',
       'gamma',
     ]);
+  });
+
+  it('shows all tags for small corpora up to the 40-tag ceiling', () => {
+    const articles = Array.from({ length: 6 }, (_, index) => ({
+      ...article(`article-${index}`, []),
+      tags: Array.from({ length: 5 }, (__unused, tagIndex) => `tag-${index * 5 + tagIndex}`),
+    }));
+
+    const cloud = buildTagCloud(articles);
+    expect((cloud.match(/class="search-tag-pill"/g) ?? []).length).toBe(30);
   });
 });

@@ -736,7 +736,7 @@ export function handleSearch(
 
 function createServer(data: WikiData): McpServer {
   const server = new McpServer(
-    { name: 'grimoire', version: '0.2.3' },
+    { name: 'grimoire', version: '0.2.4' },
     {
       instructions: `Grimoire is a curated knowledge base about "${data.schemaInfo.topic}". Routing pattern for efficient retrieval:\n1. Call grimoire_list_topics first to see all articles with summaries\n2. Use grimoire_get_article(slug) for a specific article\n3. Use grimoire_get_section(slug, heading) for just one section (most token-efficient)\nFor questions: grimoire_query. For keyword search: grimoire_search.\nPrefer get_section over get_article when you know which section you need.`,
     },

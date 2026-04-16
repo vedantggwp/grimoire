@@ -114,6 +114,7 @@
 - `docs/references/remark-pipeline.md` — Remark pipeline evaluation
 
 ## Recent Changes
+- 2026-04-16: **v0.2.4 dogfood quality pass.** Fixed 25 present/serve quality bugs surfaced by the first meta-grimoire run: SCHEMA parsing now tolerates fenced + multi-line domain blocks and warns loudly on missing required fields; article wikilinks are rewritten away from papyr's dead `#/note/slug` route and read mode handles hash navigation in-page; hub stats de-duplicate sources, suppress meaningless small-corpus density with `N/A`, and fall back to a non-empty lead; the read progress bar is emitted at body level and positioned via `--nav-height`; featured-card row span adapts for tiny corpora; centrality sorting is deterministic in both read/search; feed empty state is styled; tabs expose an overflow cue; dark-mode code color and breakpoints are corrected; graph label collision/charge tuning is safer for small N; article data is validated with Zod at load time; `lib/serve.ts` now mirrors the multi-line schema parsing fix. Bugs 11/12 (taxonomy proposal / overview evolution) explicitly deferred to v0.2.5 compile-skill hardening. Version bumped to 0.2.4; present/serve bundles regenerated; 154 tests green.
 - 2026-04-08: Restructured from ICM stages to Claude Code plugin format
 - 2026-04-08: Evaluated Papyr Core — adopted as compilation/graph/search engine
 - 2026-04-08: Built grimoire-init skill (questionnaire + scaffolding)

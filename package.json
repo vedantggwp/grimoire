@@ -1,6 +1,6 @@
 {
   "name": "grimoire",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Knowledge base builder — Claude Code plugin",
   "type": "module",
   "license": "MIT",

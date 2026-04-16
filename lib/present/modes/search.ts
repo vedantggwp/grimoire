@@ -41,14 +41,16 @@ function buildArticlesJSON(data: SiteData): string {
   return JSON.stringify(articles);
 }
 
-function buildTagCloud(articles: readonly ArticleData[]): string {
+export function buildTagCloud(articles: readonly ArticleData[]): string {
   const tagCounts = new Map<string, number>();
   for (const a of articles) {
     for (const t of a.tags) {
       tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
     }
   }
-  const cap = Math.min(40, Math.max(20, Math.ceil(articles.length * 3)));
+  const cap = articles.length < 15
+    ? 40
+    : Math.min(40, Math.max(20, Math.ceil(articles.length * 3)));
   const sorted = [...tagCounts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, cap);

@@ -66,6 +66,11 @@
 - [ ] Share with community — **Ved's call, Ved's networks**
 - [ ] Claude Desktop end-to-end MCP compatibility test — **deferred to v0.3**
 
+## Phase 7 — v0.2.4 Quality Pass (Complete)
+- [x] **25-bug dogfood quality pass across present + serve** — schema parser hardening, static wikilink resolution, hub stat cleanup, progress-bar placement, small-corpus layout/graph fixes, CSS polish, and Zod article validation all landed with regression tests; 154/154 tests green
+- [x] **Meta-grimoire regression targets closed** — full topic string preserved, hub lead never empty, no papyr `#/note/` links in rendered article HTML, read-mode hash navigation works, small corpora show `graph density: N/A`
+- [ ] **v0.2.5 compile skill hardening** — taxonomy proposal enforcement and overview evolution enforcement remain deferred because bugs 11/12 are compile-skill behaviors, not `lib/compile.ts` runtime gaps
+
 ## Post-launch (v0.3+)
 
 These are all explicitly deferred from v0.2.2 so the launch stays focused:
