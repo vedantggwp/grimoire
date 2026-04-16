@@ -8,6 +8,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { parseMarkdown } from 'papyr-core';
+import { z } from 'zod';
 import type {
   SiteData,
   ArticleData,
@@ -176,6 +177,33 @@ function resolveWikilinks(html: string, slugToTitle: ReadonlyMap<string, string>
   );
 }
 
+export const ArticleSchema = z.object({
+  slug: z.string().min(1),
+  title: z.string().min(1),
+  summary: z.string(),
+  tags: z.array(z.string()),
+  html: z.string(),
+  wordCount: z.number(),
+  readingTime: z.number(),
+  linksTo: z.array(z.string()),
+  headings: z.array(z.object({ level: z.number(), text: z.string() })),
+  confidence: z.string(),
+  sources: z.array(z.object({ url: z.string(), title: z.string() })),
+});
+
+export function validateArticleData(article: unknown, slug: string): ArticleData | null {
+  const parsed = ArticleSchema.safeParse(article);
+  if (parsed.success) {
+    return parsed.data;
+  }
+
+  const issues = parsed.error.issues
+    .map(issue => `${issue.path.join('.') || 'article'} ${issue.message}`)
+    .join('; ');
+  console.warn(`[present] Skipping article ${slug}: ${issues}`);
+  return null;
+}
+
 function parseLogEntries(logMd: string): readonly LogEntry[] {
   const entries: LogEntry[] = [];
   const regex = /^## (\d{4}-\d{2}-\d{2}) — (.+)$/gm;
@@ -329,7 +357,7 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
     const parsed = await parseMarkdown(stripFrontmatter(raw), { path: rel });
     const resolvedHtml = resolveWikilinks(parsed.html, slugToTitle);
 
-    articles.push({
+    const article = validateArticleData({
       slug,
       title: manifest.title,
       summary: manifest.summary ?? '',
@@ -341,7 +369,10 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
       headings: manifest.headings,
       confidence: manifest.confidence ?? '',
       sources: manifest.sources ?? [],
-    });
+    }, slug);
+
+    if (!article) continue;
+    articles.push(article);
   }
 
   const knownSlugs = new Set(articles.map(article => article.slug));
