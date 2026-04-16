@@ -2,7 +2,7 @@
 
 **Your knowledge, structured for machines and humans.**
 
-[![Version](https://img.shields.io/badge/version-0.2.3-0d9488)](https://github.com/vedantggwp/grimoire/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![Tests](https://img.shields.io/badge/tests-129%20passing-16a34a)](./test) [![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-plugin-1a1a1a)](https://github.com/vedantggwp/athanor)
+[![Version](https://img.shields.io/badge/version-0.3.0-0d9488)](https://github.com/vedantggwp/grimoire/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![Tests](https://img.shields.io/badge/tests-183%20passing-16a34a)](./test) [![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-plugin-1a1a1a)](https://github.com/vedantggwp/athanor)
 
 Grimoire turns any topic into a structured, compounding knowledge base. It's a Claude Code plugin that runs a five-stage pipeline — **scout** the web for sources, **ingest** them into wiki articles, **compile** a cross-referenced graph, **present** a study-oriented static frontend, and **serve** the whole thing to LLMs over MCP.
 
@@ -47,52 +47,41 @@ npm run build
 From any working directory with the plugin loaded:
 
 ```
-> /grimoire:init
+> /grimoire "reinforcement learning from human feedback"
 ```
 
-Or in natural language: *"Create a new grimoire about reinforcement learning from human feedback."*
+Or in natural language: *"Build a grimoire about WebGPU for engineers."*
 
-`init` walks through a 7-question flow:
+That's it. Grimoire infers topic, scope, audience, and palette from your
+sentence, scouts sources, pauses once for you to curate them, ingests in
+batch, compiles the graph, generates the frontend, and pauses once more
+for your review.
 
-1. **Topic** — what subject, be specific
-2. **Scope** — what's in and out of bounds
-3. **Audience** — who reads this and at what level
-4. **Seed sources** — URLs you already know are valuable (optional)
-5. **Taxonomy** — emergent categories or predefined
-6. **Design** — palette for the frontend
-7. **CLAUDE.md** — integrate with a host project's CLAUDE.md
+### Power user flow
 
-It then scaffolds a workspace:
+For granular control, run each stage individually:
 
 ```
-my-grimoire/
-  SCHEMA.md          # your answers, the config of record
-  _config/
-    design.md        # palette, typography, motion, density
-  wiki/
-    index.md         # article catalog (starts empty)
-    overview.md      # evolving overview (auto-updated)
-    log.md           # changelog
-  raw/               # preserved source material
-  scout-queue.md     # seed URLs (if provided)
+> /grimoire:init           # 7-question questionnaire + scaffold
+> /grimoire:scout          # research sources, produce approved-sources.md
+> /grimoire:ingest         # fetch, preserve raw, compile articles
+> /grimoire:compile        # graph, backlinks, overview, gaps
+> /grimoire:present        # build the static frontend
+> /grimoire:serve          # start the MCP server
 ```
 
-From there, run the pipeline one stage at a time:
-
-```
-> /grimoire:scout      # research sources, produce approved-sources.md
-> /grimoire:ingest     # fetch, preserve raw, compile articles
-> /grimoire:compile    # graph, backlinks, overview, gaps
-> /grimoire:present    # build the static frontend → open site/index.html to view
-> /grimoire:serve      # start the MCP server
-```
-
-After `present`, open `site/index.html` in your browser to explore the knowledge base.
+Flags for the one-command flow:
+- `--guided` — run the full 7-question questionnaire
+- `--review-angles` — approve scout search angles before searching
+- `--sequential` — process sources one-at-a-time with per-source approval
+- `--from <path>` — inherit design from an existing grimoire
+- `--palette <name>` — override the default palette
 
 ## The six skills
 
 | Skill | Status | What it does |
 |---|---|---|
+| `run` | Working | One-command pipeline: init → scout → ingest → compile → present, 2 taste checkpoints |
 | `init` | Working | 7-question interactive questionnaire and workspace scaffold |
 | `scout` | Working | Web research with 6-signal confidence scoring, human review checkpoint before ingest |
 | `ingest` | Working | Fetches approved sources, preserves raw text, compiles wiki articles with a human checkpoint |
@@ -135,12 +124,13 @@ Grimoire is built for people who want to **understand something deeply** and end
 You want to understand WebGPU, CRDTs, Rust async, or reinforcement learning from the ground up. Grimoire scouts the best specs, papers, and tutorials; scores them; compiles a linked wiki ordered by graph centrality; and lets you quiz yourself on what you just read. The MCP server plugs into Claude so you can ask questions and get answers grounded in your own curated sources, not the open web.
 
 ```
-/grimoire:init      # "A deep study of WebGPU for engineers building compute shaders"
-/grimoire:scout     # finds the WebGPU spec, W3C drafts, Chrome dev blog, conference talks
-/grimoire:ingest    # fetches, preserves raw, writes 8–12 cross-linked articles
-/grimoire:compile   # builds the graph, surfaces gaps you didn't realize you had
-/grimoire:present   # opens a study-oriented site in your browser
+/grimoire "A deep study of WebGPU for engineers building compute shaders"
 ```
+
+That single command scouts the WebGPU spec, W3C drafts, Chrome dev blog,
+and conference talks; pauses for you to curate the source list; ingests
+in batch; compiles the graph; and generates a study site. One sentence in,
+one site out.
 
 #### Onboard to a new codebase's ecosystem
 
@@ -265,7 +255,7 @@ This starts a stdio MCP server exposing 7 tools (`grimoire_query`, `grimoire_lis
 
 ## Development
 
-Run the tests (129 total across four suites):
+Run the tests (183 total across ten suites):
 
 ```bash
 npm test          # vitest run

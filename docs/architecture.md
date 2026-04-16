@@ -11,7 +11,7 @@ Clief, adapted for Claude Code plugin format. Three rules govern the design:
 
 1. **One stage, one job** — each skill does one thing well
 2. **Plain text is the interface** — handoffs between stages are markdown/JSON files humans can inspect and edit
-3. **The human stays in control** — scout, ingest, and present have mandatory checkpoints
+3. **The human stays in control** — the default flow has two taste checkpoints (source curation, final review). Individual skills retain their full checkpoint flows for granular control
 
 ## Plugin Layout
 
@@ -20,6 +20,7 @@ grimoire/
   .claude-plugin/
     plugin.json              # Plugin manifest
   skills/                    # Claude-driven workflows
+    run/                     # One-command orchestrator (2 checkpoints)
     init/                    # Interactive questionnaire + scaffold
     scout/                   # Web research + 6-signal scoring
     ingest/                  # Fetch, preserve raw, compile articles
@@ -55,12 +56,48 @@ Skills auto-discover from `skills/*/SKILL.md` when Claude Code loads the plugin.
 
 | Stage | Job | Human checkpoint? |
 |-------|-----|-------------------|
+| `run` | One-command orchestrator | Yes — 2 taste checkpoints |
 | `init` | 7-question questionnaire, workspace scaffold | Implicit (interactive) |
 | `scout` | Research + score sources, curate approved list | Yes — approve before ingest |
 | `ingest` | Fetch, preserve raw, compile articles | Yes — approve takeaways before write |
 | `compile` | Graph audit, link repair, overview, gap analysis | No — deterministic |
 | `present` | Generate static study frontend | Yes — preview and iterate |
 | `serve` | MCP server over stdio | No — automated |
+
+## Orchestrated Flow
+
+The `/grimoire:run` skill chains five stages into a single command with exactly
+two taste checkpoints:
+
+```
+  /grimoire "topic"
+       |
+       v
+    init (auto)  →  smart defaults from topic sentence
+       |
+       v
+    scout (auto)  →  search angles derived, searches executed
+       |
+       v
+  ──CHECKPOINT 1──  source curation (approve/remove sources)
+       |
+       v
+    ingest (batch)  →  all approved sources processed at once
+       |
+       v
+    compile (auto)  →  graph audit, backlinks, overview
+       |
+       v
+    present (auto)  →  static site generated
+       |
+       v
+  ──CHECKPOINT 2──  final review (approve or give feedback)
+```
+
+Individual skills (`/grimoire:init`, `/grimoire:scout`, etc.) retain their
+full checkpoint flows for power users who want granular control. Flags like
+`--guided`, `--review-angles`, and `--sequential` restore individual
+checkpoints within the orchestrated flow.
 
 ## Data Flow
 

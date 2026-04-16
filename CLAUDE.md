@@ -13,6 +13,7 @@ Grimoire is a Claude Code plugin. Skills are auto-discovered from `skills/*/SKIL
 
 | Skill | Job |
 |-------|-----|
+| `run` | One-command pipeline: init → scout → ingest → compile → present, 2 checkpoints |
 | `init` | Interactive questionnaire + workspace scaffolding |
 | `scout` | Research sources, score confidence, curate URL list |
 | `ingest` | Fetch sources, preserve raw text, compile wiki articles |
@@ -42,3 +43,11 @@ Maintain `MANIFEST.md` as the workspace change ledger. Update it whenever files 
 - Do not put skill-specific process instructions here — those belong in `skills/*/SKILL.md`
 - Do not treat this file as a second `SOUL.md`
 - Do not replace markdown interfaces with opaque hidden workflow
+
+## Grimoire Wiki — Meta-Grimoire
+
+A curated knowledge base about Grimoire itself lives at `../grimoire-wiki/` (sibling directory, not inside this repo).
+
+- Consult `../grimoire-wiki/wiki/index.md` before answering questions about Grimoire's architecture, design decisions, competitive positioning, or roadmap
+- Prefer wiki articles over re-deriving answers from source code or `docs/`
+- If the wiki doesn't cover a topic, say so — don't fabricate. Consider whether it should be added via `/grimoire:scout`

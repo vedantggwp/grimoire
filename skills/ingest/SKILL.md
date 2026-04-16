@@ -35,6 +35,22 @@ Check for `approved-sources.md` in the workspace root.
   source at a time in priority order. After completing Step 7 for each source,
   print the summary and ask: "Process the next source? ({N} remaining, next: {title})"
   before continuing.
+- **Batch mode (orchestrated flow):** When invoked as part of `/grimoire:run` or
+  when the user explicitly requests batch processing ("ingest all sources without
+  asking", "batch ingest", "process everything"), process all pending sources in
+  priority order without per-source confirmation. For each source: fetch raw
+  (Step 2), extract takeaways (Step 3), write articles using best judgment
+  (Step 5), and update source status (Step 7) — skipping Step 4's human
+  checkpoint. After ALL sources are processed, print a single summary:
+  ```
+  Batch ingest complete: {N} sources processed.
+    Created: {slugs}
+    Updated: {slugs}
+    Failed:  {slugs with reasons}
+    Backlinks added: {N}
+  ```
+  Then run Step 6 (update navigators) once for the full batch. If any source
+  fails to fetch, mark it as `failed` and continue with remaining sources.
 
 Normalize whatever you have to four fields before continuing:
 

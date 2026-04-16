@@ -71,6 +71,16 @@
 - [x] **Meta-grimoire regression targets closed** — full topic string preserved, hub lead never empty, no papyr `#/note/` links in rendered article HTML, read-mode hash navigation works, small corpora show `graph density: N/A`
 - [ ] **v0.2.5 compile skill hardening** — taxonomy proposal enforcement and overview evolution enforcement remain deferred because bugs 11/12 are compile-skill behaviors, not `lib/compile.ts` runtime gaps
 
+### v0.3.0 — One-command flow (shipped 2026-04-16)
+
+- `/grimoire:run` orchestrator: one command, two taste checkpoints
+- Smart defaults from topic inference (`lib/defaults.ts`)
+- Template inheritance (`lib/templates.ts`, `--from` flag)
+- Batch ingest mode (skip per-source approval in orchestrated flow)
+- Inline reconfiguration at final review (palette, typography, content changes)
+- Incremental mode for growing existing grimoires
+- Progressive disclosure: `--guided`, `--review-angles`, `--sequential` flags
+
 ## Post-launch (v0.3+)
 
 These are all explicitly deferred from v0.2.2 so the launch stays focused:
