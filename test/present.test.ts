@@ -303,6 +303,13 @@ describe('present', () => {
       expect(html).toContain('id="graph-panel"');
       expect(html).toContain('id="panel-title"');
     });
+
+    it('caps label collision width and truncates long labels in the graph script', () => {
+      const html = readSiteFile('graph/index.html');
+      expect(html).toContain("Math.min(280, (d.label || '').length * 6.5)");
+      expect(html).toContain("var chargeStrength = nodes.length <= 6 ? -600");
+      expect(html).toContain("lbl.length > 40 ? lbl.slice(0, 38) + '…' : lbl");
+    });
   });
 
   describe('search mode', () => {

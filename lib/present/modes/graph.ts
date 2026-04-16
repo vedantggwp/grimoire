@@ -51,7 +51,7 @@ function radius(n) { return (8 + (n.wordCount / maxWords) * 20) * sizeBoost; }
 
 // Label width (used for collision padding so labels don't overlap)
 function estimateLabelWidth(d) {
-  return (d.label || '').length * 6.5;
+  return Math.min(280, (d.label || '').length * 6.5);
 }
 function collisionRadius(d) {
   // circle radius + half-label-width + margin so labels never overlap
@@ -61,7 +61,7 @@ function collisionRadius(d) {
 // Link distance scales with node count — tight for dense graphs,
 // airy for small graphs so there's room for labels.
 var linkDistance = nodes.length <= 6 ? 180 : nodes.length <= 15 ? 130 : 90;
-var chargeStrength = nodes.length <= 6 ? -900 : nodes.length <= 15 ? -600 : -300;
+var chargeStrength = nodes.length <= 6 ? -600 : nodes.length <= 15 ? -600 : -300;
 
 var simulation = d3.forceSimulation(nodes)
   .force('link', d3.forceLink(edges).id(function(d) { return d.id; }).distance(linkDistance).strength(0.6))
@@ -113,7 +113,10 @@ var label = g.selectAll('.graph-label')
   .attr('font-weight', '500')
   .attr('font-family', 'var(--font-body)')
   .style('pointer-events', 'none')
-  .text(function(d) { return d.label; });
+  .text(function(d) {
+    var lbl = d.label || '';
+    return lbl.length > 40 ? lbl.slice(0, 38) + '…' : lbl;
+  });
 
 // Drag
 node.call(d3.drag()
