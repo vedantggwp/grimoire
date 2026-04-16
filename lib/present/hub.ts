@@ -1,5 +1,20 @@
 import type { GraphData, SiteData } from './types.js';
 
+/**
+ * Extract a short display name from a potentially verbose topic string.
+ * Takes everything before the first " — " or " - " delimiter, trimmed.
+ * Falls back to the full string if no delimiter found (capped at 60 chars).
+ */
+export function shortTopic(topic: string): string {
+  const delimiters = [' — ', ' – ', ' - '];
+  for (const d of delimiters) {
+    const idx = topic.indexOf(d);
+    if (idx > 0) return topic.slice(0, idx).trim();
+  }
+  const firstLine = topic.split('\n')[0].trim();
+  return firstLine.length > 60 ? firstLine.slice(0, 57) + '…' : firstLine;
+}
+
 export interface HubStats {
   readonly articleCount: number;
   readonly sourceCount: number;
@@ -46,6 +61,12 @@ export function recommendedMode(data: SiteData): string {
   return 'read';
 }
 
-export function hubLeadText(scopeIn: string): string {
-  return scopeIn || 'Welcome to this knowledge base.';
+export function hubLeadText(topic: string, audience: string): string {
+  const name = shortTopic(topic);
+  const joined = audience.replace(/\s+/g, ' ').trim();
+  const stripped = joined.replace(/^(advanced|intermediate|beginner)\s*[—–-]\s*/i, '');
+  const firstSentence = stripped.split(/\.\s/)[0].trim();
+  const desc = firstSentence.length > 0 ? firstSentence : joined.split('—')[0].trim();
+  const lower = desc.charAt(0).toLowerCase() + desc.slice(1);
+  return `A structured knowledge base about ${name}, built for ${lower}.`;
 }

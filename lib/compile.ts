@@ -5,10 +5,14 @@
  * against a Grimoire wiki directory. Outputs JSON artifacts to wiki/.compile/
  * for Claude to interpret, fix issues, and write the compile report.
  *
- * Usage: node dist/compile.js <wiki-directory-path>
+ * Usage: node dist/compile.js <workspace-or-wiki-path>
+ *
+ * Accepts either a workspace root (containing `wiki/`) or a wiki directory
+ * directly. If a workspace root is given, the script auto-resolves the
+ * nested `wiki/` subdirectory.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import matter from 'gray-matter';
 
@@ -32,13 +36,28 @@ import {
 
 // --- CLI ---
 
-const wikiDir = process.argv[2];
-if (!wikiDir) {
-  console.error('Usage: node dist/compile.js <wiki-directory-path>');
+const inputPath = process.argv[2];
+if (!inputPath) {
+  console.error('Usage: node dist/compile.js <workspace-or-wiki-path>');
+  console.error('  Accepts either a grimoire workspace root (containing wiki/)');
+  console.error('  or a wiki directory directly.');
   process.exit(1);
 }
 
-const resolvedWikiDir = resolve(wikiDir);
+function resolveWikiDir(argPath: string): string {
+  const absolute = resolve(argPath);
+  const nestedWiki = join(absolute, 'wiki');
+  try {
+    if (statSync(nestedWiki).isDirectory()) {
+      return nestedWiki;
+    }
+  } catch {
+    // nested wiki/ doesn't exist — fall through and treat argPath as the wiki dir itself
+  }
+  return absolute;
+}
+
+const resolvedWikiDir = resolveWikiDir(inputPath);
 const outputDir = join(resolvedWikiDir, '.compile');
 
 // --- Helpers ---

@@ -302,16 +302,24 @@ nav, .nav {
   text-align: center;
   padding: clamp(28px, 5vw, 60px) 0 clamp(18px, 2.5vw, 32px);
 }
-.hub-hero .hub-lead {
+.hub-hero .hub-title {
   font-family: var(--font-heading);
-  font-weight: 500;
-  font-size: clamp(18px, 1.1vw + 14px, 26px);
-  line-height: 1.35;
+  font-weight: 700;
+  font-size: clamp(32px, 3vw + 20px, 52px);
+  line-height: 1.1;
   color: var(--color-text);
-  max-width: 62ch;
+  letter-spacing: -1px;
+  margin: 0 0 clamp(10px, 1.5vw, 18px);
+}
+.hub-hero .hub-lead {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: clamp(15px, 0.4vw + 13px, 17px);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 52ch;
   margin: 0 auto clamp(20px, 3vw, 34px);
   text-wrap: balance;
-  letter-spacing: -0.2px;
 }
 .hub-hero p {
   color: var(--text-secondary);
@@ -1031,9 +1039,13 @@ pre code {
 .treemap-leaf:hover rect { filter: brightness(1.08); }
 .treemap-leaf .treemap-tag {
   font-family: var(--font-heading);
-  font-size: 14px; font-weight: 600;
+  font-size: 13px; font-weight: 600;
   fill: var(--color-text);
   pointer-events: none;
+}
+.treemap-leaf foreignObject {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .treemap-leaf .treemap-count {
   font-family: var(--font-mono);

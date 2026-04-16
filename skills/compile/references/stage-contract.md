@@ -10,7 +10,7 @@ Audit the wiki graph, repair deterministic issues, surface gaps, and build seria
 | `SCHEMA.md` | Taxonomy, scope (for gap analysis) |
 
 ## Process
-1. Run Papyr Core analysis: `node ${CLAUDE_PLUGIN_ROOT}/dist/compile.js {workspace}/wiki`
+1. Run Papyr Core analysis: `node ${CLAUDE_PLUGIN_ROOT}/dist/compile.js {workspace}` (auto-detects `wiki/` subdirectory; passing the wiki dir directly also works)
 2. Read JSON outputs from `wiki/.compile/` (audit, graph, analytics, search-index, notes)
 3. Fix deterministic issues: broken links, one-directional backlinks, stale index entries, orphan pages
 4. Surface heuristic issues: duplicate concepts, taxonomy gaps, missing cross-references, thin coverage

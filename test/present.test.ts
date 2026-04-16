@@ -207,9 +207,10 @@ describe('present', () => {
       expect(html).toContain('Density is not meaningful for small corpora');
     });
 
-    it('uses a single-row featured card for small corpora', () => {
+    it('renders featured card without inline grid-row override', () => {
       const html = readSiteFile('index.html');
-      expect(html).toContain('class="bento-card featured" style="grid-row: span 1"');
+      expect(html).toContain('class="bento-card featured"');
+      expect(html).not.toContain('style="grid-row:');
     });
   });
 

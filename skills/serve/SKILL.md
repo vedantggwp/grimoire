@@ -5,7 +5,7 @@ description: >-
   local server, generate CLAUDE.md integration, or says "grimoire serve",
   "start MCP server", "serve wiki", or "/grimoire:serve". Creates a custom
   MCP server with 6 tools for LLM-queryable knowledge access.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # serve
@@ -30,15 +30,17 @@ Expose a grimoire through a custom MCP server with 6 query tools over stdio.
    `/grimoire:compile` first for accurate results, or continue with the
    current index?" Wait for user response before proceeding.
 
-## Step 2 — Start the MCP Server
+## Step 2 — MCP Server Invocation Shape
 
-The MCP server runs as a long-lived process over stdio:
+The MCP server runs as a long-lived process over stdio. It is launched by
+the MCP client (Claude Desktop, Claude Code, or any MCP-compatible tool),
+not from this skill directly. The invocation shape is:
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/dist/serve.js {workspace-path}
+node {absolute-serve-js-path} {absolute-workspace-path}
 ```
 
-This loads:
+At startup the server loads:
 - `wiki/.compile/notes.json` — article manifest
 - `wiki/.compile/graph.json` — graph structure
 - `wiki/.compile/analytics.json` — content analytics
@@ -58,11 +60,71 @@ And exposes 6 MCP tools:
 | `grimoire_coverage_gaps` | Return topics with thin or missing coverage | Low |
 | `grimoire_search` | Full-text search across all content | Medium |
 
-## Step 3 — Generate CLAUDE.md Integration (optional)
+## Step 3 — Resolve Absolute Paths
 
-Ask the user: "Would you like to add an MCP server reference to a project's CLAUDE.md?"
+MCP client config files (Claude Desktop's `claude_desktop_config.json`,
+project `.mcp.json`) are plain JSON — they do NOT expand environment
+variables, `~`, or `${CLAUDE_PLUGIN_ROOT}`. Every path must be fully
+resolved before it is written into the config.
 
-If yes, ask for the target CLAUDE.md path and append:
+Use Bash to capture both absolute paths:
+
+```bash
+SERVE_JS="$(realpath "${CLAUDE_PLUGIN_ROOT}/dist/serve.js")"
+WORKSPACE_ABS="$(realpath "{workspace-path}")"
+```
+
+Verify both resolved paths exist. If `realpath` fails on either, stop and
+report which path is missing — do not proceed with a broken config.
+
+Derive a short server name from the `SCHEMA.md` `topic` field: lowercase,
+replace spaces with dashes, strip non-ASCII, take the first 2–3 meaningful
+words, prefix with `grimoire-`. Example: topic "Model Context Protocol"
+→ `grimoire-mcp`.
+
+## Step 4 — Write Pre-Filled MCP Config Snippet
+
+Write a ready-to-paste JSON block to `{workspace}/mcp-config-snippet.json`
+using the resolved paths from Step 3:
+
+```json
+{
+  "mcpServers": {
+    "{server-name}": {
+      "command": "node",
+      "args": [
+        "{SERVE_JS}",
+        "{WORKSPACE_ABS}"
+      ]
+    }
+  }
+}
+```
+
+The file must contain literal absolute paths — no placeholders, no `~`,
+no environment variables. The user should be able to copy it straight
+into their MCP client config without editing.
+
+Also print the same JSON block inline in the chat so the user can copy
+it without opening the file.
+
+Tell the user where to paste it:
+- **Claude Desktop**: merge the `mcpServers` entry into
+  `~/Library/Application Support/Claude/claude_desktop_config.json`
+  (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows).
+- **Project `.mcp.json`**: drop it into any codebase that wants to query
+  this wiki. Commit it if the grimoire is shared with teammates.
+
+Remind the user to **restart the MCP client** after adding the entry —
+the server loads `.compile/` artifacts once at startup.
+
+## Step 5 — Generate CLAUDE.md Integration (optional)
+
+Ask the user: "Would you like to add an MCP server reference to a
+project's CLAUDE.md?"
+
+If yes, ask for the target CLAUDE.md path and append this block, using
+the same resolved paths and server name from Step 3:
 
 ```markdown
 ## Grimoire Wiki — {topic}
@@ -76,9 +138,12 @@ Add to your `.mcp.json` or Claude Desktop config:
 \```json
 {
   "mcpServers": {
-    "grimoire-{topic-slug}": {
+    "{server-name}": {
       "command": "node",
-      "args": ["{absolute-path-to-plugin}/dist/serve.js", "{absolute-path-to-workspace}"]
+      "args": [
+        "{SERVE_JS}",
+        "{WORKSPACE_ABS}"
+      ]
     }
   }
 }
@@ -100,32 +165,33 @@ Add to your `.mcp.json` or Claude Desktop config:
 - If the wiki doesn't cover a topic, say so — don't fabricate
 ```
 
-Also generate a `.mcp.json` snippet the user can add to their project or
-Claude Desktop configuration.
+## Step 6 — Report
 
-## Step 4 — Report
-
-Print:
+Print, using the resolved paths and server name from Step 3:
 
 ```
 MCP server ready.
 
-  Workspace: {workspace-path}
-  Transport: stdio
-  Tools:     6 registered
-  Articles:  {N} indexed
-  Search:    FlexSearch index loaded ({N} documents)
+  Workspace:  {WORKSPACE_ABS}
+  Server:     {server-name}
+  Serve JS:   {SERVE_JS}
+  Transport:  stdio
+  Tools:      6 registered
+  Articles:   {N} indexed
+  Search:     FlexSearch index loaded ({N} documents)
 
-  To connect from Claude Desktop, add to .mcp.json:
-    "grimoire-{topic-slug}": {
-      "command": "node",
-      "args": ["{plugin-path}/dist/serve.js", "{workspace-path}"]
-    }
+  Paste into your MCP client config:
+  {mcp-config-snippet.json contents}
 
-  To test: run a query tool from any MCP client.
+  Snippet saved to: {workspace}/mcp-config-snippet.json
+
+  Next steps:
+    1. Add the block above to your MCP client config
+    2. Restart the MCP client
+    3. Run grimoire_query or grimoire_list_topics to test
 ```
 
-## Step 5 — Update wiki/log.md
+## Step 7 — Update wiki/log.md
 
 Append:
 

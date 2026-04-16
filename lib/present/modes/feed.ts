@@ -8,6 +8,7 @@
 
 import type { SiteData, DesignConfig, LogEntry } from '../types.js';
 import { pageShell } from '../html.js';
+import { shortTopic } from '../hub.js';
 
 function esc(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -80,17 +81,31 @@ export function generateFeedMode(data: SiteData, config: DesignConfig): string {
     return db - da;
   });
 
-  const entries = sorted.length > 0
+  const hasEntries = sorted.length > 0;
+  const entries = hasEntries
     ? sorted.map(buildTimelineEntry).join('\n')
-    : '<p class="feed-empty">No changelog entries yet.</p>';
+    : '';
 
-  const body = `
-<div class="feed-wrap">
+  const emptyState = !hasEntries
+    ? `<div class="feed-empty">
+        <p>No activity yet.</p>
+        <p style="font-size:13px;color:var(--text-tertiary);margin-top:8px">
+          Entries appear here as articles are scouted, ingested, and compiled.
+        </p>
+      </div>`
+    : '';
+
+  const body = hasEntries
+    ? `<div class="feed-wrap">
   <h2>Activity Feed</h2>
   <div class="feed-timeline">
     ${entries}
   </div>
+</div>`
+    : `<div class="feed-wrap">
+  <h2>Activity Feed</h2>
+  ${emptyState}
 </div>`;
 
-  return pageShell(`${data.schema.topic} — Feed`, 'feed', body, config, data);
+  return pageShell(`${shortTopic(data.schema.topic)} — Feed`, 'feed', body, config, data);
 }

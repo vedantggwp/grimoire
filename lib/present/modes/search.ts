@@ -14,6 +14,7 @@
 
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
+import { shortTopic } from '../hub.js';
 
 function esc(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -294,12 +295,14 @@ export function generateSearchMode(data: SiteData, config: DesignConfig): string
     <div class="search-hint-top">Press <kbd>&#8984;K</kbd> to focus search from anywhere</div>
     <div class="search-overlay">
       <div class="search-input-wrap">
-        <span class="search-icon">&#128269;</span>
+        <span class="search-icon" aria-hidden="true">&#128269;</span>
+        <label for="search-input" class="skip-link">Search articles</label>
         <input
           type="search"
           id="search-input"
           placeholder="Search articles, tags, concepts..."
           autocomplete="off"
+          aria-label="Search articles, tags, concepts"
         >
         <kbd>ESC</kbd>
       </div>
@@ -325,5 +328,5 @@ export function generateSearchMode(data: SiteData, config: DesignConfig): string
 </div>
 ${searchScript()}`;
 
-  return pageShell(`${data.schema.topic} — Search`, 'search', body, config, data);
+  return pageShell(`${shortTopic(data.schema.topic)} — Search`, 'search', body, config, data);
 }

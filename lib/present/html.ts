@@ -6,6 +6,7 @@
 
 import type { DesignConfig, SiteData } from './types.js';
 import { resolveTypography, getGoogleFontsUrl } from './config.js';
+import { shortTopic } from './hub.js';
 
 // --- Escape helper ---
 
@@ -72,7 +73,7 @@ export function navBar(currentMode: string, data: SiteData): string {
   }).join('\n        ');
 
   return `<nav>
-  <a href="../index.html" class="brand">${esc(data.schema.topic)}</a>
+  <a href="../index.html" class="brand">${esc(shortTopic(data.schema.topic))}</a>
   <div class="tabs">
     ${tabs}
   </div>
@@ -91,7 +92,7 @@ export function hubNav(data: SiteData): string {
   }).join('\n        ');
 
   return `<nav>
-  <a href="index.html" class="brand">${esc(data.schema.topic)}</a>
+  <a href="index.html" class="brand">${esc(shortTopic(data.schema.topic))}</a>
   <div class="tabs">
     ${tabs}
   </div>
@@ -152,13 +153,17 @@ export function pageShell(
   config: DesignConfig,
   data: SiteData,
 ): string {
+  const progressBar = mode === 'read'
+    ? '<div class="read-progress" id="read-progress"></div>'
+    : '';
+
   return `<!DOCTYPE html>
 <html lang="en">
 ${htmlHead(title, config)}
 <body class="mode-${mode}">
 <a href="#main" class="skip-link">Skip to content</a>
 ${navBar(mode, data)}
-${mode === 'read' ? '<div class="read-progress" id="read-progress"></div>' : ''}
+${progressBar}
 <main id="main" class="container">
 ${bodyContent}
 </main>

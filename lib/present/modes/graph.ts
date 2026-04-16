@@ -12,6 +12,7 @@
 
 import type { SiteData, DesignConfig } from '../types.js';
 import { pageShell } from '../html.js';
+import { shortTopic } from '../hub.js';
 import { d3MinSource } from './d3-source.js';
 
 function esc(str: string): string {
@@ -339,5 +340,5 @@ ${graphStyles()}
 </div>
 ${graphScript()}`;
 
-  return pageShell(`${data.schema.topic} — Graph`, 'graph', body, config, data);
+  return pageShell(`${shortTopic(data.schema.topic)} — Graph`, 'graph', body, config, data);
 }

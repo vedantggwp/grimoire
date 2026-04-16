@@ -31,11 +31,14 @@ Find the grimoire workspace:
 
 ## Step 2 — Run the Compile Script
 
-Execute the Papyr Core analysis script:
+Execute the Papyr Core analysis script against the workspace root:
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/dist/compile.js {workspace}/wiki
+node ${CLAUDE_PLUGIN_ROOT}/dist/compile.js {workspace}
 ```
+
+The script auto-detects the nested `wiki/` directory. Passing
+`{workspace}/wiki` directly also works and is treated identically.
 
 This produces JSON artifacts in `{workspace}/wiki/.compile/`:
 

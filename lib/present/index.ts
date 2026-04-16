@@ -11,7 +11,7 @@ import { join, resolve, dirname } from 'node:path';
 import { parseDesignConfig } from './config.js';
 import { generateCSS } from './css.js';
 import { loadSiteData } from './data.js';
-import { computeHubStats, hubLeadText, recommendedMode } from './hub.js';
+import { computeHubStats, hubLeadText, recommendedMode, shortTopic } from './hub.js';
 import { hubShell } from './html.js';
 import { generateReadMode } from './modes/read.js';
 import { generateGraphMode } from './modes/graph.js';
@@ -53,16 +53,13 @@ function generateHub(data: SiteData, config: DesignConfig): string {
   const cards = modes.map(m => {
     const isFeatured = m.id === recommended;
     const featuredClass = isFeatured ? ' featured' : '';
-    const featuredStyle = isFeatured
-      ? ` style="grid-row: span ${data.articles.length < 10 ? 1 : 2}"`
-      : '';
     const badge = isFeatured ? `\n      <div class="badge">Recommended</div>` : '';
     const preview = isFeatured && topArticles.length > 0
       ? `\n      <ul class="bento-preview">${topArticles
           .map(a => `<li><span class="bento-preview__num">${topArticles.indexOf(a) + 1}</span>${esc(a.title)}</li>`)
           .join('')}</ul>`
       : '';
-    return `<a href="${m.id}/index.html" class="bento-card${featuredClass}"${featuredStyle}>${badge}
+    return `<a href="${m.id}/index.html" class="bento-card${featuredClass}">${badge}
       <span class="icon">${m.icon}</span>
       <h3>${esc(m.title)}</h3>
       <p>${esc(m.desc)}</p>${preview}
@@ -86,12 +83,12 @@ function generateHub(data: SiteData, config: DesignConfig): string {
     `<div class="hub-stat"${s.title ? ` title="${esc(s.title)}"` : ''}><strong>${esc(s.value)}</strong>${esc(s.label)}</div>`
   ).join('\n      ');
 
-  // Hub leads with the subtitle, not a duplicate of the topic name.
-  // The topic name already lives in the nav brand, so we skip the H1 here
-  // and let the "in-scope" line act as the orientation text for the page.
+  const displayName = shortTopic(data.schema.topic);
+
   const body = `
 <div class="hub-hero">
-    <p class="hub-lead">${esc(hubLeadText(data.schema.scope.in))}</p>
+    <h1 class="hub-title">${esc(displayName)}</h1>
+    <p class="hub-lead">${esc(hubLeadText(data.schema.topic, data.schema.audience))}</p>
     <div class="hub-stats">
       ${statItems}
     </div>
@@ -100,7 +97,7 @@ function generateHub(data: SiteData, config: DesignConfig): string {
     ${cards}
   </div>`;
 
-  return hubShell(data.schema.topic, body, config, data);
+  return hubShell(displayName, body, config, data);
 }
 
 // --- File writer ---

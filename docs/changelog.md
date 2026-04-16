@@ -1,5 +1,129 @@
 # Changelog
 
+## 2026-04-15 — Pre-Claude-Desktop-Test Friction Pass
+
+### Context
+
+Before wiring the MCP server into a real Claude Desktop instance for the first
+end-to-end compatibility test (the one item explicitly deferred from v0.2.2 to
+v0.3 per `docs/roadmap.md` Phase 6), two concrete friction points were
+identified in the route from fresh install → running query. Both are the kind
+of small gotchas that turn a "try the thing" moment into "why isn't this
+working"; both have 10–15 minute surgical fixes. Closed them in one pass so
+the first real test run is clean.
+
+### Gotcha 1 — Compile CLI accepted wiki dir only, not workspace root
+
+**Problem.** `dist/compile.js` expected its positional arg to be the `wiki/`
+subdirectory. Passing the grimoire workspace root (the natural mental model —
+"the directory with `SCHEMA.md` in it") failed silently or produced a
+`.compile/` under the workspace root instead of under `wiki/.compile/` where
+every downstream skill looks for it.
+
+**Fix.** `lib/compile.ts` gained a `resolveWikiDir()` helper. It takes the
+resolved arg, checks `statSync(join(arg, 'wiki')).isDirectory()`, and if that
+passes, returns the nested wiki path; otherwise it treats the arg as the wiki
+dir directly. Backward compatible with every existing invocation. New cleaner
+default: `node dist/compile.js {workspace}`. Usage string updated to
+`<workspace-or-wiki-path>` with a two-line explanation.
+
+**Docs.** `skills/compile/SKILL.md` Step 2 example updated to the cleaner
+form with a note that wiki-path still works. Same treatment for
+`skills/compile/references/stage-contract.md:13`.
+
+**Tests.** New describe block in `test/compile.test.ts` —
+`compile — workspace root input` — with its own `beforeAll` that wipes
+`.compile/` and runs compile with `test/fixtures/sample-wiki/` as the arg
+(workspace root, not wiki). Three assertions: (a) `.compile/` artifacts
+appear under `sample-wiki/wiki/.compile/` with all expected JSON files,
+(b) note count matches the direct wiki-path invocation (7), (c) frontmatter
+extraction (confidence, sources) survives the path resolution change. Total
+compile tests went 23 → 26. All 132 tests green (was 129).
+
+**Smoke.** Hand-verified against `examples/mcp`:
+- `node dist/compile.js examples/mcp` → 8 notes, 23 links, 3 components,
+  graph density 0.411, output in `examples/mcp/wiki/.compile/`.
+- `node dist/compile.js examples/mcp/wiki` → identical result.
+
+### Gotcha 2 — Serve skill asked user to hand-assemble MCP config
+
+**Problem.** `skills/serve/SKILL.md` Step 3 printed a config template with
+`{absolute-path-to-plugin}/dist/serve.js` and `{absolute-path-to-workspace}`
+placeholders, expecting the user to resolve them. Claude Desktop's
+`claude_desktop_config.json` is plain JSON — no `~` expansion, no env vars,
+no `${CLAUDE_PLUGIN_ROOT}`. The user ended up guessing what to paste and
+getting "file not found" on first launch. Real friction, small fix.
+
+**Fix.** `skills/serve/SKILL.md` restructured into 7 steps:
+
+1. Locate the grimoire (unchanged)
+2. MCP server invocation shape (renamed from "Start the MCP Server" —
+   clarified that the server is launched by the MCP client, not by this skill)
+3. **Resolve absolute paths** (new) — instructs Claude to run
+   `realpath "${CLAUDE_PLUGIN_ROOT}/dist/serve.js"` and
+   `realpath "{workspace-path}"`, verify both exist, derive a deterministic
+   server name from `SCHEMA.md` topic (lowercase + dashes + first 2–3
+   meaningful words + `grimoire-` prefix)
+4. **Write pre-filled MCP config snippet** (new) — writes
+   `{workspace}/mcp-config-snippet.json` with literal absolute paths (no
+   placeholders), prints the same JSON inline so the user can copy without
+   opening the file, tells them exactly which config file to paste it into
+   (macOS/Windows Claude Desktop paths explicit) and reminds them to restart
+   the MCP client
+5. CLAUDE.md integration (optional, moved from step 3, now uses the same
+   resolved paths and server name from step 3)
+6. Report — uses resolved paths, shows the full snippet inline, 3-step
+   "paste → restart → test" checklist
+7. Update wiki/log.md (unchanged)
+
+SKILL.md frontmatter version bumped 0.1.0 → 0.2.0.
+
+No runtime code change — the server itself was always correct, only the
+setup instructions were asking the user to do work the skill can do.
+
+### Verification gates (all passed)
+
+- `npm test` → 132 passed (129 prior + 3 new compile workspace-input tests)
+- `npm run build` → dist bundles regenerated clean (`dist/compile.js`
+  662.5 KB, `dist/serve.js` 927.2 KB, `dist/present.js` 1000.1 KB)
+- Smoke: both compile invocation forms produce identical output against
+  `examples/mcp`
+
+### Files touched
+
+- `lib/compile.ts` — `resolveWikiDir()` helper, updated CLI header and usage
+- `test/compile.test.ts` — new workspace-root describe block (3 tests)
+- `skills/compile/SKILL.md` — Step 2 invocation example
+- `skills/compile/references/stage-contract.md` — process step 1
+- `skills/serve/SKILL.md` — Steps 2–7 restructured, version → 0.2.0
+- `dist/compile.js` (+ sourcemap) — regenerated
+- `dist/present.js`, `dist/serve.js` (+ sourcemaps) — rebuilt as part of
+  `npm run build`, no source changes
+- `MANIFEST.md` — updated compile.ts and serve skill entries, compile test
+  count, added Recent Changes entry
+- `docs/changelog.md` — this entry
+
+### What didn't change
+
+- `lib/serve.ts` — unchanged. `serverInfo.version` stays at 0.2.3 because
+  nothing about the running server changed.
+- `package.json` / `plugin.json` — unchanged. No new user-facing feature,
+  no breaking change, no new runtime behavior. The version triple
+  (package / plugin / serverInfo) stays at 0.2.3.
+- `dist/serve.js` internals — unchanged; rebuilt only because the build
+  script bundles all three together.
+
+### Open items
+
+- The Claude Desktop end-to-end MCP compatibility test itself still has to
+  happen — this pass closed the two known pre-test friction points but
+  didn't do the test. Next session: cold-install from marketplace into a
+  fresh workspace, run init → scout → ingest → compile → serve, paste the
+  generated snippet, restart Claude Desktop, query the wiki.
+- Long-term: hot-reload of `.compile/` artifacts when the file changes on
+  disk (currently the server loads them once at startup, so any recompile
+  requires an MCP client restart). Non-trivial MCP SDK work; deferred.
+
 ## 2026-04-11 — v0.2.2 Launch-Readiness: Token Efficiency + End-to-End Validation
 
 ### Overview

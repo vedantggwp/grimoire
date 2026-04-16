@@ -22,3 +22,4 @@ __pycache__/
 
 # Test artifacts
 _test/
+test-results/

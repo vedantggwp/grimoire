@@ -217,3 +217,43 @@ describe('compile', () => {
     });
   });
 });
+
+// Path auto-detection pass (2026-04-15): compile.ts accepts either a workspace
+// root (which contains wiki/) or a wiki directory directly. This block verifies
+// that passing the sample-wiki workspace root produces the same .compile/
+// artifacts under sample-wiki/wiki/.compile/ as passing sample-wiki/wiki/ did.
+describe('compile — workspace root input', () => {
+  const WORKSPACE_DIR = join(__dirname, 'fixtures/sample-wiki');
+
+  beforeAll(() => {
+    if (existsSync(COMPILE_DIR)) {
+      rmSync(COMPILE_DIR, { recursive: true });
+    }
+
+    execSync(`${TSX_RUNNER} ${SCRIPT} ${WORKSPACE_DIR}`, {
+      cwd: join(__dirname, '..'),
+      stdio: 'pipe',
+      timeout: 30000,
+    });
+  });
+
+  it('auto-detects wiki/ subdirectory and writes .compile/ under workspace/wiki/', () => {
+    expect(existsSync(COMPILE_DIR)).toBe(true);
+    expect(existsSync(join(COMPILE_DIR, 'notes.json'))).toBe(true);
+    expect(existsSync(join(COMPILE_DIR, 'graph.json'))).toBe(true);
+    expect(existsSync(join(COMPILE_DIR, 'audit.json'))).toBe(true);
+  });
+
+  it('produces identical note count to direct wiki-path invocation', () => {
+    const notes = readJSON('notes.json') as any[];
+    expect(notes.length).toBe(7);
+  });
+
+  it('preserves frontmatter extraction through workspace-path resolution', () => {
+    const notes = readJSON('notes.json') as any[];
+    const react = notes.find((n: any) => n.slug === 'react-fundamentals');
+    expect(react).toBeDefined();
+    expect(react.confidence).toBe('P0');
+    expect(react.sources.length).toBeGreaterThan(0);
+  });
+});

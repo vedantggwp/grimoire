@@ -8,6 +8,7 @@
 
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
+import { shortTopic } from '../hub.js';
 
 function slugify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -260,5 +261,5 @@ export function generateReadMode(data: SiteData, config: DesignConfig): string {
 </div>
 ${readModeScript(sorted)}`;
 
-  return pageShell(`${data.schema.topic} — Read`, 'read', body, config, data);
+  return pageShell(`${shortTopic(data.schema.topic)} — Read`, 'read', body, config, data);
 }

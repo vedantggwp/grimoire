@@ -11,6 +11,7 @@
 
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
+import { shortTopic } from '../hub.js';
 import { d3MinSource } from './d3-source.js';
 
 function esc(str: string): string {
@@ -221,5 +222,5 @@ export function generateGapsMode(data: SiteData, config: DesignConfig): string {
 </div>
 ${gapsScript()}`;
 
-  return pageShell(`${data.schema.topic} — Gaps`, 'gaps', body, config, data);
+  return pageShell(`${shortTopic(data.schema.topic)} — Gaps`, 'gaps', body, config, data);
 }

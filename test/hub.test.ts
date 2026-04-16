@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeDensityRatio, computeHubStats, hubLeadText, recommendedMode } from '../lib/present/hub.js';
+import { computeDensityRatio, computeHubStats, hubLeadText, recommendedMode, shortTopic } from '../lib/present/hub.js';
 import type { SiteData } from '../lib/present/types.js';
 
 function makeSiteData(overrides: Partial<SiteData> = {}): SiteData {
@@ -167,8 +167,15 @@ describe('present hub helpers', () => {
     expect(recommendedMode(graphRecommended)).toBe('graph');
   });
 
-  it('falls back to a non-empty hub lead', () => {
-    expect(hubLeadText('')).toBe('Welcome to this knowledge base.');
-    expect(hubLeadText('Explicit scope')).toBe('Explicit scope');
+  it('extracts short topic name from verbose topic string', () => {
+    expect(shortTopic('Grimoire — how it works internally')).toBe('Grimoire');
+    expect(shortTopic('Grimoire')).toBe('Grimoire');
+    expect(shortTopic('My Topic - a long explanation')).toBe('My Topic');
+  });
+
+  it('produces a descriptive hub lead from topic and audience', () => {
+    const lead = hubLeadText('Grimoire — a knowledge base builder', 'developers');
+    expect(lead).toContain('Grimoire');
+    expect(lead).toContain('developers');
   });
 });

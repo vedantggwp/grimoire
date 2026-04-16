@@ -9,6 +9,7 @@
 
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
+import { shortTopic } from '../hub.js';
 
 function esc(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -358,5 +359,5 @@ export function generateQuizMode(data: SiteData, config: DesignConfig): string {
 </div>
 ${quizScript()}`;
 
-  return pageShell(`${data.schema.topic} — Quiz`, 'quiz', body, config, data);
+  return pageShell(`${shortTopic(data.schema.topic)} — Quiz`, 'quiz', body, config, data);
 }
