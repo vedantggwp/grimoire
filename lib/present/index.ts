@@ -53,13 +53,16 @@ function generateHub(data: SiteData, config: DesignConfig): string {
   const cards = modes.map(m => {
     const isFeatured = m.id === recommended;
     const featuredClass = isFeatured ? ' featured' : '';
+    const featuredStyle = isFeatured
+      ? ` style="grid-row: span ${data.articles.length < 10 ? 1 : 2}"`
+      : '';
     const badge = isFeatured ? `\n      <div class="badge">Recommended</div>` : '';
     const preview = isFeatured && topArticles.length > 0
       ? `\n      <ul class="bento-preview">${topArticles
           .map(a => `<li><span class="bento-preview__num">${topArticles.indexOf(a) + 1}</span>${esc(a.title)}</li>`)
           .join('')}</ul>`
       : '';
-    return `<a href="${m.id}/index.html" class="bento-card${featuredClass}">${badge}
+    return `<a href="${m.id}/index.html" class="bento-card${featuredClass}"${featuredStyle}>${badge}
       <span class="icon">${m.icon}</span>
       <h3>${esc(m.title)}</h3>
       <p>${esc(m.desc)}</p>${preview}

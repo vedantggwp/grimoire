@@ -193,6 +193,11 @@ describe('present', () => {
       expect(html).toContain('<strong>N/A</strong>graph density');
       expect(html).toContain('Density is not meaningful for small corpora');
     });
+
+    it('uses a single-row featured card for small corpora', () => {
+      const html = readSiteFile('index.html');
+      expect(html).toContain('class="bento-card featured" style="grid-row: span 1"');
+    });
   });
 
   describe('read mode', () => {
