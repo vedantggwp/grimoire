@@ -87,7 +87,7 @@ Flags for the one-command flow:
 | `ingest` | Working | Fetches approved sources, preserves raw text, compiles wiki articles with a human checkpoint |
 | `compile` | Working | Papyr Core graph audit, backlink repair, overview evolution, gap analysis, emergent taxonomy |
 | `present` | Working | Static frontend with 6 study modes (read, graph, search, feed, gaps, quiz) |
-| `serve` | Working | MCP server exposing 6 tools for LLM knowledge access |
+| `serve` | Working | MCP server exposing 7 tools for LLM knowledge access |
 
 `init`, `scout`, and `ingest` are Claude-driven workflows defined in `SKILL.md`. `compile`, `present`, and `serve` have matching TypeScript runtimes in `lib/` that esbuild bundles into self-contained ESM files under `dist/`; each skill invokes its bundle directly via `node ${CLAUDE_PLUGIN_ROOT}/dist/<skill>.js`, so nothing needs to be installed on the user's machine.
 
@@ -110,7 +110,7 @@ present  generates static study frontend
   |      -> site/ (HTML + CSS + JS, 6 modes)
   v
 serve    MCP server over stdio
-         -> 6 tools for LLM clients
+         -> 7 tools for LLM clients
 ```
 
 Every handoff between stages is a plain markdown or JSON file you can inspect and edit. Scout, ingest, and present all have mandatory human checkpoints — you review before the next stage runs.

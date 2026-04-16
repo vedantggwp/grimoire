@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "grimoire-meta": {
+      "command": "node",
+      "args": [
+        "/Users/ved/Developer/grimoire/dist/serve.js",
+        "/Users/ved/Developer/grimoire-wiki"
+      ]
+    }
+  }
+}

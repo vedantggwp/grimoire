@@ -30,7 +30,7 @@ grimoire/
   lib/                       # TypeScript runtimes invoked by skills
     compile.ts               # Papyr Core orchestration
     present/                 # 12-module static site generator
-    serve.ts                 # MCP server with 6 tools
+    serve.ts                 # MCP server with 7 tools
   test/                      # Vitest suites + sample-wiki fixture
   docs/                      # Specs, decisions, changelog, roadmap
   SOUL.md                    # Product bible
@@ -46,7 +46,7 @@ Skills auto-discover from `skills/*/SKILL.md` when Claude Code loads the plugin.
   |                |                 |                 |                 |                |
   v                v                 v                 v                 v                v
   SCHEMA.md      scout-report.md    raw/*.md          wiki/.compile/    site/             MCP server
-  _config/       approved-sources    wiki/*.md          *.json            (6 HTML modes)    (6 tools)
+  _config/       approved-sources    wiki/*.md          *.json            (6 HTML modes)    (7 tools)
   wiki/          scout-notes.md      updated index                         assets/style.css   stdio
   scout-queue
        ^              ^                  ^                                     ^

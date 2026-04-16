@@ -26,7 +26,7 @@ Grimoire is a pipeline of five stages, each packaged as a Claude Code skill, eac
 
 **present** generates a self-contained static frontend with six study modes: linear reading ordered by centrality, a D3 force-directed graph, client-side search, a changelog feed, a gap map, and auto-generated flashcards. Opens from `file://`. No server, no build step for the reader.
 
-**serve** starts a stdio MCP server with six tools: `grimoire_query`, `grimoire_list_topics`, `grimoire_get_article`, `grimoire_open_questions`, `grimoire_coverage_gaps`, and `grimoire_search`. Any MCP client — Claude Desktop, Claude Code, an IDE agent — can query the wiki without reading every file.
+**serve** starts a stdio MCP server with seven tools: `grimoire_query`, `grimoire_list_topics`, `grimoire_get_article`, `grimoire_get_section`, `grimoire_open_questions`, `grimoire_coverage_gaps`, and `grimoire_search`. Any MCP client — Claude Desktop, Claude Code, an IDE agent — can query the wiki without reading every file.
 
 Every handoff between stages is a plain markdown or JSON file. You can inspect it, edit it, and run the next stage. Scout, ingest, and present all have mandatory human checkpoints. No hidden state.
 

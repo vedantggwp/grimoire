@@ -1,19 +1,7 @@
 import type { GraphData, SiteData } from './types.js';
+import { shortTopic } from '../short-topic.js';
 
-/**
- * Extract a short display name from a potentially verbose topic string.
- * Takes everything before the first " — " or " - " delimiter, trimmed.
- * Falls back to the full string if no delimiter found (capped at 60 chars).
- */
-export function shortTopic(topic: string): string {
-  const delimiters = [' — ', ' – ', ' - '];
-  for (const d of delimiters) {
-    const idx = topic.indexOf(d);
-    if (idx > 0) return topic.slice(0, idx).trim();
-  }
-  const firstLine = topic.split('\n')[0].trim();
-  return firstLine.length > 60 ? firstLine.slice(0, 57) + '…' : firstLine;
-}
+export { shortTopic };
 
 export interface HubStats {
   readonly articleCount: number;

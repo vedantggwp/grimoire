@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { importSearchIndex, searchNotes, type SearchIndex, type SerializedSearchIndex } from 'papyr-core';
+import { shortTopic } from './short-topic.js';
 
 // --- Types ---
 
@@ -437,7 +438,7 @@ export function handleQuery(query: string, data: WikiData): string {
   const hits = rerankHits(query, filtered, data);
 
   if (hits.length === 0) {
-    return `No results found for "${query}" in the ${data.schemaInfo.topic} knowledge base.`;
+    return `No results found for "${query}" in the ${shortTopic(data.schemaInfo.topic)} knowledge base.`;
   }
 
   const topHits = hits.slice(0, 3);
@@ -459,7 +460,7 @@ export function handleQuery(query: string, data: WikiData): string {
 
   return [
     `## Results for: "${query}"`,
-    `Knowledge base: ${data.schemaInfo.topic}`,
+    `Knowledge base: ${shortTopic(data.schemaInfo.topic)}`,
     '',
     ...sections,
     '',
@@ -488,7 +489,7 @@ export function handleListTopics(data: WikiData): string {
   });
 
   return [
-    `## Topics in: ${data.schemaInfo.topic}`,
+    `## Topics in: ${shortTopic(data.schemaInfo.topic)}`,
     `Total articles: ${data.notes.length}`,
     `Total tags: ${sorted.length}`,
     '',
@@ -738,7 +739,7 @@ function createServer(data: WikiData): McpServer {
   const server = new McpServer(
     { name: 'grimoire', version: '0.3.0' },
     {
-      instructions: `Grimoire is a curated knowledge base about "${data.schemaInfo.topic}". Routing pattern for efficient retrieval:\n1. Call grimoire_list_topics first to see all articles with summaries\n2. Use grimoire_get_article(slug) for a specific article\n3. Use grimoire_get_section(slug, heading) for just one section (most token-efficient)\nFor questions: grimoire_query. For keyword search: grimoire_search.\nPrefer get_section over get_article when you know which section you need.`,
+      instructions: `Grimoire is a curated knowledge base about "${shortTopic(data.schemaInfo.topic)}". Routing pattern for efficient retrieval:\n1. Call grimoire_list_topics first to see all articles with summaries\n2. Use grimoire_get_article(slug) for a specific article\n3. Use grimoire_get_section(slug, heading) for just one section (most token-efficient)\nFor questions: grimoire_query. For keyword search: grimoire_search.\nPrefer get_section over get_article when you know which section you need.`,
     },
   );
 
@@ -834,7 +835,7 @@ async function main(): Promise<void> {
     const server = createServer(data);
 
     process.stderr.write(
-      `serve: loaded ${data.notes.length} articles from "${data.schemaInfo.topic}"\n`,
+      `serve: loaded ${data.notes.length} articles from "${shortTopic(data.schemaInfo.topic)}"\n`,
     );
 
     const transport = new StdioServerTransport();

@@ -27,7 +27,7 @@ Expose the wiki through an MCP server that LLM clients can query over stdio, and
 | CLAUDE.md integration | Target project's `CLAUDE.md` | Optional markdown section referencing the wiki (opt-in) |
 
 ## Audit
-- [ ] All six tools respond successfully against the compiled indexes
+- [ ] All seven tools respond successfully against the compiled indexes
 - [ ] Server logs include the article count loaded at startup
 - [ ] Staleness check warns if any `wiki/*.md` is newer than `wiki/.compile/graph.json`
 - [ ] No mutation of the target project's code — only `CLAUDE.md` with explicit consent

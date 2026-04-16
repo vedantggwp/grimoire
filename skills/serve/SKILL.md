@@ -4,7 +4,7 @@ description: >-
   Use this skill when the user wants to expose a grimoire via MCP, set up the
   local server, generate CLAUDE.md integration, or says "grimoire serve",
   "start MCP server", "serve wiki", or "/grimoire:serve". Creates a custom
-  MCP server with 6 tools for LLM-queryable knowledge access.
+  MCP server with 7 tools for LLM-queryable knowledge access.
 version: 0.2.0
 ---
 
@@ -49,13 +49,14 @@ At startup the server loads:
 - `wiki/*.md` — for full article retrieval
 - `SCHEMA.md` — topic and scope metadata
 
-And exposes 6 MCP tools:
+And exposes 7 MCP tools:
 
 | Tool | Purpose | Token Cost |
 |------|---------|------------|
 | `grimoire_query` | Synthesize an answer from wiki articles | Medium |
 | `grimoire_list_topics` | Return taxonomy with article counts | Low |
-| `grimoire_get_article` | Return a specific article by slug | Low |
+| `grimoire_get_article` | Return a specific article by slug (auto/full/summary) | Low–Medium |
+| `grimoire_get_section` | Return a single heading-level section of an article | Low |
 | `grimoire_open_questions` | Return unresolved questions from overview | Low |
 | `grimoire_coverage_gaps` | Return topics with thin or missing coverage | Low |
 | `grimoire_search` | Full-text search across all content | Medium |
