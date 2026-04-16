@@ -11,6 +11,7 @@ import { join, resolve, dirname } from 'node:path';
 import { parseDesignConfig } from './config.js';
 import { generateCSS } from './css.js';
 import { loadSiteData } from './data.js';
+import { computeHubStats, hubLeadText, recommendedMode } from './hub.js';
 import { hubShell } from './html.js';
 import { generateReadMode } from './modes/read.js';
 import { generateGraphMode } from './modes/graph.js';
@@ -26,34 +27,6 @@ function esc(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function computeStats(data: SiteData): { articleCount: number; sourceCount: number; tagCount: number; crossRefs: number; density: number } {
-  const articleCount = data.articles.length;
-  const sourceCount = data.articles.reduce((s, a) => s + a.sources.length, 0);
-  const tags = new Set(data.articles.flatMap(a => [...a.tags]));
-  // De-duplicate edges into undirected pairs — two markdown links from
-  // A->B and B->A (or A->B twice) should count as one cross-reference.
-  // Density is then this unique-pair count over the max possible for
-  // the filtered content-only node set, capped at 100 for display.
-  const uniquePairs = new Set<string>();
-  for (const edge of data.graphData.edges) {
-    const pair = [edge.source, edge.target].sort().join('::');
-    uniquePairs.add(pair);
-  }
-  const crossRefs = uniquePairs.size;
-  const n = data.graphData.nodes.length;
-  const maxEdges = n > 1 ? (n * (n - 1)) / 2 : 1;
-  const density = n > 1 ? Math.min(100, Math.round((crossRefs / maxEdges) * 100)) : 0;
-  return { articleCount, sourceCount, tagCount: tags.size, crossRefs, density };
-}
-
-function recommendedMode(data: SiteData): string {
-  if (data.articles.length < 5) return 'read';
-  const nodes = data.graphData.nodes.length;
-  const density = nodes > 1 ? data.graphData.edges.length / (nodes * (nodes - 1) / 2) : 0;
-  if (data.articles.length >= 15 && density > 0.3) return 'graph';
-  return 'read';
-}
-
 function generateHub(data: SiteData, config: DesignConfig): string {
   const modes = [
     { id: 'read', title: 'Read', icon: '📖', desc: 'Articles sorted by graph centrality. Start here for a deep, linear study of the core concepts.', when: 'Deep study of key topics' },
@@ -64,7 +37,7 @@ function generateHub(data: SiteData, config: DesignConfig): string {
     { id: 'quiz', title: 'Quiz', icon: '🧠', desc: 'Flashcard-style study quiz.', when: 'Test understanding' },
   ];
 
-  const stats = computeStats(data);
+  const stats = computeHubStats(data);
   const recommended = recommendedMode(data);
 
   // Top articles by centrality score for the featured-card preview list.
@@ -99,9 +72,15 @@ function generateHub(data: SiteData, config: DesignConfig): string {
     { label: 'sources', value: String(stats.sourceCount) },
     { label: 'tags', value: String(stats.tagCount) },
     { label: 'cross-refs', value: String(stats.crossRefs) },
-    { label: 'graph density', value: `${stats.density}%` },
+    {
+      label: 'graph density',
+      value: stats.density === null ? 'N/A' : `${stats.density}%`,
+      title: stats.density === null
+        ? 'Density is not meaningful for small corpora (< 10 articles).'
+        : '',
+    },
   ].map(s =>
-    `<div class="hub-stat"><strong>${esc(s.value)}</strong>${esc(s.label)}</div>`
+    `<div class="hub-stat"${s.title ? ` title="${esc(s.title)}"` : ''}><strong>${esc(s.value)}</strong>${esc(s.label)}</div>`
   ).join('\n      ');
 
   // Hub leads with the subtitle, not a duplicate of the topic name.
@@ -109,7 +88,7 @@ function generateHub(data: SiteData, config: DesignConfig): string {
   // and let the "in-scope" line act as the orientation text for the page.
   const body = `
 <div class="hub-hero">
-    <p class="hub-lead">${esc(data.schema.scope.in)}</p>
+    <p class="hub-lead">${esc(hubLeadText(data.schema.scope.in))}</p>
     <div class="hub-stats">
       ${statItems}
     </div>

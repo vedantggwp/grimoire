@@ -180,6 +180,12 @@ describe('present', () => {
       const html = readSiteFile('index.html');
       expect(html).toContain('Built with Grimoire');
     });
+
+    it('shows N/A for graph density on small corpora', () => {
+      const html = readSiteFile('index.html');
+      expect(html).toContain('<strong>N/A</strong>graph density');
+      expect(html).toContain('Density is not meaningful for small corpora');
+    });
   });
 
   describe('read mode', () => {
