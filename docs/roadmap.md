@@ -69,7 +69,7 @@
 ## Phase 7 — v0.2.4 Quality Pass (Complete)
 - [x] **25-bug dogfood quality pass across present + serve** — schema parser hardening, static wikilink resolution, hub stat cleanup, progress-bar placement, small-corpus layout/graph fixes, CSS polish, and Zod article validation all landed with regression tests; 154/154 tests green
 - [x] **Meta-grimoire regression targets closed** — full topic string preserved, hub lead never empty, no papyr `#/note/` links in rendered article HTML, read-mode hash navigation works, small corpora show `graph density: N/A`
-- [ ] **v0.2.5 compile skill hardening** — taxonomy proposal enforcement and overview evolution enforcement remain deferred because bugs 11/12 are compile-skill behaviors, not `lib/compile.ts` runtime gaps
+- [x] **v0.3.1 compile skill hardening** — landed as hybrid enforcement: `lib/compile.ts` now emits `overview-metadata.json` every run and `taxonomy-proposal.json` conditionally (5+ tags, 5+ content articles, taxonomy not `"defined"`); `skills/compile/SKILL.md` Steps 5 and 5.5 now read these artifacts, and new Step 9 audits overview citations + taxonomy-proposal disposition + overview freshness before exit, looping back on any failure. Shipped as v0.3.1.
 
 ### v0.3.0 — One-command flow (shipped 2026-04-16)
 

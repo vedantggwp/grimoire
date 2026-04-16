@@ -5,7 +5,7 @@ description: >-
   the overview, run gap analysis, or says "grimoire compile", "build links",
   "update overview", or "/grimoire:compile". Uses Papyr Core for graph analysis
   and cross-reference auditing.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # compile
@@ -49,6 +49,8 @@ This produces JSON artifacts in `{workspace}/wiki/.compile/`:
 | `search-index.json` | Serialized FlexSearch index (used by serve and present) |
 | `analytics.json` | Content analytics (word distribution, reading time, tag analysis, graph metrics) |
 | `notes.json` | Lightweight manifest (slug, title, tags, word count, headings, links) |
+| `overview-metadata.json` | **Enforcement evidence for Step 5.** Top-5 centrality articles, the required-citation slug list, coverage stats, and topic clusters (support pages filtered). Step 9 audits `wiki/overview.md` against this file |
+| `taxonomy-proposal.json` | **Enforcement trigger for Step 5.5.** Conditional — present ONLY when all three Step 5.5 conditions are met (5+ content articles, 5+ unique tags, SCHEMA taxonomy not `"defined"`). Contains deterministic tag cooccurrence groupings. Absence = Step 5.5 can be skipped |
 
 If the script fails, show the error to the user and stop. Do not proceed with partial data.
 
@@ -114,11 +116,21 @@ For each fix identified in Step 3, apply it to the wiki files:
 
 ## Step 5 — Update wiki/overview.md
 
-Before writing the overview, read the full content of the top 5 articles by centrality
-(from `audit.json` centrality scores). The analytics JSON has statistics but not prose —
-the overview narrative must be grounded in actual article content, not just numbers.
+**Read `{workspace}/wiki/.compile/overview-metadata.json` FIRST.** It
+gives you the deterministic inputs for the overview:
 
-Rewrite `wiki/overview.md` using the compile analysis. Structure:
+- `topCentralityArticles` — the 5 articles you must read in full before
+  writing (their prose grounds the narrative; the statistics alone
+  aren't enough)
+- `requiredCitations` — the slugs that **must** appear as `[[slug]]`
+  wikilinks in the overview. Step 9 audits this. If you skip any, the
+  compile will loop back here until it's fixed
+- `coverageStats` — article count, source count, cross-refs, total
+  words; use these verbatim in the `## Coverage` section
+- `topicClusters` — connected-component groupings for `## Topic Clusters`
+
+Now read the full content of each `topCentralityArticles` entry and
+rewrite `wiki/overview.md` using the compile analysis. Structure:
 
 ```markdown
 # {Topic} — Overview
@@ -157,26 +169,32 @@ that are still relevant. Add new ones from the analysis.
 > This step is conditional and inserted between Step 5 and Step 6. It does not
 > renumber subsequent steps to avoid disrupting existing references.
 
-**Run this step ONLY when ALL three conditions are true:**
+**Check for `{workspace}/wiki/.compile/taxonomy-proposal.json`.**
 
-1. `analytics.json` tag analytics show 5+ unique tags
-2. There are 5+ content articles in the wiki (excluding index.md, overview.md, log.md)
-3. `SCHEMA.md` has `taxonomy: "emergent"` (not already defined with categories)
+- **File exists** → all three conditions are met. You **must** run this
+  step. Step 9 audits that a proposal was presented to the user.
+- **File missing** → at least one condition failed. Skip silently and
+  proceed to Step 6.
 
-If any condition is false, skip silently and proceed to Step 6.
+Conditions (computed deterministically by `lib/compile.ts` — you don't need
+to re-check them):
+
+1. 5+ unique tags in the content corpus
+2. 5+ content articles (support pages excluded)
+3. `SCHEMA.md` taxonomy is not explicitly `"defined"` (emergent or unspecified
+   both qualify)
 
 ### Logic
 
-1. Read `{workspace}/wiki/.compile/analytics.json` — extract `tags.topTags`,
-   `tags.relatedTags` (co-occurrence pairs), and `graph.clusters`.
+1. Read `{workspace}/wiki/.compile/taxonomy-proposal.json`. It gives you:
+   - `conditions` — the three metrics as computed at compile time
+   - `candidateGroups` — tag clusters already grouped by cooccurrence (≥2
+     shared articles), each with an articles list and a cooccurrence score
+   - `uncategorizedArticles` — content slugs that fit no proposed group
 
-2. Group tags by co-occurrence into candidate categories. Tags that frequently
-   appear together on the same articles form a category. Use `relatedTags`
-   co-occurrence counts as the primary signal and `graph.clusters` as a
-   secondary grouping signal.
-
-3. For each candidate category: propose a name, list the tags it contains,
-   and list which articles would belong.
+2. For each `candidateGroup`: propose a human-readable category name based
+   on the tag cluster. The grouping is already done; your job is to name
+   what the machine surfaced.
 
 4. Present the proposal to the user. Format:
 
@@ -216,6 +234,39 @@ Taxonomy Proposal:
 
 8. If **edited**, apply the user's changes to the proposal, re-present, and
    ask again (approve / edit / reject) until the user approves or rejects.
+
+## Step 9 — Enforce Before Exit
+
+Before printing the final summary (Step 8), run these machine-checkable
+audits. If any fail, loop back to the indicated step with a direct
+instruction to correct the problem. Do not mark compile complete with
+any failure unresolved.
+
+### 9.1 — Overview citation audit
+
+1. Read `{workspace}/wiki/.compile/overview-metadata.json` and
+   `{workspace}/wiki/overview.md`.
+2. For each slug in `requiredCitations`, verify that `[[{slug}]]` appears
+   literally in the overview markdown.
+3. If any slug is missing, report which ones and loop back to **Step 5**
+   with the instruction: "The overview must cite the following required
+   articles that were not referenced: [list]. Rewrite the affected
+   sections to incorporate them."
+
+### 9.2 — Taxonomy proposal audit
+
+1. If `{workspace}/wiki/.compile/taxonomy-proposal.json` exists, verify
+   that a taxonomy proposal was presented to the user in this session
+   (the user either approved, edited, or rejected it).
+2. If the file exists and no proposal was presented, report this and
+   loop back to **Step 5.5**. Do not skip; the conditions were met.
+3. If the file does not exist, skip this audit.
+
+### 9.3 — Freshness
+
+Confirm that `wiki/overview.md` was modified in this run (mtime newer
+than the start of the compile invocation). If not, overview was not
+updated — loop back to **Step 5**.
 
 ## Step 6 — Write Compile Report
 

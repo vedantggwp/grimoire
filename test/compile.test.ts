@@ -216,6 +216,75 @@ describe('compile', () => {
       expect(index.config || index.documents || index.error).toBeDefined();
     });
   });
+
+  // v0.3.1 compile skill hardening (2026-04-17): emit deterministic
+  // enforcement artifacts for the skill's Step 9 audit. overview-metadata.json
+  // is always present; taxonomy-proposal.json is conditional on 5+ content
+  // articles, 5+ unique tags, and SCHEMA taxonomy != "defined".
+  describe('overview-metadata.json — Step 5 enforcement evidence', () => {
+    it('is written every run', () => {
+      expect(existsSync(join(COMPILE_DIR, 'overview-metadata.json'))).toBe(true);
+    });
+
+    it('ranks the top 5 content articles by centrality', () => {
+      const meta = readJSON('overview-metadata.json') as any;
+      expect(Array.isArray(meta.topCentralityArticles)).toBe(true);
+      // sample-wiki has 4 content articles, so the ranked list tops out at 4
+      expect(meta.topCentralityArticles.length).toBeGreaterThan(0);
+      expect(meta.topCentralityArticles.length).toBeLessThanOrEqual(5);
+      for (const entry of meta.topCentralityArticles) {
+        expect(typeof entry.slug).toBe('string');
+        expect(typeof entry.title).toBe('string');
+        expect(typeof entry.centrality).toBe('number');
+      }
+    });
+
+    it('excludes support pages from centrality ranking', () => {
+      const meta = readJSON('overview-metadata.json') as any;
+      const slugs = meta.topCentralityArticles.map((e: any) => e.slug);
+      expect(slugs).not.toContain('index');
+      expect(slugs).not.toContain('log');
+      expect(slugs).not.toContain('overview');
+    });
+
+    it('emits required-citation slugs the skill audit must find in overview.md', () => {
+      const meta = readJSON('overview-metadata.json') as any;
+      expect(Array.isArray(meta.requiredCitations)).toBe(true);
+      expect(meta.requiredCitations).toEqual(
+        meta.topCentralityArticles.map((e: any) => e.slug),
+      );
+    });
+
+    it('emits coverage stats (articleCount, totalWords, sourceCount, crossRefs)', () => {
+      const meta = readJSON('overview-metadata.json') as any;
+      expect(meta.coverageStats.articleCount).toBe(4); // 4 content articles in sample-wiki
+      expect(meta.coverageStats.totalWords).toBeGreaterThan(0);
+      expect(meta.coverageStats.crossRefs).toBeGreaterThan(0);
+      expect(typeof meta.coverageStats.componentCount).toBe('number');
+      expect(Array.isArray(meta.coverageStats.orphanNotes)).toBe(true);
+    });
+
+    it('emits topic clusters based on connected components (support pages filtered)', () => {
+      const meta = readJSON('overview-metadata.json') as any;
+      expect(Array.isArray(meta.topicClusters)).toBe(true);
+      for (const cluster of meta.topicClusters) {
+        expect(typeof cluster.componentId).toBe('number');
+        expect(Array.isArray(cluster.articles)).toBe(true);
+        for (const slug of cluster.articles) {
+          expect(['index', 'log', 'overview']).not.toContain(slug);
+        }
+      }
+    });
+  });
+
+  describe('taxonomy-proposal.json — Step 5.5 enforcement trigger', () => {
+    it('is NOT written when content article count < 5 (sample-wiki has 4)', () => {
+      // Sample-wiki has 4 content articles, which is under the Step 5.5
+      // threshold. Absence of the file is the signal that conditions were
+      // not met — the skill uses this to decide whether to skip silently.
+      expect(existsSync(join(COMPILE_DIR, 'taxonomy-proposal.json'))).toBe(false);
+    });
+  });
 });
 
 // Path auto-detection pass (2026-04-15): compile.ts accepts either a workspace

@@ -92,6 +92,53 @@ describe('examples/mcp — end-to-end smoke test', () => {
     });
   });
 
+  // v0.3.1 compile skill hardening: the skill's Step 9 audit reads these
+  // two artifacts to enforce that Step 5 (overview evolution) and Step 5.5
+  // (taxonomy proposal) actually ran on each compile. examples/mcp hits all
+  // three Step 5.5 conditions (5 content articles, 5+ unique tags,
+  // SCHEMA taxonomy "emergent") so we expect BOTH artifacts here — in
+  // contrast to sample-wiki which only gets overview-metadata.json.
+  describe('compile → enforcement artifacts (Steps 5 + 5.5)', () => {
+    it('overview-metadata.json surfaces all 5 content articles as required citations', () => {
+      const meta = JSON.parse(
+        readFileSync(join(COMPILE_DIR, 'overview-metadata.json'), 'utf-8'),
+      ) as {
+        requiredCitations: string[];
+        coverageStats: { articleCount: number };
+        topCentralityArticles: { slug: string }[];
+      };
+      expect(meta.coverageStats.articleCount).toBe(5);
+      // All 5 content slugs should appear in requiredCitations (top 5 = entire corpus here).
+      for (const slug of CONTENT_SLUGS) {
+        expect(meta.requiredCitations).toContain(slug);
+      }
+    });
+
+    it('taxonomy-proposal.json is emitted with correct condition evidence', () => {
+      const proposal = JSON.parse(
+        readFileSync(join(COMPILE_DIR, 'taxonomy-proposal.json'), 'utf-8'),
+      ) as {
+        conditions: { uniqueTagCount: number; contentArticleCount: number; schemaTaxonomy: string };
+        candidateGroups: Array<{ tags: string[]; articles: string[]; cooccurrenceScore: number }>;
+      };
+      expect(proposal.conditions.contentArticleCount).toBe(5);
+      expect(proposal.conditions.uniqueTagCount).toBeGreaterThanOrEqual(5);
+      expect(proposal.conditions.schemaTaxonomy).toBe('emergent');
+    });
+
+    it('taxonomy candidate groups are deterministic and sorted by cooccurrence', () => {
+      const proposal = JSON.parse(
+        readFileSync(join(COMPILE_DIR, 'taxonomy-proposal.json'), 'utf-8'),
+      ) as { candidateGroups: Array<{ cooccurrenceScore: number }> };
+      // Sorted descending by cooccurrenceScore.
+      for (let i = 1; i < proposal.candidateGroups.length; i++) {
+        expect(proposal.candidateGroups[i - 1].cooccurrenceScore).toBeGreaterThanOrEqual(
+          proposal.candidateGroups[i].cooccurrenceScore,
+        );
+      }
+    });
+  });
+
   describe('present → site/', () => {
     it('generates all 6 study modes', () => {
       const modes = ['read', 'graph', 'search', 'feed', 'gaps', 'quiz'];

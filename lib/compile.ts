@@ -13,7 +13,7 @@
  */
 
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import matter from 'gray-matter';
 
 import {
@@ -99,6 +99,237 @@ interface ArticleFrontmatter {
   readonly summary: string;
   readonly confidence: string;
   readonly sources: readonly { readonly url: string; readonly title: string }[];
+}
+
+// Support pages that the graph sees as articles but that the compile
+// skill's enforcement logic must ignore (they're structural, not content).
+const SUPPORT_SLUGS: ReadonlySet<string> = new Set(['index', 'log', 'overview']);
+
+// --- Enforcement artifacts (v0.3.1 compile skill hardening) ---
+
+type SchemaTaxonomy = 'emergent' | 'defined' | 'unknown';
+
+function parseSchemaTaxonomy(workspaceDir: string): SchemaTaxonomy {
+  const schemaPath = join(workspaceDir, 'SCHEMA.md');
+  try {
+    const content = readFileSync(schemaPath, 'utf-8');
+    // Look for an explicit `taxonomy: "..."` field anywhere in the file.
+    // The schema-template emits this inside a fenced domain block as YAML.
+    const match = content.match(/^[ \t]*taxonomy[ \t]*:[ \t]*["']?(\w+)["']?/m);
+    if (!match) return 'unknown';
+    const value = match[1].toLowerCase();
+    if (value === 'emergent') return 'emergent';
+    if (value === 'defined') return 'defined';
+    return 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+export interface NoteManifestEntry {
+  readonly slug: string;
+  readonly title: string;
+  readonly tags: readonly string[];
+  readonly wordCount: number;
+  readonly linksTo: readonly string[];
+  readonly sources: readonly { readonly url: string; readonly title: string }[];
+}
+
+export interface CandidateTagGroup {
+  readonly tags: readonly string[];
+  readonly articles: readonly string[];
+  readonly cooccurrenceScore: number;
+}
+
+export interface TaxonomyProposal {
+  readonly generatedAt: string;
+  readonly conditions: {
+    readonly uniqueTagCount: number;
+    readonly contentArticleCount: number;
+    readonly schemaTaxonomy: SchemaTaxonomy;
+  };
+  readonly candidateGroups: readonly CandidateTagGroup[];
+  readonly uncategorizedArticles: readonly string[];
+}
+
+export interface OverviewMetadata {
+  readonly generatedAt: string;
+  readonly topCentralityArticles: readonly {
+    readonly slug: string;
+    readonly title: string;
+    readonly centrality: number;
+  }[];
+  readonly requiredCitations: readonly string[];
+  readonly coverageStats: {
+    readonly articleCount: number;
+    readonly totalWords: number;
+    readonly sourceCount: number;
+    readonly crossRefs: number;
+    readonly componentCount: number;
+    readonly orphanNotes: readonly string[];
+  };
+  readonly topicClusters: readonly {
+    readonly componentId: number;
+    readonly articles: readonly string[];
+  }[];
+}
+
+function contentArticles<T extends { slug: string }>(notes: readonly T[]): readonly T[] {
+  return notes.filter((n) => !SUPPORT_SLUGS.has(n.slug));
+}
+
+export function buildCandidateGroups(notes: readonly NoteManifestEntry[]): readonly CandidateTagGroup[] {
+  // Build tag → articles map.
+  const tagToArticles = new Map<string, Set<string>>();
+  for (const n of notes) {
+    for (const t of n.tags) {
+      if (!tagToArticles.has(t)) tagToArticles.set(t, new Set());
+      tagToArticles.get(t)!.add(n.slug);
+    }
+  }
+
+  // Compute pairwise co-occurrence ≥ 2 (two tags that share 2+ articles form an edge).
+  const tags = [...tagToArticles.keys()].sort();
+  const cooccur = new Map<string, number>();
+  for (let i = 0; i < tags.length; i++) {
+    for (let j = i + 1; j < tags.length; j++) {
+      const a = tags[i];
+      const b = tags[j];
+      const setA = tagToArticles.get(a)!;
+      const setB = tagToArticles.get(b)!;
+      let overlap = 0;
+      for (const slug of setA) if (setB.has(slug)) overlap++;
+      if (overlap >= 2) cooccur.set(`${a}\u0000${b}`, overlap);
+    }
+  }
+
+  // Connected components on the tag graph = candidate categories.
+  const adj = new Map<string, Set<string>>();
+  for (const t of tags) adj.set(t, new Set());
+  for (const key of cooccur.keys()) {
+    const [a, b] = key.split('\u0000');
+    adj.get(a)!.add(b);
+    adj.get(b)!.add(a);
+  }
+
+  const visited = new Set<string>();
+  const groups: CandidateTagGroup[] = [];
+
+  for (const start of tags) {
+    if (visited.has(start)) continue;
+    const component: string[] = [];
+    const queue: string[] = [start];
+    while (queue.length > 0) {
+      const t = queue.shift()!;
+      if (visited.has(t)) continue;
+      visited.add(t);
+      component.push(t);
+      for (const n of adj.get(t) ?? []) if (!visited.has(n)) queue.push(n);
+    }
+    if (component.length < 2) continue; // singletons go to uncategorized
+
+    const componentTags = component.sort();
+    const articlesInGroup = new Set<string>();
+    for (const t of componentTags) for (const s of tagToArticles.get(t) ?? []) articlesInGroup.add(s);
+
+    let totalPairs = 0;
+    let totalScore = 0;
+    for (let i = 0; i < componentTags.length; i++) {
+      for (let j = i + 1; j < componentTags.length; j++) {
+        const key = `${componentTags[i]}\u0000${componentTags[j]}`;
+        totalScore += cooccur.get(key) ?? 0;
+        totalPairs++;
+      }
+    }
+    const score = totalPairs > 0 ? Number((totalScore / totalPairs).toFixed(2)) : 0;
+
+    groups.push({
+      tags: componentTags,
+      articles: [...articlesInGroup].sort(),
+      cooccurrenceScore: score,
+    });
+  }
+
+  return groups.sort((a, b) => b.cooccurrenceScore - a.cooccurrenceScore);
+}
+
+export function buildTaxonomyProposal(
+  notes: readonly NoteManifestEntry[],
+  schemaTaxonomy: SchemaTaxonomy,
+  now: Date = new Date(),
+): TaxonomyProposal | null {
+  const content = contentArticles(notes);
+  const uniqueTags = new Set<string>();
+  for (const n of content) for (const t of n.tags) uniqueTags.add(t);
+
+  // Three conditions from skills/compile/SKILL.md Step 5.5. A "defined"
+  // taxonomy means the user already committed to categories, so we skip;
+  // "unknown" means the schema didn't declare either way, so we proceed on
+  // the permissive assumption that a proposal is still useful.
+  if (uniqueTags.size < 5) return null;
+  if (content.length < 5) return null;
+  if (schemaTaxonomy === 'defined') return null;
+
+  const groups = buildCandidateGroups(content);
+  const categorized = new Set<string>();
+  for (const g of groups) for (const s of g.articles) categorized.add(s);
+  const uncategorized = content.map((n) => n.slug).filter((s) => !categorized.has(s)).sort();
+
+  return {
+    generatedAt: now.toISOString(),
+    conditions: {
+      uniqueTagCount: uniqueTags.size,
+      contentArticleCount: content.length,
+      schemaTaxonomy,
+    },
+    candidateGroups: groups,
+    uncategorizedArticles: uncategorized,
+  };
+}
+
+export function buildOverviewMetadata(
+  notes: readonly NoteManifestEntry[],
+  centrality: ReadonlyMap<string, number>,
+  components: readonly string[][],
+  crossRefCount: number,
+  now: Date = new Date(),
+): OverviewMetadata {
+  const content = contentArticles(notes);
+
+  const ranked = content
+    .map((n) => ({ slug: n.slug, title: n.title, centrality: centrality.get(n.slug) ?? 0 }))
+    .sort((a, b) => b.centrality - a.centrality || a.slug.localeCompare(b.slug))
+    .slice(0, 5);
+
+  const totalWords = content.reduce((sum, n) => sum + n.wordCount, 0);
+  const sourceUrls = new Set<string>();
+  for (const n of content) for (const s of n.sources) sourceUrls.add(s.url);
+  const orphanNotes = content
+    .filter((n) => (centrality.get(n.slug) ?? 0) === 0 && n.linksTo.length === 0)
+    .map((n) => n.slug)
+    .sort();
+
+  const topicClusters = components
+    .map((comp, idx) => ({
+      componentId: idx,
+      articles: [...comp].filter((s) => !SUPPORT_SLUGS.has(s)).sort(),
+    }))
+    .filter((c) => c.articles.length > 1);
+
+  return {
+    generatedAt: now.toISOString(),
+    topCentralityArticles: ranked,
+    requiredCitations: ranked.map((r) => r.slug),
+    coverageStats: {
+      articleCount: content.length,
+      totalWords,
+      sourceCount: sourceUrls.size,
+      crossRefs: crossRefCount,
+      componentCount: components.length,
+      orphanNotes,
+    },
+    topicClusters,
+  };
 }
 
 function extractFrontmatter(wikiDir: string, slug: string): ArticleFrontmatter {
@@ -245,6 +476,36 @@ async function compile(): Promise<void> {
     };
   });
   writeJSON('notes.json', noteManifest);
+
+  // Step 10: Overview metadata — evidence for the compile skill's Step 5
+  //   enforcement audit (which top-centrality slugs must be cited in
+  //   wiki/overview.md). Always emitted, every run.
+  const manifestForEnforcement: NoteManifestEntry[] = noteManifest.map((n) => ({
+    slug: n.slug,
+    title: n.title,
+    tags: n.tags,
+    wordCount: n.wordCount,
+    linksTo: n.linksTo,
+    sources: n.sources,
+  }));
+  writeJSON(
+    'overview-metadata.json',
+    buildOverviewMetadata(
+      manifestForEnforcement,
+      centrality,
+      components,
+      linkValidation.validLinks,
+    ),
+  );
+
+  // Step 11: Taxonomy proposal — conditional, emitted only when the skill's
+  //   Step 5.5 conditions are met. Absence of the file = conditions not met.
+  const workspaceDir = dirname(resolvedWikiDir);
+  const schemaTaxonomy = parseSchemaTaxonomy(workspaceDir);
+  const proposal = buildTaxonomyProposal(manifestForEnforcement, schemaTaxonomy);
+  if (proposal) {
+    writeJSON('taxonomy-proposal.json', proposal);
+  }
 
   // Summary
   console.log('\nCompile summary:');
