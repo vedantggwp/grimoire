@@ -62,21 +62,128 @@ function readJsonFile<T>(path: string): T {
   return JSON.parse(raw) as T;
 }
 
+function extractDomainBlock(content: string): string {
+  const lines = content.replace(/\r/g, '').split('\n');
+  const domainStart = lines.findIndex(line => /^##\s+Domain\s*$/i.test(line));
+  const sectionLines = domainStart === -1 ? lines : lines.slice(domainStart + 1);
+  const domainSectionLines: string[] = [];
+
+  for (const line of sectionLines) {
+    if (domainSectionLines.length > 0 && (/^##\s/.test(line) || /^---\s*$/.test(line))) {
+      break;
+    }
+    domainSectionLines.push(line);
+  }
+
+  const domainSection = domainSectionLines.join('\n');
+  const fencedBlock = domainSection.match(/```(?:yaml)?\s*\n([\s\S]*?)\n```/);
+  if (fencedBlock) {
+    return fencedBlock[1];
+  }
+
+  const blockLines: string[] = [];
+  let inBlock = false;
+
+  for (const line of domainSection.split('\n')) {
+    if (!inBlock) {
+      if (/^[a-z0-9_-]+:\s*/i.test(line)) {
+        inBlock = true;
+        blockLines.push(line);
+      }
+      continue;
+    }
+
+    if (line.trim() === '') break;
+    blockLines.push(line);
+  }
+
+  return blockLines.join('\n');
+}
+
+function normalizeSchemaValue(raw: string): string {
+  const value = raw
+    .replace(/\r/g, '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith('\'') && value.endsWith('\''))
+  ) {
+    return value.slice(1, -1).trim();
+  }
+
+  return value;
+}
+
+function extractFieldBlock(content: string, field: string): string | null {
+  const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const lines = content.replace(/\r/g, '').split('\n');
+  const fieldPattern = new RegExp(`^${escapedField}:\\s*(.*)$`, 'i');
+  const topLevelFieldPattern = /^[a-z0-9_-]+:\s*/i;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const match = lines[i].match(fieldPattern);
+    if (!match) continue;
+
+    const collected = [match[1]];
+    for (let j = i + 1; j < lines.length; j += 1) {
+      if (topLevelFieldPattern.test(lines[j])) break;
+      collected.push(lines[j]);
+    }
+    return normalizeSchemaValue(collected.join('\n'));
+  }
+
+  return null;
+}
+
+function extractScopeValue(scopeBlock: string | null, field: 'in' | 'out'): string {
+  if (!scopeBlock) return '';
+
+  const lines = scopeBlock.replace(/\r/g, '').split('\n');
+  const fieldPattern = new RegExp(`^\\s*${field}:\\s*(.*)$`, 'i');
+  const siblingPattern = /^(\s*)(in|out):\s*/i;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const match = lines[i].match(fieldPattern);
+    if (!match) continue;
+
+    const collected = [match[1]];
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const sibling = lines[j].match(siblingPattern);
+      if (sibling && sibling[2].toLowerCase() !== field) break;
+      collected.push(lines[j]);
+    }
+    return normalizeSchemaValue(collected.join('\n'));
+  }
+
+  const legacyMatch = scopeBlock.match(
+    /^IN\s*[—-]?\s*([\s\S]*?)^\s*OUT\s*[—-]?\s*([\s\S]*?)$/im,
+  );
+  if (legacyMatch) {
+    return normalizeSchemaValue(field === 'in' ? legacyMatch[1] : legacyMatch[2]);
+  }
+
+  return '';
+}
+
 // Parse the nested YAML domain block from SCHEMA.md.
 // Canonical shape (enforced by the init template):
 //   topic: "..."
 //   scope:
 //     in: "..."
 //     out: "..."
-// Regexes are anchored per-line so they don't straddle fields.
-function parseSchemamd(content: string): SchemaInfo {
-  const topicMatch = content.match(/^topic:\s*"?([^"\n]+?)"?\s*$/m);
-  const scopeInMatch = content.match(/^scope:\s*\r?\n\s+in:\s*"?([^"\n]+?)"?\s*$/m);
-  const scopeOutMatch = content.match(/^\s+out:\s*"?([^"\n]+?)"?\s*$/m);
+export function parseSchemamd(content: string): SchemaInfo {
+  const domainBlock = extractDomainBlock(content);
+  const topic = extractFieldBlock(domainBlock, 'topic');
+  const scopeBlock = extractFieldBlock(domainBlock, 'scope');
   return {
-    topic: topicMatch?.[1]?.trim() ?? 'Unknown',
-    scopeIn: scopeInMatch?.[1]?.trim() ?? '',
-    scopeOut: scopeOutMatch?.[1]?.trim() ?? '',
+    topic: topic ?? 'Unknown',
+    scopeIn: extractScopeValue(scopeBlock, 'in'),
+    scopeOut: extractScopeValue(scopeBlock, 'out'),
   };
 }
 

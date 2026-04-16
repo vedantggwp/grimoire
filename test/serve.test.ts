@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import {
   loadWikiData,
+  parseSchemamd,
   handleQuery,
   handleListTopics,
   handleGetArticle,
@@ -55,6 +56,24 @@ describe('serve', () => {
     it('throws when compile directory is missing', () => {
       expect(() => loadWikiData('/nonexistent/path')).toThrow(
         /Compile directory not found/,
+      );
+    });
+
+    it('parseSchemamd captures multi-line topic without truncation', () => {
+      const schema = parseSchemamd(`## Domain
+
+\`\`\`
+topic: Grimoire (the plugin) — how it works internally, why it exists given
+       Karpathy's LLM-wiki pattern already describes the shape of the
+       solution
+scope:
+  in: "LLM wiki products"
+  out: "Generic plugin tutorials"
+\`\`\`
+`);
+
+      expect(schema.topic).toBe(
+        "Grimoire (the plugin) — how it works internally, why it exists given\nKarpathy's LLM-wiki pattern already describes the shape of the\nsolution",
       );
     });
   });
