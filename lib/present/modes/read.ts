@@ -145,9 +145,13 @@ function readModeScript(sorted: readonly ArticleData[]): string {
 
   // Switch article
   function showArticle(slug) {
+    var found = false;
     articles.forEach(function(a) {
-      a.style.display = a.dataset.slug === slug ? '' : 'none';
+      var active = a.dataset.slug === slug;
+      a.style.display = active ? '' : 'none';
+      if (active) found = true;
     });
+    if (!found) return;
     sidebarItems.forEach(function(li) {
       li.classList.toggle('active', li.dataset.article === slug);
     });
@@ -160,7 +164,11 @@ function readModeScript(sorted: readonly ArticleData[]): string {
       tocRight.querySelector('ul').innerHTML = items;
       bindTocClicks();
     }
+    if (window.location.hash.slice(1) !== slug) {
+      window.history.replaceState(null, '', '#' + slug);
+    }
     window.scrollTo(0, 0);
+    updateProgress();
   }
 
   // Sidebar click
@@ -172,6 +180,15 @@ function readModeScript(sorted: readonly ArticleData[]): string {
 
   // Next/prev nav buttons
   document.addEventListener('click', function(e) {
+    var wikilink = e.target.closest('a[data-wikilink-slug]');
+    if (wikilink) {
+      var targetSlug = wikilink.dataset.wikilinkSlug;
+      if (targetSlug && document.querySelector('.article[data-slug="' + targetSlug + '"]')) {
+        e.preventDefault();
+        showArticle(targetSlug);
+      }
+      return;
+    }
     var btn = e.target.closest('.read-nav-btn');
     if (btn) {
       e.preventDefault();
@@ -191,6 +208,13 @@ function readModeScript(sorted: readonly ArticleData[]): string {
     });
   }
   bindTocClicks();
+
+  var initialSlug = window.location.hash.slice(1);
+  if (initialSlug && document.querySelector('.article[data-slug="' + initialSlug + '"]')) {
+    showArticle(initialSlug);
+  } else {
+    updateProgress();
+  }
 
   // TOC highlight on scroll (observe h2 within visible article)
   var headingObserver = new IntersectionObserver(function(entries) {

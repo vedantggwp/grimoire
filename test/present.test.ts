@@ -206,6 +206,25 @@ describe('present', () => {
       expect(html).toContain('&rarr;');
     });
 
+    it('rewrites wikilinks away from papyr SPA routes', () => {
+      const html = readSiteFile('read/index.html');
+      expect(html).not.toContain('href="#/note/');
+      expect(html).toContain('data-wikilink-slug="vue-reactivity"');
+      expect(html).toContain('href="#vue-reactivity"');
+    });
+
+    it('keeps only genuine orphan wikilinks marked as new', () => {
+      const html = readSiteFile('read/index.html');
+      expect(html).toContain('<a class="internal" href="#vue-reactivity" data-wikilink-slug="vue-reactivity">Vue Reactivity System</a>');
+      expect(html).toContain('<a class="internal new" href="#nonexistent-article" data-wikilink-slug="nonexistent-article">nonexistent-article</a>');
+    });
+
+    it('handles article hashes and internal wikilink clicks in the read-mode script', () => {
+      const html = readSiteFile('read/index.html');
+      expect(html).toContain("window.history.replaceState(null, '', '#' + slug);");
+      expect(html).toContain("a[data-wikilink-slug]");
+    });
+
     it('uses relative CSS path for subpage', () => {
       const html = readSiteFile('read/index.html');
       expect(html).toContain('href="../assets/style.css"');

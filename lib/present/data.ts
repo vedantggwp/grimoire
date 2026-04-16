@@ -92,6 +92,14 @@ function normalizeSchemaValue(raw: string): string {
   return value;
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function extractFieldBlock(content: string, field: string): string | null {
   const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const lines = content.replace(/\r/g, '').split('\n');
@@ -141,6 +149,31 @@ function extractScopeValue(scopeBlock: string | null, field: 'in' | 'out'): stri
   }
 
   return '';
+}
+
+function stripNewClass(attrs: string): string {
+  return attrs.replace(/\sclass="([^"]*)"/, (_match, classValue: string) => {
+    const classes = classValue
+      .split(/\s+/)
+      .filter(Boolean)
+      .filter(cls => cls !== 'new');
+
+    return classes.length > 0 ? ` class="${classes.join(' ')}"` : '';
+  });
+}
+
+function resolveWikilinks(html: string, slugToTitle: ReadonlyMap<string, string>): string {
+  return html.replace(
+    /<a([^>]*?)href="#\/note\/([^"#]+)(?:#[^"]*)?"([^>]*)>([\s\S]*?)<\/a>/g,
+    (_match, beforeHref: string, slug: string, afterHref: string, innerHtml: string) => {
+      const knownTitle = slugToTitle.get(slug);
+      const attrs = knownTitle
+        ? stripNewClass(`${beforeHref}href="#${slug}" data-wikilink-slug="${slug}"${afterHref}`)
+        : `${beforeHref}href="#${slug}" data-wikilink-slug="${slug}"${afterHref}`;
+      const text = innerHtml.trim() === slug && knownTitle ? escapeHtml(knownTitle) : innerHtml;
+      return `<a${attrs}>${text}</a>`;
+    },
+  );
 }
 
 function parseLogEntries(logMd: string): readonly LogEntry[] {
@@ -281,6 +314,7 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
 
   // Build articles by reading wiki/**/*.md (supports subdirectories for taxonomy)
   const mdFiles = collectMdFiles(wikiDir, wikiDir);
+  const slugToTitle = new Map(notesManifest.map(note => [note.slug, note.title]));
 
   const articles: ArticleData[] = [];
 
@@ -293,13 +327,14 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
     if (!manifest) continue;
 
     const parsed = await parseMarkdown(stripFrontmatter(raw), { path: rel });
+    const resolvedHtml = resolveWikilinks(parsed.html, slugToTitle);
 
     articles.push({
       slug,
       title: manifest.title,
       summary: manifest.summary ?? '',
       tags: manifest.tags,
-      html: stripLeadingH1(parsed.html),
+      html: stripLeadingH1(resolvedHtml),
       wordCount: manifest.wordCount,
       readingTime: manifest.readingTime,
       linksTo: manifest.linksTo,
