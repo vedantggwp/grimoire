@@ -378,7 +378,7 @@ A fresh agent scanned all tracked and untracked files in the repo root:
 **Blockers found (4) — all fixed:**
 - Stale `mcp-spec.md` copy in `skills/grimoire-serve/references/` still said "watches for changes" — corrected to "Restart to pick up changes"
 - `README.md` listed all skill statuses as "Stub" even though all six were fully implemented — full rewrite by agent: statuses now "Working", added pipeline walkthrough and MCP client config snippet
-- No `LICENSE` file — created with standard MIT text, 2026 Ved copyright
+- No `LICENSE` file — created with standard MIT text, 2026 copyright
 - `docs/architecture.md` still described the deleted ICM `stages/01-*/` layout — rewritten to describe the current plugin architecture
 
 **Should-fixes found (4) — all fixed:**
@@ -430,7 +430,7 @@ Created a throwaway workspace at `/tmp/grimoire-dryrun` with 3 realistic RLHF ar
 
 ### Files Created
 
-- `LICENSE` — MIT license text, 2026 Ved copyright
+- `LICENSE` — MIT license text, 2026 copyright
 
 ### Files Modified
 

@@ -17,7 +17,7 @@
 
 **Decision:** A new top-level skill, `/grimoire:run`, will chain `scout → ingest → compile → present` into a single invocation that runs end-to-end *without* pausing at the scout, ingest, or present checkpoints by default. The checkpoint flow remains available via an opt-in flag (tentative: `--checkpointed` or `--interactive`) for users who want to inspect intermediate state between stages. `serve` stays separate because it's a daemon, not a pipeline step — pairing with `/grimoire:run` would mean either blocking the terminal or daemonizing, both bad defaults.
 
-**Why:** Surfaced during the first real end-to-end dogfood run on 2026-04-16, when a meta-grimoire about Grimoire itself was scaffolded via `/grimoire:init` and the founder attempted to drive the full pipeline manually. The founder's verbatim reaction: *"It's an entire fucking product, isn't it? It should all be in one command. Nobody is going to use this if it's so tedious to use."* The tension is real. The checkpoints exist because the "human stays in control" principle is load-bearing — they are what prevents an LLM-maintained wiki from becoming a training-data-quality problem, and they're what distinguishes Grimoire from "Claude auto-writes markdown into a folder." But the cost of the checkpoints is friction that will lose first-time users in the first five minutes, before they've invested enough to tolerate them. A knowledge-base tool whose core value prop is "you get a compounding artifact" cannot afford that failure mode on the first run. The answer is not to delete the checkpoints — it's to make them opt-in so the default experience is "one command, watch it go" while the power-user experience remains "pause and edit between stages."
+**Why:** Surfaced during the first real end-to-end dogfood run on 2026-04-16, when a meta-grimoire about Grimoire itself was scaffolded via `/grimoire:init` and the maintainer attempted to drive the full pipeline manually. User feedback: the multi-stage pipeline creates enough friction to lose first-time users in the first five minutes, before they have invested enough to tolerate it. The tension is real. The checkpoints exist because the "human stays in control" principle is load-bearing — they are what prevents an LLM-maintained wiki from becoming a training-data-quality problem, and they're what distinguishes Grimoire from "Claude auto-writes markdown into a folder." But the cost of the checkpoints is exactly the first-run friction described above. A knowledge-base tool whose core value prop is "you get a compounding artifact" cannot afford that failure mode on the first run. The answer is not to delete the checkpoints — it's to make them opt-in so the default experience is "one command, watch it go" while the power-user experience remains "pause and edit between stages."
 
 **Trail:** The problem surfaced mid-session while a meta-grimoire was being scaffolded via `/grimoire:init` and the conversation then stalled at "now run `/grimoire:scout`, then `/grimoire:ingest`, then `/grimoire:compile`, then `/grimoire:present`, then `/grimoire:serve`." Alternatives considered: **(a)** Keep the current flow and document the friction clearly — rejected, documentation doesn't fix UX friction. **(b)** Delete the checkpoints entirely — rejected, this is exactly the quality-failure mode the checkpoints exist to prevent, and it would violate the `SOUL.md` principle "The human stays in control." **(c)** Add `/grimoire:run` as the new default with checkpoints opt-in — chosen, preserves both experiences without deleting the principle. Implementation sketch: create `skills/run/SKILL.md` that orchestrates invocations of scout → ingest → compile → present in sequence, with an `--interactive` flag (parsed from user input in the SKILL.md instructions) to enable the checkpoint pauses; default prints a single-line progress indicator per stage; on failure, surface which stage failed and what intermediate file to inspect. The friction was also documented inside the meta-grimoire at `../grimoire-wiki/wiki/roadmap-and-decisions.md` under "Open friction: the pipeline-length problem," which means future sessions reading that wiki via the MCP server will discover the finding without having to re-derive it.
 
@@ -30,7 +30,7 @@
 **Decision:** The generated frontend is rewritten around an "Option F — Linear Editorial" dual-theme design system and becomes the launch target for v0.2.3. Source Serif 4 + Inter + JetBrains Mono typography, `linear-editorial` palette as default (`#FFFFFF`/`#0E0E0E` backgrounds, `#0D9488`/`#2dd4bf` accent), dark mode via `.theme-dark` + `prefers-color-scheme`. Eighteen concrete fixes landed across `lib/present/`:
 
 - Bento grid uses `grid-auto-rows: min-content` with an explicit `span 2×2` featured card populated with a top-4 centrality preview so the wide slot has real content instead of empty padding.
-- Hub drops its duplicate H1 — the nav brand already carries the full topic name (per Ved: the KB is the topic's KB, no wordmark), the hero leads with the `scope.in` line.
+- Hub drops its duplicate H1 — the nav brand already carries the full topic name (design choice: the KB is the topic's KB, no wordmark), the hero leads with the `scope.in` line.
 - Read strips the leading markdown `<h1>` during render so the template H1 is the only title visible.
 - Density stat de-duplicates undirected edge pairs and caps at 100%; previous display of "82%" was a Papyr-directed-vs-present-undirected formula mismatch amplified by the compile tool writing to the wrong `.compile` dir.
 - Graph filters support pages (`index`, `log`, `overview`) from both nodes and edges at the data layer — same filter shared with `serve.ts`. Force simulation parameters scale with node count; labels render below nodes with `paint-order: stroke` so they stay legible over edges.
@@ -41,7 +41,7 @@
 - Fluid typography via `clamp()` across all headings, body, and card scales. New 479/767/1023 breakpoints. `overflow-x: hidden` on html+body prevents surprise horizontal scroll. Graph detail panel is hidden on mobile. Gaps treemap labels truncate per-cell based on measured width.
 - Dark mode lifts card surfaces to `#1C1C1C`, adds an inset `rgba(255,255,255,0.045)` highlight for card edges, and raises `--text-secondary` to `#C4C4C4` for WCAG AA.
 
-**Why:** On the first visual QA pass, five of seven generated pages failed Ved's quality bar: hub had a duplicate H1 and stretched featured card with huge empty space, Read showed its title three times, graph nodes clumped into an unreadable blob, gaps was a uniform grid not a treemap, quiz had no visible flashcard flip or inline reveal, search was 80% empty whitespace, and the density stat was mathematically wrong. Ved's position (saved as durable feedback) is that frontend quality is a hard launch gate on a knowledge-base tool whose value prop is "a beautiful frontend for humans" — fixing these was not polish, it was the launch condition. Shipping the pre-rewrite frontend would have failed the product's own `docs/design-engine.md` rule "No AI slop" and cost the trust of the first visitors before they read any wiki content.
+**Why:** On the first visual QA pass, five of seven generated pages failed the quality bar: hub had a duplicate H1 and stretched featured card with huge empty space, Read showed its title three times, graph nodes clumped into an unreadable blob, gaps was a uniform grid not a treemap, quiz had no visible flashcard flip or inline reveal, search was 80% empty whitespace, and the density stat was mathematically wrong. The position (recorded as durable feedback) is that frontend quality is a hard launch gate on a knowledge-base tool whose value prop is "a beautiful frontend for humans" — fixing these was not polish, it was the launch condition. Shipping the pre-rewrite frontend would have failed the product's own `docs/design-engine.md` rule "No AI slop" and cost the trust of the first visitors before they read any wiki content.
 
 **Trail:** Pre-work explored 6 options (A–F) in `mockups/option-*.html`. Option F "Linear Editorial" won because it already satisfied the dual-theme + editorial-typography + bento-grid non-negotiables from `docs/design-engine.md` without requiring a new palette concept. Alternatives rejected: ship the pre-rewrite frontend and iterate on user feedback (wrong for visual-artifact tools — users don't give feedback on ugly v1, they close the tab); make the featured Read card smaller to avoid the empty-space problem (would have lost the editorial hierarchy); keep the CSS-grid "treemap" (not a treemap, users would see through it). The ui-ux-pro-max skill was invoked for polish guidance; its typography recommendation (Newsreader + Roboto) was rejected in favor of the already-decided Source Serif 4 + Inter, but its rules on `clamp()`, touch targets ≥36px, mobile-first breakpoints, and inner-highlight dark surfaces were adopted. All 129 tests still pass, with three regressions updated to reflect intentional UI changes (gaps moved from `.treemap-cell` classes to `.treemap-leaf` SVG nodes; quiz from `#flashcard`/`#card-front` to `#quiz-card`/`#quiz-question`; search debounce threshold softened from literal `300` to ≥100ms). Desktop + dark + mobile verified across all 7 pages at `/tmp/grimoire-shots/v2/`.
 
@@ -51,7 +51,7 @@
 
 **Decision:** Init now detects existing projects (`.git`, `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Gemfile`, `pom.xml`, `CLAUDE.md`, `README.md`, `docs/`), offers auto-discovery mode, reads project files to pre-fill the 7 questionnaire answers, and asks the user to confirm. Also: workspace location is now a checkpoint question with 4 options (inside project, inside `docs/`, sibling directory, custom path) instead of a hardcoded default.
 
-**Why:** An "agentic, intelligent" plugin should minimize the user's thinking and data-entry burden when there's existing project context available. Ved's explicit feedback: "This needs to take away as much thinking and data ingestion workload from the user as possible."
+**Why:** An "agentic, intelligent" plugin should minimize the user's thinking and data-entry burden when there's existing project context available. User requirement: minimize the thinking and data-ingestion workload imposed on the user.
 
 **Trail:** Alternatives rejected — keep the old "ask 7 questions from scratch" flow (too manual for existing projects); fully automatic without confirmation (violates "human stays in control" principle). Landed on detect → pre-fill → confirm.
 
@@ -203,7 +203,7 @@
 
 **Why:** The project is being packaged as a Claude Code plugin for distribution. The plugin system provides auto-discovery of skills via `SKILL.md` frontmatter, replacing the ICM router (`CONTEXT.md`). Each ICM stage maps 1:1 to a plugin skill, preserving the "one stage, one job" principle.
 
-**Trail:** Ved requested plugin packaging. Plugin spec extracted from `anthropics/claude-plugins-official`. Stage contracts preserved as skill `references/stage-contract.md`. Templates and config moved to `skills/init/assets/`. Old directories (`stages/`, `setup/`, `_config/`, `templates/`, `shared/`, `CONTEXT.md`) removed after contents absorbed into skills.
+**Trail:** Plugin packaging was requested. Plugin spec extracted from `anthropics/claude-plugins-official`. Stage contracts preserved as skill `references/stage-contract.md`. Templates and config moved to `skills/init/assets/`. Old directories (`stages/`, `setup/`, `_config/`, `templates/`, `shared/`, `CONTEXT.md`) removed after contents absorbed into skills.
 
 ---
 
@@ -223,7 +223,7 @@
 
 **Why:** SOUL.md violated ICM's <200 line reference file convention. A monolithic file also caused Codex agents to exhaust their token budget reading it before they could write anything.
 
-**Trail:** Audit found SOUL.md at 420+ lines. ICM spec says reference files stay under 200. Ved confirmed the split approach.
+**Trail:** Audit found SOUL.md at 420+ lines. ICM spec says reference files stay under 200. The split approach was confirmed.
 
 ---
 
@@ -231,9 +231,9 @@
 
 **Decision:** Name the product "Grimoire."
 
-**Why:** Ved wanted something that appeals to non-tech users, isn't "girly," is immediately evocative, and isn't taken. Grimoire = medieval knowledge manuscript. Etymology: Old French *grammaire* (grammar) — structured knowledge that looked like magic. Maps perfectly to a KB that gives LLMs power.
+**Why:** The requirement was a name that appeals to non-tech users, isn't "girly," is immediately evocative, and isn't taken. Grimoire = medieval knowledge manuscript. Etymology: Old French *grammaire* (grammar) — structured knowledge that looked like magic. Maps perfectly to a KB that gives LLMs power.
 
-**Trail:** Rejected Lore, Grove, Cairn, Fern, Moss, Primer, Atlas (too common). Ved suggested the grimoire direction. We explored modern spins (Grimlore, Grym, Lumoire) but landed on the word itself — not taken in tech, everyone knows it from pop culture.
+**Trail:** Rejected Lore, Grove, Cairn, Fern, Moss, Primer, Atlas (too common). The grimoire direction was proposed. Modern spins (Grimlore, Grym, Lumoire) were explored but the team landed on the word itself — not taken in tech, everyone knows it from pop culture.
 
 ---
 
@@ -243,7 +243,7 @@
 
 **Why:** ICM's "folder structure as agent architecture" maps perfectly to Grimoire's staged pipeline. 5-layer context model keeps token budgets under control. Plain text interfaces make everything debuggable.
 
-**Trail:** Ved asked if I knew ICM. I researched it, found the GitHub repo, read the full methodology. The 5 stages (scout → ingest → compile → present → serve) mapped directly to ICM's numbered stage directories.
+**Trail:** ICM was raised as a candidate methodology. Research against the GitHub repo and full methodology confirmed fit. The 5 stages (scout → ingest → compile → present → serve) mapped directly to ICM's numbered stage directories.
 
 ---
 
@@ -251,9 +251,9 @@
 
 **Decision:** Categories emerge from sources by default. User can override with predefined categories.
 
-**Why:** Every subject has its own quirks. Predefined categories force a structure that may not fit. Ved: "categories must emerge from sources, ofc."
+**Why:** Every subject has its own quirks. Predefined categories force a structure that may not fit. The decision was that categories must emerge from the sources.
 
-**Trail:** Asked whether taxonomy should be hardcoded vs. emergent. Ved chose emergent. Mechanical approach: first 5-10 sources go flat, then system proposes categories, human approves/edits/redoes.
+**Trail:** Hardcoded vs. emergent taxonomy was evaluated; emergent was chosen. Mechanical approach: first 5-10 sources go flat, then system proposes categories, human approves/edits/redoes.
 
 ---
 
@@ -261,9 +261,9 @@
 
 **Decision:** Every Grimoire ships its own MCP server with 6 tools.
 
-**Why:** QMD does generic semantic search. A custom MCP understands the wiki's shape — taxonomy, cross-refs, open questions, gaps. This makes Grimoire queryable from Claude Desktop (which can't use CLIs). Ved: "I like this suggestion; it actually gives it its own moat."
+**Why:** QMD does generic semantic search. A custom MCP understands the wiki's shape — taxonomy, cross-refs, open questions, gaps. This makes Grimoire queryable from Claude Desktop (which can't use CLIs). The custom MCP server was endorsed as a real differentiator.
 
-**Trail:** Discussed QMD limitations vs. a custom server. Ved confirmed the MCP direction. 6 tools defined: grimoire_query, grimoire_list_topics, grimoire_get_article, grimoire_open_questions, grimoire_coverage_gaps, grimoire_search.
+**Trail:** QMD limitations vs. a custom server were discussed and the MCP direction was confirmed. 6 tools defined: grimoire_query, grimoire_list_topics, grimoire_get_article, grimoire_open_questions, grimoire_coverage_gaps, grimoire_search.
 
 ---
 
@@ -271,9 +271,9 @@
 
 **Decision:** Theming controlled by a single `_config/design.md` with palette, typography, motion, density options.
 
-**Why:** The system has access to 97+ palettes and 9 design skills. Rather than hardcoding 3-5 themes, design.md is a lightweight config that tells the skills what to do. Ved: "a central theme.md will work very well."
+**Why:** The system has access to 97+ palettes and 9 design skills. Rather than hardcoding 3-5 themes, design.md is a lightweight config that tells the skills what to do. A central theme config was endorsed as the right shape.
 
-**Trail:** Originally proposed hardcoded palettes. After scanning Ved's installed design skills (ui-ux-pro-max, billion-dollar-design, etc.), shifted to config-driven approach. 7 named palettes + custom option.
+**Trail:** Originally proposed hardcoded palettes. After scanning the available design skills (ui-ux-pro-max, billion-dollar-design, etc.), shifted to a config-driven approach. 7 named palettes + custom option.
 
 ---
 
@@ -281,9 +281,9 @@
 
 **Decision:** Every Grimoire gets a study-oriented frontend. Presentation decks are a separate optional skill.
 
-**Why:** Ved: "there will always be beautiful, study-oriented frontend. Presentations are going to be a skill that is optional."
+**Why:** The product requirement is that every grimoire ships a beautiful, study-oriented frontend; presentations are a separate optional skill.
 
-**Trail:** Asked whether landing page and presentation were always part of the system. Ved separated them: frontend = core, presentations = optional.
+**Trail:** Whether landing page and presentation were always part of the system was evaluated. The split: frontend = core, presentations = optional.
 
 ---
 
@@ -291,9 +291,9 @@
 
 **Decision:** Core modes: linear reading, graph exploration, search + answer, changelog/feed, gap map, flashcard/quiz. Future: comparison tables, learning paths.
 
-**Why:** Ved wanted all 8 proposed modes. Prioritized 6 as core (MVP), 2 as post-MVP.
+**Why:** All 8 proposed modes were in scope. Prioritized 6 as core (MVP), 2 as post-MVP.
 
-**Trail:** Proposed 8 modes. Ved: "I want all of them." Agreed on core vs. future split.
+**Trail:** 8 modes were proposed and all were accepted. Agreed on core vs. future split.
 
 ---
 
@@ -301,9 +301,9 @@
 
 **Decision:** The wiki reference in a project's CLAUDE.md is optional, ~10 lines, and only generated when the user says yes.
 
-**Why:** Ved: "CLAUDE.md needs to be 50-150 lines max. All that should go in is a reference to the index, with very lightweight rules."
+**Why:** CLAUDE.md must stay 50-150 lines max. Only a reference to the index plus very lightweight rules belongs there.
 
-**Trail:** Proposed auto-generating a CLAUDE.md snippet. Ved pushed back on auto-updating and on including the full index. Settled on: optional, lightweight pointer to wiki/index.md, hard rule (not suggestion).
+**Trail:** Auto-generating a CLAUDE.md snippet was proposed; auto-updating and including the full index were rejected. Settled on: optional, lightweight pointer to wiki/index.md, hard rule (not suggestion).
 
 ---
 
@@ -311,9 +311,9 @@
 
 **Decision:** Scout scores sources on Authority (H), Credibility (H), Uniqueness (H), Depth (M), Recency (M), Engagement (M). Tiers: P0 18-30, P1 12-17, P2 6-11.
 
-**Why:** Ved agreed these parameters give the human enough context to approve/reject/reprioritize. "The confidence threshold needs to have more parameters than just official docs and community content."
+**Why:** These parameters give the human enough context to approve/reject/reprioritize. The confidence threshold needs more signal than "official docs vs. community content."
 
-**Trail:** Proposed 6 signals with weights. Ved confirmed. Added that the flow should be collaborative — human gives topic + inclusions/exclusions, scout surfaces ranked results.
+**Trail:** 6 signals with weights were proposed and confirmed. Added that the flow should be collaborative — human gives topic + inclusions/exclusions, scout surfaces ranked results.
 
 ---
 
@@ -323,7 +323,7 @@
 
 **Why:** Reduces complexity. Conflict resolution, contributor attribution, and review workflows can come later.
 
-**Trail:** Asked about multi-user. Ved: "for now, let's go single-author."
+**Trail:** Multi-user was evaluated; single-author was chosen for the initial release.
 
 ---
 
@@ -331,7 +331,7 @@
 
 **Decision:** Grimoire is local-first. If someone wants to host, they can — it's static files.
 
-**Why:** Ved: "local-first works. if someone wants to host, they can host it. its easy enough to figure out, innit?"
+**Why:** Local-first is the default. Self-hosting is easy enough that no first-party hosting story is needed.
 
 ---
 
@@ -339,7 +339,7 @@
 
 **Decision:** Do not implement custom hooks for Grimoire. The token cost of injecting hook context on every turn outweighs the benefit.
 
-**Why:** Ved reviewed 5 proposed hooks and cancelled all of them: "Before implementing anything, think critically about whether this is going to cause a lot of token expense."
+**Why:** 5 proposed hooks were reviewed and cancelled. The guiding rule: before implementing anything, evaluate whether it will cause significant token expense.
 
 **Trail:** Proposed ICM router gate, decisions reminder, manifest sync, route check, context budget warning. All rejected for token cost reasons.
 
@@ -351,4 +351,4 @@
 
 **Why:** Plugin format is the native distribution mechanism for Claude Code. Makes it installable, discoverable, and updatable.
 
-**Trail:** Asked about packaging format (plugin vs. standalone skills). Ved chose plugin and asked to check latest Anthropic docs.
+**Trail:** Packaging format options (plugin vs. standalone skills) were evaluated. Plugin was chosen, with a check against the latest Anthropic docs.

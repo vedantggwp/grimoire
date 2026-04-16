@@ -1,6 +1,6 @@
 # Launch announcement draft — v0.2.3
 
-> Draft for Ved's review. Not published. Revise in his voice before sharing.
+> Draft for review. Not published. Revise in the maintainer's voice before sharing.
 > Previous v0.2.2 draft is preserved in git history at commit `4a33db4` if you want to diff.
 
 ---
@@ -143,4 +143,4 @@ v0.2.3 is launch-ready for the core promise: produce a world-class KB that human
 
 Contributions welcome. Repo: https://github.com/vedantggwp/grimoire. MIT licensed.
 
-— Ved
+— the Grimoire team

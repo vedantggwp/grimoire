@@ -59,11 +59,11 @@
 - [x] **Published through Athanor marketplace** — install via `/plugin install grimoire@athanor`
 - [x] **Real-project validation** — full pipeline run against examples/mcp produces 5-article P0 KB with 23 cross-refs, graph density 0.411 (v0.2.2)
 - [x] **End-to-end regression suite** — test/examples-mcp.smoke.test.ts locks in the full contract with 22 assertions (v0.2.2)
-- [x] **v0.2.3 Option F shipping fix pass** — 18 concrete design + UX fixes across `lib/present/` so the generated frontend clears Ved's quality bar; decisions.md entry captures the full trail; 129/129 tests still green; desktop + dark + mobile verified
+- [x] **v0.2.3 Option F shipping fix pass** — 18 concrete design + UX fixes across `lib/present/` so the generated frontend clears the quality bar; decisions.md entry captures the full trail; 129/129 tests still green; desktop + dark + mobile verified
 - [x] **README + docs refresh for v0.2.3** — updated palette/typography counts (8 palettes, 6 typography systems), added example use cases section, updated gaps/quiz descriptions to match actual shipping behavior, added badges row
 - [x] **Launch announcement draft refreshed to v0.2.3** — `docs/launch-announcement-draft.md` updated with the Option F frontend narrative
-- [ ] Launch announcement published — **Ved's call, Ved's voice**
-- [ ] Share with community — **Ved's call, Ved's networks**
+- [ ] Launch announcement published — **maintainer's call, maintainer's voice**
+- [ ] Share with community — **maintainer's call, maintainer's networks**
 - [ ] Claude Desktop end-to-end MCP compatibility test — **deferred to v0.3**
 
 ## Phase 7 — v0.2.4 Quality Pass (Complete)

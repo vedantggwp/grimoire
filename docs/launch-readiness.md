@@ -3,7 +3,7 @@
 > Written 2026-04-11. Consolidates findings from the pre-launch research + code audit session.
 > This is a scratchpad, not a spec. It persists decisions so the executing agent doesn't re-derive them.
 
-## Goal (Ved, 2026-04-11)
+## Goal (2026-04-11)
 
 > "Launch ready means the goal has been achieved: our plugin is able to deliver a world-class
 > knowledge base for whatever thing the user tells it to. It should be readable by humans and
@@ -115,8 +115,8 @@ Cross-checked the Explore agent's claims against actual code. Downgraded over-re
 - Code-execution retrieval pattern (architectural).
 - CLI wrapper (`grimoire init` standalone binary).
 - Comparison tables + learning paths study modes.
-- Claude Desktop MCP end-to-end compatibility testing (Ved explicitly deferred to v0.3).
-- Launch announcement publication (draft in v0.2.2, publish in Ved's voice on his call).
+- Claude Desktop MCP end-to-end compatibility testing (explicitly deferred to v0.3).
+- Launch announcement publication (draft in v0.2.2, published at the maintainer's discretion).
 
 ## Execution order
 
