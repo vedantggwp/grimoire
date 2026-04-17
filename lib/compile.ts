@@ -34,6 +34,8 @@ import {
   type ParsedNote,
 } from 'papyr-core';
 
+import { SUPPORT_SLUGS } from './support-slugs.js';
+
 // --- CLI ---
 
 const inputPath = process.argv[2];
@@ -101,12 +103,6 @@ interface ArticleFrontmatter {
   readonly sources: readonly { readonly url: string; readonly title: string }[];
 }
 
-// Support pages that the graph sees as articles but that the compile
-// skill's enforcement logic must ignore (they're structural, not content).
-const SUPPORT_SLUGS: ReadonlySet<string> = new Set(['index', 'log', 'overview']);
-
-// --- Enforcement artifacts (v0.3.1 compile skill hardening) ---
-
 type SchemaTaxonomy = 'emergent' | 'defined' | 'unknown';
 
 function parseSchemaTaxonomy(workspaceDir: string): SchemaTaxonomy {
@@ -166,7 +162,7 @@ export interface OverviewMetadata {
     readonly sourceCount: number;
     readonly crossRefs: number;
     readonly componentCount: number;
-    readonly orphanNotes: readonly string[];
+    readonly isolatedContentNotes: readonly string[];
   };
   readonly topicClusters: readonly {
     readonly componentId: number;
@@ -178,38 +174,61 @@ function contentArticles<T extends { slug: string }>(notes: readonly T[]): reado
   return notes.filter((n) => !SUPPORT_SLUGS.has(n.slug));
 }
 
+// Nested cooccurrence map keyed by (lexSmaller, lexLarger) — avoids
+// a string-join encoding that would conflate tags containing the delimiter.
+type CooccurMap = Map<string, Map<string, number>>;
+
+function bumpCooccur(cooccur: CooccurMap, a: string, b: string): void {
+  const [lo, hi] = a < b ? [a, b] : [b, a];
+  let row = cooccur.get(lo);
+  if (!row) {
+    row = new Map();
+    cooccur.set(lo, row);
+  }
+  row.set(hi, (row.get(hi) ?? 0) + 1);
+}
+
+function getCooccur(cooccur: CooccurMap, a: string, b: string): number {
+  const [lo, hi] = a < b ? [a, b] : [b, a];
+  return cooccur.get(lo)?.get(hi) ?? 0;
+}
+
 export function buildCandidateGroups(notes: readonly NoteManifestEntry[]): readonly CandidateTagGroup[] {
-  // Build tag → articles map.
+  // Single pass over articles: build tag→articles index and tag-pair
+  // cooccurrence counts in one walk. Replaces O(T²·S) pair enumeration
+  // with O(sum_n(tags_n²)).
   const tagToArticles = new Map<string, Set<string>>();
+  const cooccur: CooccurMap = new Map();
+
   for (const n of notes) {
-    for (const t of n.tags) {
-      if (!tagToArticles.has(t)) tagToArticles.set(t, new Set());
-      tagToArticles.get(t)!.add(n.slug);
+    const uniqueTags = [...new Set(n.tags)];
+    for (const t of uniqueTags) {
+      let set = tagToArticles.get(t);
+      if (!set) {
+        set = new Set();
+        tagToArticles.set(t, set);
+      }
+      set.add(n.slug);
+    }
+    for (let i = 0; i < uniqueTags.length; i++) {
+      for (let j = i + 1; j < uniqueTags.length; j++) {
+        bumpCooccur(cooccur, uniqueTags[i], uniqueTags[j]);
+      }
     }
   }
 
-  // Compute pairwise co-occurrence ≥ 2 (two tags that share 2+ articles form an edge).
+  // Edge: two tags share ≥ 2 articles. Connected components on this graph
+  // become candidate categories.
   const tags = [...tagToArticles.keys()].sort();
-  const cooccur = new Map<string, number>();
-  for (let i = 0; i < tags.length; i++) {
-    for (let j = i + 1; j < tags.length; j++) {
-      const a = tags[i];
-      const b = tags[j];
-      const setA = tagToArticles.get(a)!;
-      const setB = tagToArticles.get(b)!;
-      let overlap = 0;
-      for (const slug of setA) if (setB.has(slug)) overlap++;
-      if (overlap >= 2) cooccur.set(`${a}\u0000${b}`, overlap);
-    }
-  }
-
-  // Connected components on the tag graph = candidate categories.
   const adj = new Map<string, Set<string>>();
   for (const t of tags) adj.set(t, new Set());
-  for (const key of cooccur.keys()) {
-    const [a, b] = key.split('\u0000');
-    adj.get(a)!.add(b);
-    adj.get(b)!.add(a);
+  for (const [lo, row] of cooccur) {
+    for (const [hi, count] of row) {
+      if (count >= 2) {
+        adj.get(lo)!.add(hi);
+        adj.get(hi)!.add(lo);
+      }
+    }
   }
 
   const visited = new Set<string>();
@@ -236,8 +255,7 @@ export function buildCandidateGroups(notes: readonly NoteManifestEntry[]): reado
     let totalScore = 0;
     for (let i = 0; i < componentTags.length; i++) {
       for (let j = i + 1; j < componentTags.length; j++) {
-        const key = `${componentTags[i]}\u0000${componentTags[j]}`;
-        totalScore += cooccur.get(key) ?? 0;
+        totalScore += getCooccur(cooccur, componentTags[i], componentTags[j]);
         totalPairs++;
       }
     }
@@ -258,17 +276,17 @@ export function buildTaxonomyProposal(
   schemaTaxonomy: SchemaTaxonomy,
   now: Date = new Date(),
 ): TaxonomyProposal | null {
-  const content = contentArticles(notes);
-  const uniqueTags = new Set<string>();
-  for (const n of content) for (const t of n.tags) uniqueTags.add(t);
-
   // Three conditions from skills/compile/SKILL.md Step 5.5. A "defined"
   // taxonomy means the user already committed to categories, so we skip;
   // "unknown" means the schema didn't declare either way, so we proceed on
   // the permissive assumption that a proposal is still useful.
-  if (uniqueTags.size < 5) return null;
-  if (content.length < 5) return null;
   if (schemaTaxonomy === 'defined') return null;
+  const content = contentArticles(notes);
+  if (content.length < 5) return null;
+
+  const uniqueTags = new Set<string>();
+  for (const n of content) for (const t of n.tags) uniqueTags.add(t);
+  if (uniqueTags.size < 5) return null;
 
   const groups = buildCandidateGroups(content);
   const categorized = new Set<string>();
@@ -304,17 +322,23 @@ export function buildOverviewMetadata(
   const totalWords = content.reduce((sum, n) => sum + n.wordCount, 0);
   const sourceUrls = new Set<string>();
   for (const n of content) for (const s of n.sources) sourceUrls.add(s.url);
-  const orphanNotes = content
+  // Distinct from papyr-core's graph.orphans (which is undirected: no links
+  // in OR out). This list is intentionally stricter — zero centrality AND
+  // zero outbound links — because the overview narrative should flag
+  // articles with no discoverable path, not just missing backlinks.
+  const isolatedContentNotes = content
     .filter((n) => (centrality.get(n.slug) ?? 0) === 0 && n.linksTo.length === 0)
     .map((n) => n.slug)
     .sort();
 
-  const topicClusters = components
-    .map((comp, idx) => ({
-      componentId: idx,
-      articles: [...comp].filter((s) => !SUPPORT_SLUGS.has(s)).sort(),
-    }))
-    .filter((c) => c.articles.length > 1);
+  // Filter support slugs from each component, then derive both the count
+  // and the cluster list from the same filtered set so they can't disagree.
+  const contentComponents = components.map((comp, idx) => ({
+    componentId: idx,
+    articles: [...comp].filter((s) => !SUPPORT_SLUGS.has(s)).sort(),
+  }));
+  const componentCount = contentComponents.filter((c) => c.articles.length > 0).length;
+  const topicClusters = contentComponents.filter((c) => c.articles.length > 1);
 
   return {
     generatedAt: now.toISOString(),
@@ -325,8 +349,8 @@ export function buildOverviewMetadata(
       totalWords,
       sourceCount: sourceUrls.size,
       crossRefs: crossRefCount,
-      componentCount: components.length,
-      orphanNotes,
+      componentCount,
+      isolatedContentNotes,
     },
     topicClusters,
   };
@@ -477,32 +501,17 @@ async function compile(): Promise<void> {
   });
   writeJSON('notes.json', noteManifest);
 
-  // Step 10: Overview metadata — evidence for the compile skill's Step 5
-  //   enforcement audit (which top-centrality slugs must be cited in
-  //   wiki/overview.md). Always emitted, every run.
-  const manifestForEnforcement: NoteManifestEntry[] = noteManifest.map((n) => ({
-    slug: n.slug,
-    title: n.title,
-    tags: n.tags,
-    wordCount: n.wordCount,
-    linksTo: n.linksTo,
-    sources: n.sources,
-  }));
+  // Step 10 — overview-metadata.json: evidence for the compile skill's Step 5
+  // enforcement audit. Emitted every run.
   writeJSON(
     'overview-metadata.json',
-    buildOverviewMetadata(
-      manifestForEnforcement,
-      centrality,
-      components,
-      linkValidation.validLinks,
-    ),
+    buildOverviewMetadata(noteManifest, centrality, components, linkValidation.validLinks),
   );
 
-  // Step 11: Taxonomy proposal — conditional, emitted only when the skill's
-  //   Step 5.5 conditions are met. Absence of the file = conditions not met.
+  // Step 11 — taxonomy-proposal.json: conditional, only when the skill's
+  // Step 5.5 conditions are met. Absence of the file = conditions not met.
   const workspaceDir = dirname(resolvedWikiDir);
-  const schemaTaxonomy = parseSchemaTaxonomy(workspaceDir);
-  const proposal = buildTaxonomyProposal(manifestForEnforcement, schemaTaxonomy);
+  const proposal = buildTaxonomyProposal(noteManifest, parseSchemaTaxonomy(workspaceDir));
   if (proposal) {
     writeJSON('taxonomy-proposal.json', proposal);
   }

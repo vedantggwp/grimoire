@@ -17,6 +17,7 @@ import type {
   GraphEdgeData,
   LogEntry,
 } from './types.js';
+import { SUPPORT_SLUGS, SUPPORT_FILES } from '../support-slugs.js';
 
 // --- Helpers ---
 
@@ -267,18 +268,12 @@ export function parseSchema(content: string): SiteData['schema'] {
 
 // --- File discovery (supports taxonomy subdirectories) ---
 
-const SKIP_FILES = new Set(['log.md', 'index.md', 'overview.md']);
-
-// Slugs that compile emits as graph nodes but are not content articles.
-// Must mirror SKIP_FILES minus the `.md` — shared loader + graph filter.
-const SUPPORT_SLUGS = new Set(['log', 'index', 'overview']);
-
 function collectMdFiles(dir: string, baseDir: string): string[] {
   const results: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory() && !entry.name.startsWith('.')) {
       results.push(...collectMdFiles(join(dir, entry.name), baseDir));
-    } else if (entry.name.endsWith('.md') && !SKIP_FILES.has(entry.name)) {
+    } else if (entry.name.endsWith('.md') && !SUPPORT_FILES.has(entry.name)) {
       results.push(join(dir, entry.name));
     }
   }

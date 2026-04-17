@@ -50,6 +50,7 @@
 
 ## Lib — Runtime Scripts (source)
 - `lib/short-topic.ts` — Pure utility for extracting a concise display name from the verbose SCHEMA.md topic field (delimiter-aware, 60-char cap). Shared between `lib/present/hub.ts` (hub title, page titles, nav brand) and `lib/serve.ts` (MCP server instructions, query results, list_topics header, startup log) so verbose multi-line topics never bleed into display surfaces
+- `lib/support-slugs.ts` — Single source of truth for the structural-page slug set (`index`/`log`/`overview`) and their `.md` filenames; imported by `lib/compile.ts` (enforcement filters) and `lib/present/data.ts` (loader + graph filters) so the definition can't drift between modules
 - `lib/compile.ts` — Papyr Core orchestration: graph analysis, link validation, search indexing, analytics. CLI accepts either a grimoire workspace root (auto-detects `wiki/` subdirectory via `statSync`) or a wiki directory directly. v0.3.1 adds enforcement-artifact emitters: `overview-metadata.json` every run (top-centrality slugs, required citations, coverage stats, topic clusters) and `taxonomy-proposal.json` conditionally (5+ tags, 5+ content articles, SCHEMA taxonomy not `"defined"`) with deterministic tag-cooccurrence groupings
 - `lib/present/index.ts` — Static site generator entry point, orchestrates all modes
 - `lib/present/types.ts` — Shared TypeScript types for present modules

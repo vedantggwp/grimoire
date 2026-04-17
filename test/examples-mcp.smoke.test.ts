@@ -92,12 +92,12 @@ describe('examples/mcp — end-to-end smoke test', () => {
     });
   });
 
-  // v0.3.1 compile skill hardening: the skill's Step 9 audit reads these
-  // two artifacts to enforce that Step 5 (overview evolution) and Step 5.5
-  // (taxonomy proposal) actually ran on each compile. examples/mcp hits all
-  // three Step 5.5 conditions (5 content articles, 5+ unique tags,
-  // SCHEMA taxonomy "emergent") so we expect BOTH artifacts here — in
-  // contrast to sample-wiki which only gets overview-metadata.json.
+  // The skill's Step 9 audit reads these two artifacts to enforce that
+  // Step 5 (overview evolution) and Step 5.5 (taxonomy proposal) actually
+  // ran on each compile. examples/mcp hits all three Step 5.5 conditions
+  // (5 content articles, 5+ unique tags, SCHEMA taxonomy "emergent") so
+  // we expect BOTH artifacts here — in contrast to sample-wiki which only
+  // gets overview-metadata.json.
   describe('compile → enforcement artifacts (Steps 5 + 5.5)', () => {
     it('overview-metadata.json surfaces all 5 content articles as required citations', () => {
       const meta = JSON.parse(

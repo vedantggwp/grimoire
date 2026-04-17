@@ -217,8 +217,7 @@ describe('compile', () => {
     });
   });
 
-  // v0.3.1 compile skill hardening (2026-04-17): emit deterministic
-  // enforcement artifacts for the skill's Step 9 audit. overview-metadata.json
+  // Enforcement artifacts for the skill's Step 9 audit. overview-metadata.json
   // is always present; taxonomy-proposal.json is conditional on 5+ content
   // articles, 5+ unique tags, and SCHEMA taxonomy != "defined".
   describe('overview-metadata.json — Step 5 enforcement evidence', () => {
@@ -261,7 +260,7 @@ describe('compile', () => {
       expect(meta.coverageStats.totalWords).toBeGreaterThan(0);
       expect(meta.coverageStats.crossRefs).toBeGreaterThan(0);
       expect(typeof meta.coverageStats.componentCount).toBe('number');
-      expect(Array.isArray(meta.coverageStats.orphanNotes)).toBe(true);
+      expect(Array.isArray(meta.coverageStats.isolatedContentNotes)).toBe(true);
     });
 
     it('emits topic clusters based on connected components (support pages filtered)', () => {
