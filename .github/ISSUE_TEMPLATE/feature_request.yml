@@ -1,0 +1,43 @@
+name: Feature Request
+description: Suggest a focused improvement for Grimoire
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should Grimoire do differently?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - scout
+        - ingest
+        - compile
+        - present
+        - serve / MCP
+        - docs
+        - other
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy Check
+      options:
+        - label: I have not included secrets, private source material, or proprietary workspace contents.
+          required: true
