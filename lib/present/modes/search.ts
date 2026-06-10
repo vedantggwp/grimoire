@@ -253,7 +253,7 @@ function searchScript(): string {
   gridCards.forEach(function(card) {
     card.addEventListener('click', function() {
       var slug = card.dataset.slug;
-      if (slug) window.location.href = '../read/index.html#' + slug;
+      if (slug) window.location.href = '../read/' + slug + '/index.html';
     });
   });
 

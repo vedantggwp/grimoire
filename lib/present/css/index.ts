@@ -22,7 +22,7 @@ import { QUIZ_CSS } from './quiz.js';
 import { GRAPH_CSS, GRAPH_MODE_OVERRIDE_CSS } from './graph.js';
 import { RESPONSIVE_CSS } from './responsive.js';
 import { PRINT_CSS } from './print.js';
-import { REDUCED_MOTION_CSS } from './motion.js';
+import { motionCSS } from './motion.js';
 
 export function generateCSS(config: DesignConfig): string {
   const palette = resolvePalette(config);
@@ -43,7 +43,7 @@ export function generateCSS(config: DesignConfig): string {
     TAIL_CSS,
     RESPONSIVE_CSS,
     PRINT_CSS,
-    REDUCED_MOTION_CSS,
+    motionCSS(config.motion),
   ].join('\n\n');
 
   const modeOverrides = [

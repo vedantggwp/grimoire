@@ -220,61 +220,72 @@ describe('present', () => {
     });
   });
 
-  describe('read mode', () => {
-    it('contains article content', () => {
+  describe('read mode — index page', () => {
+    it('lists every article as a real link with summaries', () => {
       const html = readSiteFile('read/index.html');
       expect(html).toContain('React Fundamentals');
       expect(html).toContain('Vue Reactivity System');
+      expect(html).toContain('href="vue-reactivity/index.html"');
+      expect(html).toContain('class="summary"');
     });
 
-    it('has table of contents', () => {
+    it('redirects legacy hash deep-links to the article page', () => {
       const html = readSiteFile('read/index.html');
-      expect(html).toContain('read-sidebar');
-      expect(html).toContain('read-toc-right');
+      expect(html).toContain("window.location.replace('./' + hash + '/index.html')");
     });
 
-    it('has progress bar', () => {
+    it('offers a continue-reading pickup for returning readers', () => {
       const html = readSiteFile('read/index.html');
-      expect(html).toContain('read-progress');
-    });
-
-    it('renders the progress bar outside main', () => {
-      const html = readSiteFile('read/index.html');
-      const progressIndex = html.indexOf('<div class="read-progress" id="read-progress"></div>');
-      const mainIndex = html.indexOf('<main id="main" class="container">');
-      expect(progressIndex).toBeGreaterThan(-1);
-      expect(mainIndex).toBeGreaterThan(-1);
-      expect(progressIndex).toBeLessThan(mainIndex);
-    });
-
-    it('has next/previous navigation', () => {
-      const html = readSiteFile('read/index.html');
-      expect(html).toContain('&larr;');
-      expect(html).toContain('&rarr;');
-    });
-
-    it('rewrites wikilinks away from papyr SPA routes', () => {
-      const html = readSiteFile('read/index.html');
-      expect(html).not.toContain('href="#/note/');
-      expect(html).toContain('data-wikilink-slug="vue-reactivity"');
-      expect(html).toContain('href="#vue-reactivity"');
-    });
-
-    it('keeps only genuine orphan wikilinks marked as new', () => {
-      const html = readSiteFile('read/index.html');
-      expect(html).toContain('<a class="internal" href="#vue-reactivity" data-wikilink-slug="vue-reactivity">Vue Reactivity System</a>');
-      expect(html).toContain('<a class="internal new" href="#nonexistent-article" data-wikilink-slug="nonexistent-article">nonexistent-article</a>');
-    });
-
-    it('handles article hashes and internal wikilink clicks in the read-mode script', () => {
-      const html = readSiteFile('read/index.html');
-      expect(html).toContain("window.history.replaceState(null, '', '#' + slug);");
-      expect(html).toContain("a[data-wikilink-slug]");
+      expect(html).toContain('grimoire-last-read');
+      expect(html).toContain('id="read-continue"');
     });
 
     it('uses relative CSS path for subpage', () => {
       const html = readSiteFile('read/index.html');
       expect(html).toContain('href="../assets/style.css"');
+    });
+  });
+
+  describe('read mode — article pages (issue #2)', () => {
+    it('writes one page per article', () => {
+      expect(existsSync(join(SITE_DIR, 'read/vue-reactivity/index.html'))).toBe(true);
+      expect(existsSync(join(SITE_DIR, 'read/react-fundamentals/index.html'))).toBe(true);
+    });
+
+    it('renders the full article shell at depth 2', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toContain('href="../../assets/style.css"');
+      expect(html).toContain('read-sidebar');
+      expect(html).toContain('read-progress');
+      expect(html).toContain('<h1 style="view-transition-name: vta-vue-reactivity">Vue Reactivity System</h1>');
+    });
+
+    it('marks the current article in the sidebar', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toContain('aria-current="page"');
+      expect(html).toContain('href="../vue-reactivity/index.html" aria-current="page"');
+    });
+
+    it('has real prev/next links in centrality order', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toMatch(/<a href="\.\.\/[a-z-]+\/index\.html" class="btn read-nav-btn" rel="(prev|next)">/);
+    });
+
+    it('rewrites known wikilinks to real article routes', () => {
+      const html = readSiteFile('read/react-fundamentals/index.html');
+      expect(html).not.toContain('href="#/note/');
+      expect(html).toContain('href="../vue-reactivity/index.html" data-wikilink-slug="vue-reactivity"');
+    });
+
+    it('keeps unresolved wikilinks inert and marked new', () => {
+      const html = readSiteFile('read/react-fundamentals/index.html');
+      expect(html).toContain('class="internal new"');
+      expect(html).toContain('data-wikilink-slug="nonexistent-article" role="link" aria-disabled="true"');
+    });
+
+    it('tracks the last-read article for the index pickup', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toContain("localStorage.setItem('grimoire-last-read'");
     });
   });
 

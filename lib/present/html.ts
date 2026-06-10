@@ -8,15 +8,17 @@ import type { DesignConfig, SiteData } from './types.js';
 import { resolveTypography, getGoogleFontsUrl } from './config.js';
 import { shortTopic } from './hub.js';
 import { esc } from './esc.js';
-import { themeToggleScript } from './js/runtime.js';
+import { motionRuntimeScript, themeToggleScript } from './js/runtime.js';
 
 export { themeToggleScript };
 
 // --- Components ---
 
-export function htmlHead(title: string, config: DesignConfig): string {
+// depth = directory levels below the site root (modes are 1, article pages 2).
+export function htmlHead(title: string, config: DesignConfig, depth = 1): string {
   const typo = resolveTypography(config);
   const fontsUrl = getGoogleFontsUrl(typo);
+  const up = '../'.repeat(depth);
 
   return `<head>
   <meta charset="utf-8">
@@ -28,7 +30,7 @@ export function htmlHead(title: string, config: DesignConfig): string {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="${fontsUrl}">
-  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="stylesheet" href="${up}assets/style.css">
 </head>`;
 }
 
@@ -64,15 +66,21 @@ function enabledModes(config: DesignConfig): readonly { id: string; label: strin
   return config.modes.map(id => ({ id, label: MODE_LABELS[id] ?? id }));
 }
 
-export function navBar(currentMode: string, data: SiteData, config: DesignConfig): string {
+export function navBar(
+  currentMode: string,
+  data: SiteData,
+  config: DesignConfig,
+  depth = 1,
+): string {
+  const up = '../'.repeat(depth);
   const tabs = enabledModes(config).map(m => {
     const active = m.id === currentMode ? ' active' : '';
-    const href = m.id === currentMode ? '#' : `../${m.id}/index.html`;
+    const href = m.id === currentMode && depth === 1 ? '#' : `${up}${m.id}/index.html`;
     return `<a href="${href}" class="tab${active}">${m.label}</a>`;
   }).join('\n        ');
 
   return `<nav>
-  <a href="../index.html" class="brand">${esc(shortTopic(data.schema.topic))}</a>
+  <a href="${up}index.html" class="brand">${esc(shortTopic(data.schema.topic))}</a>
   <div class="tabs">
     ${tabs}
   </div>
@@ -119,6 +127,7 @@ export function pageShell(
   bodyContent: string,
   config: DesignConfig,
   data: SiteData,
+  depth = 1,
 ): string {
   const progressBar = mode === 'read'
     ? '<div class="read-progress" id="read-progress"></div>'
@@ -126,15 +135,16 @@ export function pageShell(
 
   return `<!DOCTYPE html>
 <html lang="en" class="motion-${config.motion} density-${config.density}">
-${htmlHead(title, config)}
+${htmlHead(title, config, depth)}
 <body class="mode-${mode}">
 <a href="#main" class="skip-link">Skip to content</a>
-${navBar(mode, data, config)}
+${navBar(mode, data, config, depth)}
 ${progressBar}
 <main id="main" class="container">
 ${bodyContent}
 </main>
 ${footer(data)}
+${motionRuntimeScript()}
 ${themeToggleScript()}
 </body>
 </html>`;
@@ -156,6 +166,7 @@ ${hubNav(data, config)}
 ${bodyContent}
 </main>
 ${footer(data)}
+${motionRuntimeScript()}
 ${themeToggleScript()}
 </body>
 </html>`;

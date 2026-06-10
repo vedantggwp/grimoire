@@ -5,7 +5,7 @@
  * Usage: node dist/present.js <workspace-path>
  */
 
-import { existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 
 import { parseDesignConfig } from './config.js';
@@ -14,7 +14,8 @@ import { loadSiteData } from './data.js';
 import { esc } from './esc.js';
 import { computeHubStats, hubLeadText, recommendedMode, shortTopic } from './hub.js';
 import { hubShell } from './html.js';
-import { generateReadMode } from './modes/read.js';
+import { generateReadMode, sortByCentrality } from './modes/read.js';
+import { generateArticlePage } from './modes/read-article.js';
 import { generateGraphMode } from './modes/graph.js';
 import { generateSearchMode } from './modes/search.js';
 import { generateFeedMode } from './modes/feed.js';
@@ -153,8 +154,10 @@ async function main(): Promise<void> {
   // Load data
   const data = await loadSiteData(resolved);
 
-  // Generate
+  // Generate — site/ is fully derived; clear it so deleted articles and
+  // disabled modes don't leave stale pages behind.
   const siteDir = join(resolved, 'site');
+  rmSync(siteDir, { recursive: true, force: true });
   const files: WrittenFile[] = [];
 
   // CSS
@@ -176,6 +179,14 @@ async function main(): Promise<void> {
     const generate = generators[mode];
     if (!generate) continue;
     files.push(writeFile(join(siteDir, mode, 'index.html'), generate(data, config)));
+  }
+
+  // Per-article pages (issue #2) — stable, deep-linkable routes under read/
+  for (const article of sortByCentrality(data.articles)) {
+    files.push(writeFile(
+      join(siteDir, 'read', article.slug, 'index.html'),
+      generateArticlePage(article, data, config),
+    ));
   }
 
   // Summary

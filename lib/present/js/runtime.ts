@@ -2,9 +2,53 @@
  * present/js — Shared client runtime script builders
  *
  * Inline vanilla-JS snippets embedded into every generated page.
- * Phase 3 will grow this module with the motion guard, reveal
- * observer, and count-up helpers.
  */
+
+/**
+ * Runs first on every page: flags JS presence (the CSS reveal utility only
+ * hides elements under html.js — no-JS readers always see content), defines
+ * the single motion predicate every animation script must check, and runs
+ * the IntersectionObserver that reveals `.reveal` elements.
+ */
+export function motionRuntimeScript(): string {
+  return `<script>
+(function() {
+  var root = document.documentElement;
+  root.classList.add('js');
+
+  window.GRIMOIRE_MOTION_OK = function() {
+    if (root.className.indexOf('motion-none') !== -1) return false;
+    return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  };
+
+  function revealAll() {
+    document.querySelectorAll('.reveal').forEach(function(el) { el.classList.add('revealed'); });
+  }
+
+  function start() {
+    if (!window.GRIMOIRE_MOTION_OK() || !('IntersectionObserver' in window)) {
+      revealAll();
+      return;
+    }
+    var io = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('revealed');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.reveal').forEach(function(el) { io.observe(el); });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
+})();
+</script>`;
+}
 
 export function themeToggleScript(): string {
   return `<script>
