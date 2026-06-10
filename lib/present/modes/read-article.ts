@@ -12,6 +12,7 @@ import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
 import { esc } from '../esc.js';
 import { sortByCentrality } from './read.js';
+import { popoverScript } from '../js/popover.js';
 
 function slugifyHeading(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -22,6 +23,86 @@ function confidenceBadgeClass(confidence: string): string {
   if (lower === 'p0' || lower === 'high') return 'p0';
   if (lower === 'p1' || lower === 'medium') return 'p1';
   return 'p2';
+}
+
+const CONFIDENCE_TITLES: Readonly<Record<string, string>> = {
+  p0: 'P0 — compiled from must-ingest sources (highest confidence)',
+  p1: 'P1 — compiled from should-ingest sources (solid confidence)',
+  p2: 'P2 — compiled from supplementary sources (verify before relying on)',
+};
+
+function freshnessBadge(data: SiteData, slug: string): string {
+  const info = data.freshness?.bySlug[slug];
+  if (!info || (info.tier !== 'aging' && info.tier !== 'stale')) return '';
+  const dateNote = info.effectiveDate ? ` — last verified ${info.effectiveDate}` : '';
+  const title = info.tier === 'stale'
+    ? 'This article is past its staleness window; its sources may have moved on.'
+    : 'This article is aging; consider a refresh pass.';
+  return `<span class="freshness-badge freshness-badge--${info.tier}" title="${esc(title)}">${info.tier}${esc(dateNote)}</span>`;
+}
+
+function buildBacklinks(article: ArticleData, all: readonly ArticleData[]): string {
+  const backlinks = all.filter(a => a.slug !== article.slug && a.linksTo.includes(article.slug));
+  if (backlinks.length === 0) return '';
+
+  const items = backlinks.map(a => {
+    const teaser = a.summary.length > 110 ? `${a.summary.slice(0, 110).trimEnd()}…` : a.summary;
+    return `<li>
+          <a href="../${esc(a.slug)}/index.html" data-wikilink-slug="${esc(a.slug)}">${esc(a.title)}</a>
+          ${teaser ? `<span class="article-backlinks__teaser">${esc(teaser)}</span>` : ''}
+        </li>`;
+  }).join('\n        ');
+
+  return `<section class="article-backlinks" aria-label="Articles linking here">
+        <h2>Linked from</h2>
+        <ul>
+        ${items}
+        </ul>
+      </section>`;
+}
+
+function buildSources(article: ArticleData): string {
+  if (article.sources.length === 0) return '';
+
+  const items = article.sources.map(s => {
+    let domain = '';
+    try {
+      domain = new URL(s.url).hostname.replace(/^www\./, '');
+    } catch { /* unparseable url — skip the domain chip */ }
+    return `<li><a href="${esc(s.url)}" rel="noopener">${esc(s.title)}</a>${domain ? ` <span class="article-sources__domain">${esc(domain)}</span>` : ''}</li>`;
+  }).join('\n        ');
+
+  return `<section class="article-sources" id="sources" aria-label="Sources">
+        <h2>Sources</h2>
+        <ol>
+        ${items}
+        </ol>
+      </section>`;
+}
+
+// Page-local preview payload: only the slugs this page links to (outbound)
+// or is linked from (backlinks) — typically < 2KB.
+function buildLinkPreviews(
+  article: ArticleData,
+  data: SiteData,
+): string {
+  const related = new Set<string>(article.linksTo);
+  for (const a of data.articles) {
+    if (a.linksTo.includes(article.slug)) related.add(a.slug);
+  }
+  related.delete(article.slug);
+
+  const previews: Record<string, unknown> = {};
+  for (const a of data.articles) {
+    if (!related.has(a.slug)) continue;
+    previews[a.slug] = {
+      title: a.title,
+      summary: a.summary.length > 180 ? `${a.summary.slice(0, 180).trimEnd()}…` : a.summary,
+      tags: a.tags.slice(0, 3),
+      readingTime: a.readingTime,
+    };
+  }
+  return JSON.stringify(previews);
 }
 
 // Wikilinks arrive as in-page anchors (`href="#slug" data-wikilink-slug`).
@@ -98,14 +179,19 @@ function articlePageScript(slug: string): string {
 (function() {
   try { localStorage.setItem('grimoire-last-read', ${JSON.stringify(slug)}); } catch(e) {}
 
+  // Reading progress: the CSS scroll-timeline path takes over where
+  // supported; the scroll listener is the fallback.
   var bar = document.getElementById('read-progress');
-  function updateProgress() {
-    var h = document.documentElement.scrollHeight - window.innerHeight;
-    var pct = h > 0 ? (window.scrollY / h) * 100 : 0;
-    if (bar) bar.style.width = pct + '%';
+  var cssProgress = window.CSS && CSS.supports && CSS.supports('animation-timeline: scroll()');
+  if (!cssProgress) {
+    var updateProgress = function() {
+      var h = document.documentElement.scrollHeight - window.innerHeight;
+      var pct = h > 0 ? (window.scrollY / h) * 100 : 0;
+      if (bar) bar.style.width = pct + '%';
+    };
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
   }
-  window.addEventListener('scroll', updateProgress, { passive: true });
-  updateProgress();
 
   // Unresolved wikilinks stay inert.
   document.addEventListener('click', function(e) {
@@ -113,15 +199,30 @@ function articlePageScript(slug: string): string {
     if (dead) e.preventDefault();
   });
 
-  // TOC scroll spy
+  // TOC scroll spy with a sliding accent marker.
   var toc = document.querySelector('.read-toc-right');
   if (toc) {
+    var list = toc.querySelector('ul');
+    var marker = document.createElement('span');
+    marker.className = 'read-toc-marker';
+    marker.setAttribute('aria-hidden', 'true');
+    if (list) list.appendChild(marker);
+
+    var setActive = function(item) {
+      toc.querySelectorAll('li').forEach(function(l) { l.classList.remove('active'); });
+      item.classList.add('active');
+      if (list && marker) {
+        marker.style.transform = 'translateY(' + item.offsetTop + 'px)';
+        marker.style.height = item.offsetHeight + 'px';
+        marker.style.opacity = '1';
+      }
+    };
+
     var spy = new IntersectionObserver(function(entries) {
       entries.forEach(function(entry) {
         if (!entry.isIntersecting) return;
-        toc.querySelectorAll('li').forEach(function(l) { l.classList.remove('active'); });
         var active = toc.querySelector('li[data-heading="' + entry.target.id + '"]');
-        if (active) active.classList.add('active');
+        if (active) setActive(active);
       });
     }, { rootMargin: '-15% 0px -70% 0px' });
     document.querySelectorAll('.article-body h2[id]').forEach(function(h) { spy.observe(h); });
@@ -140,11 +241,12 @@ export function generateArticlePage(
   const knownSlugs = new Set(data.articles.map(a => a.slug));
 
   const tags = article.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('');
+  const badgeClass = confidenceBadgeClass(article.confidence);
   const confidenceBadge = article.confidence
-    ? `<span class="confidence-badge ${confidenceBadgeClass(article.confidence)}">${esc(article.confidence)}</span>`
+    ? `<span class="confidence-badge ${badgeClass}" title="${esc(CONFIDENCE_TITLES[badgeClass] ?? '')}">${esc(article.confidence)}</span>`
     : '';
   const sourcesBadge = article.sources.length > 0
-    ? `<span class="source-count">${article.sources.length} source${article.sources.length !== 1 ? 's' : ''}</span>`
+    ? `<a href="#sources" class="source-count">${article.sources.length} source${article.sources.length !== 1 ? 's' : ''}</a>`
     : '';
   const wordsMeta = `<span class="article-meta__words">${article.wordCount} words &middot; ${article.readingTime} min</span>`;
 
@@ -160,6 +262,7 @@ export function generateArticlePage(
       <div class="article-meta">
         ${confidenceBadge}
         ${sourcesBadge}
+        ${freshnessBadge(data, article.slug)}
         ${wordsMeta}
       </div>
       <h1 style="view-transition-name: vta-${esc(article.slug)}">${esc(article.title)}</h1>
@@ -168,12 +271,16 @@ export function generateArticlePage(
       <div class="article-body">
         ${rewriteWikilinksForArticlePage(article.html, knownSlugs)}
       </div>
+      ${buildBacklinks(article, data.articles)}
+      ${buildSources(article)}
       ${buildPrevNext(sorted, index)}
     </article>
   </div>
   ${buildToc(article)}
 </div>
-${articlePageScript(article.slug)}`;
+<script>window.LINK_PREVIEWS = ${buildLinkPreviews(article, data)};</script>
+${articlePageScript(article.slug)}
+${popoverScript()}`;
 
   return pageShell(
     `${article.title} — ${shortTopic(data.schema.topic)}`,

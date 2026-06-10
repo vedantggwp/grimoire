@@ -87,6 +87,8 @@ export interface SiteData {
   readonly graphData: GraphData;
   readonly analytics: unknown;
   readonly logEntries: readonly LogEntry[];
+  /** null on workspaces compiled before v0.4.0 — every consumer degrades. */
+  readonly freshness: import('./freshness.js').SiteFreshness | null;
   readonly schema: {
     readonly topic: string;
     readonly scope: { readonly in: string; readonly out: string };

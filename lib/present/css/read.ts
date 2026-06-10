@@ -197,6 +197,131 @@ export const READ_CSS = `/* === Read — 3-column layout === */
   font-size: 12px;
   font-family: var(--font-mono);
 }
+a.source-count { text-decoration: none; }
+a.source-count:hover { color: var(--color-accent); opacity: 1; }
+
+/* === Freshness badge (update engine, v0.4.0) === */
+.freshness-badge {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600;
+  padding: 3px 8px; border-radius: 4px;
+  display: inline-block;
+}
+.freshness-badge--aging { background: var(--warning-muted); color: var(--color-warning); }
+.freshness-badge--stale { background: var(--error-muted); color: var(--color-error); }
+
+/* === Backlinks ("Linked from") === */
+.article-backlinks {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.article-backlinks ul { list-style: none; padding: 0; }
+.article-backlinks li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) 0;
+}
+.article-backlinks a {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+}
+.article-backlinks__teaser {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+/* === Sources === */
+.article-sources {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.article-sources ol { padding-left: var(--space-5); }
+.article-sources li { margin-bottom: var(--space-2); font-size: 13.5px; }
+.article-sources__domain {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-left: 6px;
+}
+
+/* === TOC sliding marker === */
+.read-toc-right ul { position: relative; }
+.read-toc-marker {
+  position: absolute;
+  left: -2px;
+  top: 0;
+  width: 2px;
+  height: 0;
+  background: var(--color-accent);
+  opacity: 0;
+  transition:
+    transform var(--dur-2) var(--ease-out),
+    height var(--dur-2) var(--ease-out),
+    opacity var(--dur-2) var(--ease-out);
+}
+.read-toc-right li.active { border-left-color: transparent; }
+
+/* === Link preview popover === */
+.link-preview {
+  position: fixed;
+  display: none;
+  z-index: var(--z-popover);
+  max-width: 320px;
+  background: var(--color-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+  inset: auto;
+  pointer-events: auto;
+}
+.link-preview:popover-open { display: block; }
+.link-preview.visible { display: block; animation: link-preview-in var(--dur-2) var(--ease-out); }
+@keyframes link-preview-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
+.link-preview__title {
+  display: block;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+.link-preview__summary {
+  display: block;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+.link-preview__meta {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+}
+
+/* === Reading progress — CSS scroll-timeline path === */
+@supports (animation-timeline: scroll()) {
+  .mode-read .read-progress {
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: 0 50%;
+    animation: read-progress-grow linear both;
+    animation-timeline: scroll(root);
+  }
+  @keyframes read-progress-grow {
+    to { transform: scaleX(1); }
+  }
+}
 
 /* === Article (legacy compat) === */
 .article {

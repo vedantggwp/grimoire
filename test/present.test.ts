@@ -312,6 +312,41 @@ describe('present', () => {
       const html = readSiteFile('read/vue-reactivity/index.html');
       expect(html).toContain("localStorage.setItem('grimoire-last-read'");
     });
+
+    // Phase 3d — reading experience
+    it('renders a backlinks panel on linked-to articles', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toContain('class="article-backlinks"');
+      expect(html).toContain('Linked from');
+    });
+
+    it('renders a numbered sources section with domains', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toContain('id="sources"');
+      expect(html).toContain('class="article-sources__domain"');
+      expect(html).toContain('href="#sources" class="source-count"');
+    });
+
+    it('embeds page-local link previews and the popover script', () => {
+      const html = readSiteFile('read/react-fundamentals/index.html');
+      expect(html).toContain('window.LINK_PREVIEWS = {');
+      expect(html).toContain('"vue-reactivity"');
+      expect(html).toContain('link-preview');
+    });
+
+    it('shows a freshness badge on aging articles, none on evergreen', () => {
+      // vue-reactivity: updated 2026-04-01, never fresh again → badge stays.
+      const vue = readSiteFile('read/vue-reactivity/index.html');
+      expect(vue).toContain('freshness-badge');
+      // signals-pattern is evergreen: true in the fixture.
+      const signals = readSiteFile('read/signals-pattern/index.html');
+      expect(signals).not.toContain('freshness-badge');
+    });
+
+    it('builds the sliding TOC marker', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toContain('read-toc-marker');
+    });
   });
 
   describe('graph mode', () => {

@@ -21,6 +21,7 @@ import type {
 import { SUPPORT_SLUGS, SUPPORT_FILES } from '../support-slugs.js';
 import { slugLikePapyr } from '../slug.js';
 import { esc as escapeHtml } from './esc.js';
+import { loadFreshness } from './freshness.js';
 
 // --- Helpers ---
 
@@ -483,5 +484,12 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
 
   const graphData: GraphData = { nodes: graphNodes, edges: graphEdges };
 
-  return { articles, graphData, analytics, logEntries, schema };
+  return {
+    articles,
+    graphData,
+    analytics,
+    logEntries,
+    freshness: loadFreshness(compileDir),
+    schema,
+  };
 }

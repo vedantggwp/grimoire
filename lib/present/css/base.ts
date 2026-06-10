@@ -165,6 +165,15 @@ nav, .nav {
 .tag:focus-visible,
 .quiz-btn:focus-visible {
   outline: 2px solid var(--color-accent); outline-offset: 2px;
+}
+
+/* === Typography polish === */
+p, li { text-wrap: pretty; }
+::selection { background: var(--accent-strong); }
+[id] { scroll-margin-top: calc(var(--nav-height) + 16px); }
+blockquote { hanging-punctuation: first allow-end; }
+@media (max-width: 640px) {
+  .article-body p { hyphens: auto; }
 }`;
 
 export const COMPONENTS_CSS = `/* === Tags === */
