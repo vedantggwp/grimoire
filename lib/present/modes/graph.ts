@@ -14,11 +14,7 @@ import type { SiteData, DesignConfig } from '../types.js';
 import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
 import { d3MinSource } from './d3-source.js';
-
-function esc(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
+import { esc } from '../esc.js';
 
 function graphScript(): string {
   // Emit d3 as a plain (non-module) script tag. The UMD wrapper assigns

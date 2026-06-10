@@ -55,8 +55,21 @@
 - `lib/present/index.ts` — Static site generator entry point, orchestrates all modes
 - `lib/present/types.ts` — Shared TypeScript types for present modules
 - `lib/present/config.ts` — Design config parser and palette resolution; default palette: linear-editorial (Source Serif 4 + Inter + JetBrains Mono)
-- `lib/present/css.ts` — CSS generator: Option F Linear Editorial design system (dual-theme, bento grid, 3-col read, command palette search, timeline feed, treemap gaps, flashcard quiz)
-- `lib/present/css-modes.ts` — Minimal mode-specific CSS overrides (read progress bar, graph SVG sizing, search results spacing)
+- `lib/present/esc.ts` — Single shared HTML-escape helper (was duplicated across 8 modules)
+- `lib/present/css/index.ts` — Stylesheet assembler: concatenates the css/ partials in fixed order (Option F Linear Editorial design system, dual-theme)
+- `lib/present/css/tokens.ts` — Theme custom properties: palette vars (light/dark), typography families, radii, easing, layout dimensions
+- `lib/present/css/base.ts` — Reset, base typography, nav/skip-link/focus chrome, shared components (tags/badges/code/buttons/cards), generic grid/footer tail
+- `lib/present/css/hub.ts` — Hub hero, stats, bento grid styles
+- `lib/present/css/read.ts` — Read 3-column layout, article body, TOC rail + read-mode progress-bar override
+- `lib/present/css/search.ts` — Command palette, default state, results + search-mode override
+- `lib/present/css/feed.ts` — Changelog timeline styles
+- `lib/present/css/gaps.ts` — Coverage treemap, legend, tooltip styles
+- `lib/present/css/quiz.ts` — Anki-style reveal card styles
+- `lib/present/css/graph.ts` — Force-directed graph canvas/sidebar styles + graph-mode override
+- `lib/present/css/responsive.ts` — Breakpoints (1024/767/479/640+/1024+)
+- `lib/present/css/print.ts` — Print stylesheet
+- `lib/present/css/motion.ts` — Reduced-motion overrides (grows into the full motion token system in v0.4)
+- `lib/present/js/runtime.ts` — Inline client runtime script builders (theme toggle; grows motion guard/reveal/count-up in v0.4)
 - `lib/present/data.ts` — Wiki data loader and graph builder
 - `lib/present/html.ts` — HTML template helpers and page shell
 - `lib/present/modes/read.ts` — Read mode: article renderer
@@ -125,6 +138,7 @@
 - `docs/references/remark-pipeline.md` — Remark pipeline evaluation
 
 ## Recent Changes
+- 2026-06-10: **Present reorg (v0.4.0 Phase 0a).** Split the 1,462-line `lib/present/css.ts` monolith into 13 focused `lib/present/css/` partials concatenated in fixed order by `css/index.ts`; absorbed and deleted `css-modes.ts` (its three overrides now live as separate exports in read/graph/search partials, still emitted last); extracted the 8 duplicated `esc()` helpers into `lib/present/esc.ts`; moved the theme-toggle script into `lib/present/js/runtime.ts` (re-exported from html.ts for compatibility). Generated site output verified **byte-identical** on both the sample-wiki fixture and examples/mcp before/after. 193/193 tests green, bundles rebuilt.
 - 2026-04-17: **v0.3.1 compile skill hardening (hybrid enforcement).** Closes the long-deferred bugs 11/12 from the v0.2.4 dogfood inventory — taxonomy proposal and overview evolution. Chose hybrid design: runtime emits machine-checkable evidence, skill owns prose + audit. `lib/compile.ts` now writes `wiki/.compile/overview-metadata.json` every run (top-5 centrality slugs, requiredCitations list, coverageStats, topicClusters — support pages filtered) and `wiki/.compile/taxonomy-proposal.json` conditionally when all three Step 5.5 gates pass (5+ unique tags, 5+ content articles, SCHEMA taxonomy not `"defined"`). Candidate tag groups computed deterministically via pairwise cooccurrence ≥2 on a tag graph, connected components as groups, mean cooccurrence as score. `skills/compile/SKILL.md` bumped 0.1.0 → 0.2.0: Step 5 now reads overview-metadata.json first (required-citation list is the hard contract); Step 5.5 triggered by file presence rather than re-checking conditions in the skill; new **Step 9 enforcement audit** runs before exit — 9.1 greps overview.md for each requiredCitations slug and loops back to Step 5 if any missing; 9.2 verifies a proposal was presented when taxonomy-proposal.json exists, loops back to Step 5.5 otherwise; 9.3 checks overview.md mtime freshness. `skills/compile/references/stage-contract.md` outputs table gains the two new artifacts with enforcement roles. 10 new tests (193/193 green, up from 183). Version bumped everywhere to 0.3.1; `dist/compile.js` regenerated; `dist/serve.js` rebuilt to pick up version-string bump.
 - 2026-04-17: **MCP end-to-end validation pass.** Protocol-level smoke test against `dist/serve.js` + `grimoire-wiki` using the official `@modelcontextprotocol/sdk` stdio client — same transport Claude Desktop uses. 9/9 probes passed, 7/7 tools registered. Closes the "Claude Desktop MCP compatibility" item deferred through v0.2.2 → v0.3.0. New files: `scripts/mcp-smoke-client.mjs` (runnable anytime), `docs/mcp-smoke-results.md` (frozen report), `.mcp.json` (project-scoped config). **Fixed en route:** extracted `shortTopic()` to `lib/short-topic.ts` and applied it at 5 display sites in `lib/serve.ts` — startup log, server `instructions` metadata, `handleListTopics` header, `handleQuery` result prefix, no-results message. Multi-line SCHEMA topics were previously bleeding the full paragraph into every MCP client session. Separately corrected stale "6 tools" copy in 5 living docs (README.md, skills/serve/SKILL.md, skills/serve/references/stage-contract.md, docs/story.md, docs/architecture.md) to reflect the 7-tool server that's been shipping since v0.2.2 (added `grimoire_get_section` to the SKILL tool table). Historical changelog/decisions/MANIFEST entries left intact. `dist/serve.js` regenerated. 183/183 tests green.
 - 2026-04-16: Created `skills/run/SKILL.md` — one-command orchestrator (Phase 1 UX overhaul). Chains init→scout→ingest→compile→present with exactly 2 taste checkpoints. Smart defaults via topic inference, batch ingest, inline reconfiguration at final review.

@@ -9,10 +9,7 @@
 import type { SiteData, DesignConfig, LogEntry } from '../types.js';
 import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
-
-function esc(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+import { esc } from '../esc.js';
 
 const MONTHS = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',

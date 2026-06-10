@@ -9,6 +9,7 @@
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
+import { esc } from '../esc.js';
 
 function slugify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -29,10 +30,6 @@ function countBacklinks(
   all: readonly ArticleData[],
 ): number {
   return all.filter(a => a.linksTo.includes(article.slug)).length;
-}
-
-function esc(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function buildLeftSidebar(sorted: readonly ArticleData[]): string {

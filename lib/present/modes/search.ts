@@ -15,10 +15,7 @@
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
-
-function esc(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+import { esc } from '../esc.js';
 
 export function sortByCentrality(articles: readonly ArticleData[]): readonly ArticleData[] {
   return [...articles].sort((a, b) => {

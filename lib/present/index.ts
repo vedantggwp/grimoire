@@ -9,8 +9,9 @@ import { existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 
 import { parseDesignConfig } from './config.js';
-import { generateCSS } from './css.js';
+import { generateCSS } from './css/index.js';
 import { loadSiteData } from './data.js';
+import { esc } from './esc.js';
 import { computeHubStats, hubLeadText, recommendedMode, shortTopic } from './hub.js';
 import { hubShell } from './html.js';
 import { generateReadMode } from './modes/read.js';
@@ -22,10 +23,6 @@ import { generateQuizMode } from './modes/quiz.js';
 import type { SiteData, DesignConfig } from './types.js';
 
 // --- Hub page ---
-
-function esc(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
 
 function generateHub(data: SiteData, config: DesignConfig): string {
   const modes = [

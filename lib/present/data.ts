@@ -18,6 +18,7 @@ import type {
   LogEntry,
 } from './types.js';
 import { SUPPORT_SLUGS, SUPPORT_FILES } from '../support-slugs.js';
+import { esc as escapeHtml } from './esc.js';
 
 // --- Helpers ---
 
@@ -94,13 +95,6 @@ function normalizeSchemaValue(raw: string): string {
   return value;
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 function extractFieldBlock(content: string, field: string): string | null {
   const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
