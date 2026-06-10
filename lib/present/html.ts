@@ -137,6 +137,7 @@ export function pageShell(
 <html lang="en" class="motion-${config.motion} density-${config.density}">
 ${htmlHead(title, config, depth)}
 <body class="mode-${mode}">
+${motionRuntimeScript()}
 <a href="#main" class="skip-link">Skip to content</a>
 ${navBar(mode, data, config, depth)}
 ${progressBar}
@@ -144,7 +145,6 @@ ${progressBar}
 ${bodyContent}
 </main>
 ${footer(data)}
-${motionRuntimeScript()}
 ${themeToggleScript()}
 </body>
 </html>`;
@@ -160,13 +160,13 @@ export function hubShell(
 <html lang="en" class="motion-${config.motion} density-${config.density}">
 ${hubHead(title, config)}
 <body>
+${motionRuntimeScript()}
 <a href="#main" class="skip-link">Skip to content</a>
 ${hubNav(data, config)}
 <main id="main" class="container">
 ${bodyContent}
 </main>
 ${footer(data)}
-${motionRuntimeScript()}
 ${themeToggleScript()}
 </body>
 </html>`;

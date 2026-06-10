@@ -16,6 +16,9 @@ import { computeHubStats, hubLeadText, recommendedMode, shortTopic } from './hub
 import { hubShell } from './html.js';
 import { generateReadMode, sortByCentrality } from './modes/read.js';
 import { generateArticlePage } from './modes/read-article.js';
+import { computeForceLayout } from './layout.js';
+import { constellationScript } from './js/constellation.js';
+import { countUpScript, tiltScript } from './js/runtime.js';
 import { generateGraphMode } from './modes/graph.js';
 import { generateSearchMode } from './modes/search.js';
 import { generateFeedMode } from './modes/feed.js';
@@ -55,7 +58,7 @@ function generateHub(data: SiteData, config: DesignConfig): string {
     .slice(0, 4)
     .map(x => x.article);
 
-  const cards = modes.map(m => {
+  const cards = modes.map((m, i) => {
     const isFeatured = m.id === recommended;
     const featuredClass = isFeatured ? ' featured' : '';
     const badge = isFeatured ? `\n      <div class="badge">Recommended</div>` : '';
@@ -64,7 +67,7 @@ function generateHub(data: SiteData, config: DesignConfig): string {
           .map(a => `<li><span class="bento-preview__num">${topArticles.indexOf(a) + 1}</span>${esc(a.title)}</li>`)
           .join('')}</ul>`
       : '';
-    return `<a href="${m.id}/index.html" class="bento-card${featuredClass}">${badge}
+    return `<a href="${m.id}/index.html" class="bento-card${featuredClass} reveal" style="--reveal-i: ${i}">${badge}
       <span class="icon">${m.icon}</span>
       <h3>${esc(m.title)}</h3>
       <p>${esc(m.desc)}</p>${preview}
@@ -84,23 +87,56 @@ function generateHub(data: SiteData, config: DesignConfig): string {
         ? 'Density is not meaningful for small corpora (< 10 articles).'
         : '',
     },
-  ].map(s =>
-    `<div class="hub-stat"${s.title ? ` title="${esc(s.title)}"` : ''}><strong>${esc(s.value)}</strong>${esc(s.label)}</div>`
-  ).join('\n      ');
+  ].map(s => {
+    // Pure counts tick up on first view; non-numeric values render plain.
+    const numeric = s.value.match(/^(\d+)(%?)$/);
+    const strong = numeric
+      ? `<strong data-count="${numeric[1]}"${numeric[2] ? ' data-count-suffix="%"' : ''}>${esc(s.value)}</strong>`
+      : `<strong>${esc(s.value)}</strong>`;
+    return `<div class="hub-stat"${s.title ? ` title="${esc(s.title)}"` : ''}>${strong}${esc(s.label)}</div>`;
+  }).join('\n      ');
 
   const displayName = shortTopic(data.schema.topic);
 
+  // The hero constellation is the wiki's real graph: positions computed at
+  // build time (deterministic), drawn as ambient canvas texture at runtime.
+  const layoutNodes = computeForceLayout(
+    data.graphData.nodes.map(n => ({
+      id: n.id,
+      label: n.label,
+      weight: n.linkCount + n.backlinkCount + n.wordCount / 2000,
+    })),
+    data.graphData.edges,
+  );
+  const hubGraph = JSON.stringify({
+    nodes: layoutNodes.map(n => ({
+      id: n.id,
+      label: n.label,
+      x: Number(n.x.toFixed(4)),
+      y: Number(n.y.toFixed(4)),
+      r: Number(n.r.toFixed(4)),
+    })),
+    edges: data.graphData.edges.map(e => ({ source: e.source, target: e.target })),
+  });
+
   const body = `
 <div class="hub-hero">
+    <canvas id="constellation" class="hub-hero-canvas" aria-hidden="true"></canvas>
+    <div class="hub-hero-content">
     <h1 class="hub-title">${esc(displayName)}</h1>
     <p class="hub-lead">${esc(hubLeadText(data.schema.topic, data.schema.audience))}</p>
     <div class="hub-stats">
       ${statItems}
     </div>
+    </div>
   </div>
   <div class="bento">
     ${cards}
-  </div>`;
+  </div>
+<script>window.HUB_GRAPH = ${hubGraph};</script>
+${constellationScript()}
+${countUpScript()}
+${tiltScript('.bento-card')}`;
 
   return hubShell(displayName, body, config, data);
 }

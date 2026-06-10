@@ -4,9 +4,23 @@
 
 export const HUB_CSS = `/* === Hub — Bento grid === */
 .hub-hero {
+  position: relative;
   text-align: center;
-  padding: clamp(28px, 5vw, 60px) 0 clamp(18px, 2.5vw, 32px);
+  padding: clamp(36px, 6vw, 80px) 0 clamp(18px, 2.5vw, 32px);
 }
+.hub-hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.hub-hero-content {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+.hub-hero-content a, .hub-hero-content button { pointer-events: auto; }
 .hub-hero .hub-title {
   font-family: var(--font-heading);
   font-weight: 700;
@@ -141,4 +155,77 @@ export const HUB_CSS = `/* === Hub — Bento grid === */
   color: var(--text-tertiary);
   padding: 40px 20px;
   font-style: italic;
-}`;
+}
+
+/* === Hub — entrance choreography === */
+@media (prefers-reduced-motion: no-preference) {
+  .motion-subtle .hub-hero-content .hub-title,
+  .motion-expressive .hub-hero-content .hub-title {
+    animation: hero-rise var(--dur-4) var(--ease-out) both;
+  }
+  .motion-subtle .hub-hero-content .hub-lead,
+  .motion-expressive .hub-hero-content .hub-lead {
+    animation: hero-rise var(--dur-4) var(--ease-out) 80ms both;
+  }
+  .motion-subtle .hub-hero-content .hub-stats,
+  .motion-expressive .hub-hero-content .hub-stats {
+    animation: hero-rise var(--dur-4) var(--ease-out) 160ms both;
+  }
+  @keyframes hero-rise {
+    from { opacity: 0; transform: translateY(14px); }
+  }
+}
+
+/* === Hub — scroll parallax (progressive: static without support) === */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .motion-subtle .hub-hero-canvas,
+    .motion-expressive .hub-hero-canvas {
+      animation: hero-canvas-drift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0vh 120vh;
+    }
+    .motion-subtle .hub-hero-content,
+    .motion-expressive .hub-hero-content {
+      animation: hero-content-drift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0vh 120vh;
+    }
+    @keyframes hero-canvas-drift {
+      to { transform: translateY(48vh); opacity: 0.2; }
+    }
+    @keyframes hero-content-drift {
+      to { transform: translateY(14vh); }
+    }
+  }
+}
+
+/* === Hub — card tilt + specular glow (fine pointers, motion on) === */
+.bento-card.tiltable {
+  transform:
+    perspective(900px)
+    rotateX(calc(var(--rx, 0) * var(--tilt-max)))
+    rotateY(calc(var(--ry, 0) * var(--tilt-max)));
+  transition: transform var(--dur-1) var(--ease-out), box-shadow 200ms var(--ease);
+}
+.bento-card.tiltable:hover {
+  transform:
+    perspective(900px)
+    rotateX(calc(var(--rx, 0) * var(--tilt-max)))
+    rotateY(calc(var(--ry, 0) * var(--tilt-max)))
+    translateY(-2px);
+}
+.bento-card.tiltable::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    320px circle at var(--mx, 50%) var(--my, 50%),
+    var(--accent-muted),
+    transparent 65%
+  );
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease-out);
+  pointer-events: none;
+}
+.bento-card.tiltable:hover::after { opacity: 1; }`;

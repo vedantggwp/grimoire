@@ -215,8 +215,33 @@ describe('present', () => {
 
     it('renders featured card without inline grid-row override', () => {
       const html = readSiteFile('index.html');
-      expect(html).toContain('class="bento-card featured"');
+      expect(html).toContain('class="bento-card featured reveal"');
       expect(html).not.toContain('style="grid-row:');
+    });
+
+    // v0.4.0 hub showcase
+    it('embeds the real knowledge graph for the constellation hero', () => {
+      const html = readSiteFile('index.html');
+      expect(html).toContain('id="constellation"');
+      expect(html).toContain('aria-hidden="true"');
+      expect(html).toContain('window.HUB_GRAPH = {"nodes":[');
+      expect(html).toContain('"edges":[');
+      expect(html).toContain('GRIMOIRE_MOTION_OK');
+    });
+
+    it('count-up stats carry data-count only for numeric values', () => {
+      const html = readSiteFile('index.html');
+      expect(html).toMatch(/<strong data-count="\d+">\d+<\/strong>articles/);
+      // N/A density stays plain
+      expect(html).toContain('<strong>N/A</strong>graph density');
+    });
+
+    it('runs the motion runtime before body content', () => {
+      const html = readSiteFile('index.html');
+      const runtimeIdx = html.indexOf("root.classList.add('js')");
+      const heroIdx = html.indexOf('hub-hero');
+      expect(runtimeIdx).toBeGreaterThan(-1);
+      expect(runtimeIdx).toBeLessThan(heroIdx);
     });
   });
 
