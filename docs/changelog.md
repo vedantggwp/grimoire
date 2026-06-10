@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-06-10 — v0.4.0 "The Living Grimoire"
+
+The self-updating release. Two workstreams shipped together:
+
+**Self-updating engine.** New `/grimoire:update` skill runs a headless
+scheduled editorial pass: delta scout (angles from the wiki's own open
+questions, coverage gaps, and a policy watchlist; cross-run URL dedup against
+a derived source ledger) → policy-gated batch ingest → deterministic compile
+fixes → connection mining (accept/reject with persistent exclusions) →
+staleness verification → digest → branch + PR. Never asks questions, never
+touches the default branch. `_config/update.md` is the standing policy;
+`/grimoire:update --setup` installs a GitHub Actions cron adapter. Compile
+emits three new artifacts (`freshness.json`, `connection-candidates.json`,
+`update-context.json`); serve surfaces stale articles in
+`grimoire_coverage_gaps`.
+
+**Editorial Constellation frontend.** Design-token layer (motion durations,
+4px spacing grid with density semantics, OKLCH categorical ramp from the
+palette accent); per-article routes with cross-document View Transitions and
+title morphs; hub hero with a real-knowledge-graph constellation canvas,
+scroll parallax, count-up stats, and card tilt; wikilink hover previews,
+backlinks panels, numbered sources, freshness badges, sliding TOC marker;
+graph focus mode + cluster hulls + palette node colors; gaps treemap computed
+at build time (d3 removed, ~290KB → ~21KB) with a freshness lens; quiz 3D
+flip with streaks and confetti; feed digest cards; search keyboard navigation.
+All nine open GitHub issues fixed. 334 tests (was 193).
+
 ## 2026-04-15 — Pre-Claude-Desktop-Test Friction Pass
 
 ### Context

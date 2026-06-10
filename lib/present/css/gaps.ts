@@ -44,6 +44,7 @@ export const GAPS_CSS = `/* === Gaps — D3 Treemap === */
 .gaps-stat--partial strong { color: var(--color-warning); }
 .gaps-stat--thin strong { color: var(--color-error); }
 
+.gaps-legend[hidden] { display: none; }
 .gaps-legend {
   display: flex; flex-wrap: wrap;
   gap: clamp(12px, 2vw, 20px);

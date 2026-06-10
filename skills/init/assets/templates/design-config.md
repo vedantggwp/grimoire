@@ -33,22 +33,33 @@ palette: midnight-teal
 typography: editorial
 
 # MOTION
-# Controls animation and transition behavior.
+# Controls animation and transition behavior. Applied for real since v0.4.0:
+# duration tokens, view transitions, scroll reveals, hero parallax, card
+# tilt all scale with this setting. prefers-reduced-motion always wins.
 #
-#   none        — No animations. Respects prefers-reduced-motion unconditionally.
-#   subtle      — Fade-ins, gentle slide transitions. 200-300ms durations.
-#   expressive  — Spring physics, scroll reveals, micro-interactions. 300-500ms durations.
+#   none        — No animations, no view transitions, no ambient canvas motion.
+#   subtle      — Editorial defaults: 120-560ms tokens, gentle reveals, 2deg tilt.
+#   expressive  — Same choreography, x1.25 durations, 4deg tilt, fuller stagger.
 #
 motion: subtle
 
 # DENSITY
-# Controls spacing, padding, and information density.
+# Controls spacing, padding, and information density via semantic tokens
+# (4px grid). Applied for real since v0.4.0.
 #
 #   compact     — Tight spacing. More content visible. Power-user friendly.
-#   comfortable — Balanced spacing. Default reading experience. 8px base grid.
+#   comfortable — Balanced spacing. Default reading experience.
 #   spacious    — Generous whitespace. Breathable. Better for long-form reading.
 #
 density: comfortable
+
+# MODES
+# Which study modes to generate. Comma-separated; omit the line for all six.
+# `read` is the spine of the site and cannot be disabled.
+#
+#   modes: read, graph, search, feed, gaps, quiz
+#
+# modes: read, graph, search
 
 # ============================================================
 # OPTIONAL OVERRIDES
@@ -60,9 +71,13 @@ density: comfortable
 #   Override the primary accent color. Must meet WCAG AA contrast
 #   against both light and dark backgrounds.
 
-# font-display: "Poppins"
+# font-heading: "Poppins"
 #   Override the display/heading font. Must be available via
 #   Google Fonts or included as a local asset.
+#   (font-display is accepted as a legacy alias.)
+
+# font-body: "Karla"
+#   Override the body text font independently of the heading font.
 
 # font-mono: "IBM Plex Mono"
 #   Override the monospace font used for code blocks and

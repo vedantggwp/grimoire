@@ -88,6 +88,7 @@ Flags for the one-command flow:
 | `compile` | Working | Papyr Core graph audit, backlink repair, overview evolution, gap analysis, emergent taxonomy |
 | `present` | Working | Static frontend with 6 study modes (read, graph, search, feed, gaps, quiz) |
 | `serve` | Working | MCP server exposing 7 tools for LLM knowledge access |
+| `update` | Working | Self-updating: scheduled delta scout → policy-gated ingest → connection mining → freshness → PR |
 
 `init`, `scout`, and `ingest` are Claude-driven workflows defined in `SKILL.md`. `compile`, `present`, and `serve` have matching TypeScript runtimes in `lib/` that esbuild bundles into self-contained ESM files under `dist/`; each skill invokes its bundle directly via `node ${CLAUDE_PLUGIN_ROOT}/dist/<skill>.js`, so nothing needs to be installed on the user's machine.
 

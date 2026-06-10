@@ -81,14 +81,38 @@
 - Incremental mode for growing existing grimoires
 - Progressive disclosure: `--guided`, `--review-angles`, `--sequential` flags
 
-## Post-launch (v0.3+)
+## Phase 8 — v0.4.0 "The Living Grimoire" (shipped 2026-06-10)
 
-These are all explicitly deferred from v0.2.2 so the launch stays focused:
+The self-updating release: Grimoire now does the *maintain* half of the
+LLM-maintained-wiki pattern, plus the Editorial Constellation frontend.
+
+### Self-updating engine
+- [x] `lib/update-policy.ts` / `source-ledger.ts` / `freshness.ts` / `connections.ts` — deterministic substrate
+- [x] Compile Step 12: `freshness.json` (always), `connection-candidates.json` (conditional), `update-context.json` (always)
+- [x] **Freshness / staleness telemetry** — delivered (was deferred from v0.2.2): per-article tiers, serve coverage-gaps exposure, frontend badges + gaps lens
+- [x] `/grimoire:update` — headless scheduled editorial pass: delta scout → policy auto-curation → batch ingest → connection judgment → freshness verification → digest → PR (degradation ladder: pr → branch → digest-only)
+- [x] Scout Delta Mode (temporal/open-questions/gaps/watchlist angles + cross-run URL dedup)
+- [x] `_config/update.md` policy file (replaces interactive checkpoints for headless runs)
+- [x] GitHub Actions adapter (`/grimoire:update --setup`) + local cron docs (`docs/self-updating.md`)
+
+### Editorial Constellation frontend
+- [x] Design-token layer: motion durations, 4px spacing grid + density semantics, z-layers, OKLCH categorical ramp (`lib/present/color.ts`)
+- [x] Per-article routes (`read/{slug}/`) + cross-document View Transitions with title morphs (issue #2)
+- [x] Hub showcase: real-graph constellation canvas hero, scroll parallax, count-up stats, card tilt + specular glow
+- [x] Reading experience: wikilink hover previews, backlinks panel, numbered sources, freshness badges, sliding TOC marker, CSS scroll-timeline progress
+- [x] Mode upgrades: graph (cat colors, warm start, focus mode, hulls, Read link), gaps (d3-free build-time treemap, ~290KB → ~21KB, freshness lens), quiz (3D flip, streaks, confetti), feed (update-digest cards), search (keyboard nav, recovery empty state)
+- [x] Issues #1–#9 all fixed (nested taxonomy, WCAG AA labels + contrast test matrix, h1/h2 dedup, audience lead, legacy links, font overrides, spacing grid, mode disabling, per-article routes)
+- [x] 334 tests (was 193)
+
+## Post-launch (v0.5+)
 
 - Claude Desktop + Cursor end-to-end MCP compatibility testing
 - Cursor-style pagination on list-returning MCP tools (`cursor` / `nextCursor`, `totalMatches`)
 - Per-claim confidence + provenance triples in article frontmatter
-- Freshness / staleness telemetry (lag-from-source, auto-flag stale articles)
+- Serve mtime-based artifact reload (today: restart after merging an update PR)
+- TF-IDF similarity in connection candidates (today: tags + shared sources + components)
+- `verify_stale: true` as the default once fetch budgets are better understood
+- Init questionnaire question for update cadence/autonomy
 - Code-execution retrieval pattern (agent writes queries against the graph rather than pre-loading tool schemas)
 - Comparison tables + learning paths study modes
 - Standalone CLI wrapper

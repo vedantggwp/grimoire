@@ -135,6 +135,7 @@ export const HUB_CSS = `/* === Hub — Bento grid === */
 .bento-card.featured h3 { font-size: clamp(19px, 0.8vw + 16px, 23px); }
 .bento-card.featured .badge {
   display: inline-block;
+  align-self: flex-start;
   background: var(--accent-muted); color: var(--color-accent);
   font-size: 11px; font-weight: 600;
   font-family: var(--font-mono);

@@ -66,7 +66,7 @@ The first wiki produced 65 curated URLs, 7 compiled articles, 33 backlinks, an e
 2. **Plain text is the interface** — markdown files are the contract between stages.
 3. **Every output is editable** — humans can review and modify between stages.
 4. **Configure the factory, not the product** — system-level setup happens once.
-5. **The human stays in control** — the default flow has two taste checkpoints (source curation, final review). Individual skills retain their full checkpoint flows for granular control.
+5. **The human stays in control** — the default flow has two taste checkpoints (source curation, final review). Individual skills retain their full checkpoint flows for granular control. In scheduled update mode, control relocates to the authored update policy and async PR review — the engine never writes to the default branch.
 
 ---
 
