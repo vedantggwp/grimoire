@@ -56,8 +56,12 @@ manual trigger), scaffolds `_config/update.md` if missing, and writes
 `.claude/settings.json` so the headless runner auto-loads the grimoire
 plugin from the Athanor marketplace. Then, on GitHub:
 
-1. **Secrets** — add `ANTHROPIC_API_KEY` (or `CLAUDE_CODE_OAUTH_TOKEN` for
-   subscription auth; swap the input in the workflow accordingly).
+1. **Auth** — GitHub's runner is a fresh VM with no Claude login on it, so
+   it needs one credential. Your **Claude subscription covers it**: run
+   `claude setup-token` locally and add the result as the
+   `CLAUDE_CODE_OAUTH_TOKEN` Actions secret. No API key required. (If you'd
+   rather meter usage through the API instead, add `ANTHROPIC_API_KEY` and
+   swap the input in the workflow.)
 2. **Permissions** — Settings → Actions → General → check *Allow GitHub
    Actions to create and approve pull requests* (without it, `gh pr create`
    gets a 403).
@@ -79,10 +83,13 @@ Two GitHub facts worth knowing:
   watchlist stocked with the field's release/blog pages and updates still
   flow.
 
-## Local alternative — cron / launchd
+## Local alternative — cron / launchd (zero extra credentials)
 
-The engine is trigger-agnostic. Any scheduler that can run Claude Code
-headlessly works:
+The engine is trigger-agnostic, and a local scheduler needs **no
+credentials at all** — `claude -p` runs on the same login as your
+interactive sessions, exactly like every other Grimoire skill. The only
+trade-off versus Actions is that your machine has to be awake when the
+job fires. Any scheduler that can run Claude Code headlessly works:
 
 ```cron
 # crontab -e — weekly, Monday 06:00

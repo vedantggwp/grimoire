@@ -2,8 +2,16 @@
 #
 # Runs /grimoire:update headlessly on a cron schedule. The update is governed
 # by _config/update.md and ships as a PR (never commits to the default
-# branch). Requires:
-#   - ANTHROPIC_API_KEY (or CLAUDE_CODE_OAUTH_TOKEN) in the repo's Actions secrets
+# branch).
+#
+# Auth: GitHub's runner has no Claude login, so it needs ONE credential —
+# your Claude subscription covers it. Run `claude setup-token` locally and
+# add the result as the CLAUDE_CODE_OAUTH_TOKEN Actions secret. (An
+# ANTHROPIC_API_KEY works too if you'd rather meter usage via the API.)
+# Local runs — interactive or cron on your own machine — need neither;
+# they use your existing Claude Code session.
+#
+# Also requires:
 #   - "Allow GitHub Actions to create and approve pull requests" enabled
 #     (Settings → Actions → General)
 #   - .claude/settings.json declaring the grimoire plugin so the headless
@@ -42,9 +50,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }} # for `gh pr create`
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Subscription auth alternative — replace the line above with:
-          # claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # API-billing alternative — replace the line above with:
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: '/grimoire:update --workspace {{WORKSPACE_PATH}}'
           claude_args: |
             --allowedTools "Bash(git:*),Bash(gh:*),Bash(node:*),WebSearch,WebFetch,Read,Write,Edit,Glob,Grep"

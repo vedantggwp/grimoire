@@ -259,11 +259,17 @@ When invoked with `--setup`, do not run an update. Instead:
 
 ```
 Scheduled updates installed. Three things GitHub needs from you:
-  1. Add ANTHROPIC_API_KEY (or CLAUDE_CODE_OAUTH_TOKEN) to the repo's Actions secrets.
+  1. Run `claude setup-token` here, then add the result as the
+     CLAUDE_CODE_OAUTH_TOKEN Actions secret — this runs the scheduled
+     updates on your Claude subscription, no API key needed.
+     (API billing instead? Add ANTHROPIC_API_KEY and swap the input
+     in the workflow file.)
   2. Settings → Actions → General → enable "Allow GitHub Actions to create and approve pull requests".
   3. Commit .github/workflows/grimoire-update.yml, _config/update.md, and .claude/settings.json.
 The schedule is weekly (Mon 06:00 UTC) — edit the cron line to taste.
 Test it: Actions tab → Grimoire Update → Run workflow.
+Prefer zero cloud credentials? Skip all of this and use the local cron
+adapter in docs/self-updating.md — it runs on your existing Claude login.
 ```
 
 ## Validation Rules
