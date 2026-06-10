@@ -23,3 +23,6 @@ __pycache__/
 # Test artifacts
 _test/
 test-results/
+
+# Local MCP config (machine-specific absolute paths — recreate from README's MCP section)
+.mcp.json

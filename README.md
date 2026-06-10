@@ -1,194 +1,116 @@
 # Grimoire
 
-**Your knowledge, structured for machines and humans.**
+**Your knowledge, structured for machines and humans — and kept current on a schedule.**
 
-[![Version](https://img.shields.io/badge/version-0.3.0-0d9488)](https://github.com/vedantggwp/grimoire/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![Tests](https://img.shields.io/badge/tests-183%20passing-16a34a)](./test) [![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-plugin-1a1a1a)](https://github.com/vedantggwp/athanor)
+[![Version](https://img.shields.io/badge/version-0.4.0-0d9488)](https://github.com/vedantggwp/grimoire/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![Tests](https://img.shields.io/badge/tests-334%20passing-16a34a)](./test) [![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-plugin-1a1a1a)](https://github.com/vedantggwp/athanor)
 
-Grimoire turns any topic into a structured, compounding knowledge base. It's a Claude Code plugin that runs a five-stage pipeline — **scout** the web for sources, **ingest** them into wiki articles, **compile** a cross-referenced graph, **present** a study-oriented static frontend, and **serve** the whole thing to LLMs over MCP.
+Grimoire is a Claude Code plugin that turns a topic into a living knowledge base. Say what you want to understand; it **scouts** the web for the best sources, **ingests** them into cross-referenced wiki articles, **compiles** a knowledge graph, **presents** a study site you open from `file://`, and **serves** the whole corpus to any LLM client over MCP. Then `/grimoire:update` keeps it alive: a scheduled editorial pass that finds what's new, weaves in new connections, flags stale articles, and ships every change as a pull request you review.
 
-Every handoff between stages is a plain markdown file you can edit. Scout, ingest, and present all pause for your review before the next stage runs, so humans stay in control. The output is **local-first**, **LLM-readable**, and **yours** — a wiki you own on disk, a website you open from `file://`, and an MCP server any LLM client can query.
-
-```
-/plugin marketplace add vedantggwp/athanor
-/plugin install grimoire@athanor
-/grimoire:init
-```
-
-— or in natural language to Claude Code: *"Create a new grimoire about reinforcement learning from human feedback."*
-
-## Install
-
-Grimoire is distributed through the [Athanor](https://github.com/vedantggwp/athanor) marketplace. From Claude Code:
-
-```
-/plugin marketplace add vedantggwp/athanor
-/plugin install grimoire@athanor
-```
-
-That's it. No `npm install`, no build step, no dependency setup. The plugin ships with pre-built bundles in `dist/` that inline every runtime dependency (`papyr-core`, `@modelcontextprotocol/sdk`, `zod`), so `compile`, `present`, and `serve` run straight from `node dist/*.js` with nothing else on the machine.
-
-Skills auto-discover from `skills/*/SKILL.md` once the plugin is loaded.
-
-### Developing Grimoire locally
-
-Only needed if you're contributing to Grimoire itself:
-
-```bash
-git clone https://github.com/vedantggwp/grimoire.git
-cd grimoire
-npm install
-npm run build
-```
-
-`npm run build` regenerates `dist/{compile,present,serve}.js` via esbuild. The bundles are committed so marketplace installs work without a build step — rerun `npm run build` whenever you change anything in `lib/` and commit the updated bundles alongside the source.
+Everything is plain markdown on your disk, in your git history. No SaaS, no database, no build step.
 
 ## Quick start
 
-From any working directory with the plugin loaded:
-
 ```
-> /grimoire "reinforcement learning from human feedback"
-```
+/plugin marketplace add vedantggwp/athanor
+/plugin install grimoire@athanor
 
-Or in natural language: *"Build a grimoire about WebGPU for engineers."*
-
-That's it. Grimoire infers topic, scope, audience, and palette from your
-sentence, scouts sources, pauses once for you to curate them, ingests in
-batch, compiles the graph, generates the frontend, and pauses once more
-for your review.
-
-### Power user flow
-
-For granular control, run each stage individually:
-
-```
-> /grimoire:init           # 7-question questionnaire + scaffold
-> /grimoire:scout          # research sources, produce approved-sources.md
-> /grimoire:ingest         # fetch, preserve raw, compile articles
-> /grimoire:compile        # graph, backlinks, overview, gaps
-> /grimoire:present        # build the static frontend
-> /grimoire:serve          # start the MCP server
+/grimoire "reinforcement learning from human feedback"
 ```
 
-Flags for the one-command flow:
-- `--guided` — run the full 7-question questionnaire
-- `--review-angles` — approve scout search angles before searching
-- `--sequential` — process sources one-at-a-time with per-source approval
-- `--from <path>` — inherit design from an existing grimoire
-- `--palette <name>` — override the default palette
+Or in natural language: *"Build a grimoire about WebGPU for engineers."* Grimoire infers topic, scope, audience, and design from your sentence, pauses once for you to curate the sources it found, and pauses once more for final review. One sentence in, a wiki + study site + MCP server out.
 
-## The six skills
+No `npm install`, no build step: the plugin ships pre-built bundles in `dist/` that inline every runtime dependency, so the pipeline runs on nothing but Node 20+.
 
-| Skill | Status | What it does |
-|---|---|---|
-| `run` | Working | One-command pipeline: init → scout → ingest → compile → present, 2 taste checkpoints |
-| `init` | Working | 7-question interactive questionnaire and workspace scaffold |
-| `scout` | Working | Web research with 6-signal confidence scoring, human review checkpoint before ingest |
-| `ingest` | Working | Fetches approved sources, preserves raw text, compiles wiki articles with a human checkpoint |
-| `compile` | Working | Papyr Core graph audit, backlink repair, overview evolution, gap analysis, emergent taxonomy |
-| `present` | Working | Static frontend with 6 study modes (read, graph, search, feed, gaps, quiz) |
-| `serve` | Working | MCP server exposing 7 tools for LLM knowledge access |
-| `update` | Working | Self-updating: scheduled delta scout → policy-gated ingest → connection mining → freshness → PR |
+## Why Grimoire
 
-`init`, `scout`, and `ingest` are Claude-driven workflows defined in `SKILL.md`. `compile`, `present`, and `serve` have matching TypeScript runtimes in `lib/` that esbuild bundles into self-contained ESM files under `dist/`; each skill invokes its bundle directly via `node ${CLAUDE_PLUGIN_ROOT}/dist/<skill>.js`, so nothing needs to be installed on the user's machine.
+- **Versus a notes app** — Obsidian and Notion store what you write; Grimoire *builds* the knowledge base for you from external sources, with provenance: every article cites the URLs it was compiled from, and the raw source text is preserved immutably in `raw/`.
+- **Versus asking a chatbot** — answers from chat evaporate; Grimoire's output compounds. Articles, cross-references, an evolving overview with open questions, and a graph that gets denser with every run — all reviewable, all in git.
+- **Versus a RAG pipeline** — no embeddings infrastructure to host. The MCP server does token-efficient retrieval over plain markdown (routing table of one-line summaries → fetch only the section you need), following the LLM-wiki pattern end to end — including the *maintained* half, which is what `/grimoire:update` automates.
 
 ## How it works
 
 ```
-init     scaffolds the workspace
+init      scaffolds the workspace (SCHEMA.md, _config/, wiki/)
   |
-  v
-scout    finds and scores sources on the web
-  |      -> scout-report.md, approved-sources.md
-  v
-ingest   fetches approved sources, writes wiki articles
-  |      -> raw/*.md, wiki/*.md, updated index.md
-  v
-compile  builds graph, backlinks, overview, gap analysis
-  |      -> wiki/.compile/*.json
-  v
-present  generates static study frontend
-  |      -> site/ (HTML + CSS + JS, 6 modes)
-  v
-serve    MCP server over stdio
-         -> 7 tools for LLM clients
+scout     finds and scores sources (6-signal confidence rubric)
+  |        -> scout-report.md, approved-sources.md   [you curate]
+ingest    fetches approved sources, preserves raw text, writes articles
+  |        -> raw/**.md (immutable), wiki/*.md
+compile   builds the graph: backlinks, overview, gaps, freshness
+  |        -> wiki/.compile/*.json
+present   generates the static study frontend
+  |        -> site/ (6 modes, zero dependencies)   [you review]
+serve     MCP server over stdio -> 7 tools for LLM clients
+
+update    scheduled editorial pass: delta scout -> policy-gated ingest
+           -> connection mining -> staleness check -> digest -> PR
 ```
 
-Every handoff between stages is a plain markdown or JSON file you can inspect and edit. Scout, ingest, and present all have mandatory human checkpoints — you review before the next stage runs.
+Every handoff between stages is a markdown or JSON file you can inspect and edit. ICM discipline throughout: one stage, one job, plain text as the interface.
 
-## Example use cases
+## The skills
 
-Grimoire is built for people who want to **understand something deeply** and end up with a structured artifact they keep.
+| Skill | What it does |
+|---|---|
+| `run` | One-command pipeline: init → scout → ingest → compile → present, with exactly 2 taste checkpoints |
+| `init` | Interactive questionnaire + workspace scaffold, with project auto-discovery |
+| `scout` | Web research with 6-signal confidence scoring; delta mode for update runs |
+| `ingest` | Fetches approved sources, preserves raw text immutably, compiles wiki articles |
+| `compile` | Graph audit, backlink repair, overview evolution, gap analysis, emergent taxonomy, freshness report |
+| `present` | Static frontend with 6 study modes (read, graph, search, feed, gaps, quiz) |
+| `serve` | MCP server exposing 7 retrieval tools |
+| `update` | Self-updating: scheduled delta scout → policy-gated ingest → connection mining → freshness → PR |
 
-#### Learn a new technology in depth
+`init`, `scout`, `ingest`, `run`, and `update` are Claude-driven workflows defined in `SKILL.md` files. `compile`, `present`, and `serve` have TypeScript runtimes bundled into self-contained ESM files under `dist/`, invoked via `node ${CLAUDE_PLUGIN_ROOT}/dist/<skill>.js`.
 
-You want to understand WebGPU, CRDTs, Rust async, or reinforcement learning from the ground up. Grimoire scouts the best specs, papers, and tutorials; scores them; compiles a linked wiki ordered by graph centrality; and lets you quiz yourself on what you just read. The MCP server plugs into Claude so you can ask questions and get answers grounded in your own curated sources, not the open web.
+## Keeping it current
 
+A knowledge base built once decays. `/grimoire:update` is the maintenance loop:
+
+1. **Delta scout** — search angles derived from the wiki's own open questions, its coverage gaps, and a watchlist you control; every URL already ingested is deduplicated away.
+2. **Policy-gated ingest** — sources scoring above your threshold (capped per run) flow through the standard pipeline; raw text preserved, articles compiled.
+3. **Connection mining** — unlinked article pairs with real overlap become bidirectional cross-references; rejected pairs are remembered and never proposed again.
+4. **Freshness** — every article is tiered fresh / aging / stale against configurable windows; optionally the stalest articles' sources are re-fetched and verified.
+5. **PR-gated shipping** — everything lands on a branch with a digest (sources found, skipped-with-scores, articles changed, connections made) as the PR body. The update never touches your default branch. A run with nothing new is a no-op — no empty PRs.
+
+Your judgment lives in [`_config/update.md`](skills/init/assets/templates/update-config.md) — score thresholds, per-run caps, staleness windows, watchlist — and in PR review.
+
+**Scheduling.** Run it manually ("what's new?"), from local cron — which uses your existing Claude Code login, zero extra credentials:
+
+```cron
+0 6 * * 1 cd ~/wikis/my-grimoire && claude -p "/grimoire:update" --permission-mode acceptEdits
 ```
-/grimoire "A deep study of WebGPU for engineers building compute shaders"
-```
 
-That single command scouts the WebGPU spec, W3C drafts, Chrome dev blog,
-and conference talks; pauses for you to curate the source list; ingests
-in batch; compiles the graph; and generates a study site. One sentence in,
-one site out.
-
-#### Onboard to a new codebase's ecosystem
-
-New job, new stack. Build a grimoire about the frameworks, tools, and conventions your team uses. Commit it to the repo next to `CLAUDE.md`. Every new hire after you gets a local wiki *and* an LLM expert for the stack — and when someone updates a tool, they update the grimoire in the same PR.
-
-#### Research a market or product space before building
-
-You're about to ship a product in an area you don't know well — creator tools, observability, vector databases, whatever. Scout the public research: competitor docs, G2 and Reddit, conference talks, academic surveys. Use **gaps mode** to see which parts of the space you still don't understand. Use **feed mode** to keep the research rolling as the market moves.
-
-#### Give Claude expert knowledge on a niche
-
-Your LLM tools don't know about your internal framework, your proprietary SDK, or that obscure scientific field you work in. Build a grimoire about it. Point Claude Desktop (or Claude Code, or any MCP client) at the generated MCP server. Now Claude is an expert — it queries your curated corpus via `grimoire_query` and cites the exact articles it pulled from.
-
-#### Maintain a long-running personal wiki
-
-Knowledge compounds across years, not weekends. Every new source goes through scout and ingest. The wiki evolves. `log.md` tracks the history. `overview.md` auto-updates. The graph grows denser. Git tracks every change. No SaaS can delete it, reprice it, or quietly degrade the UX.
-
-In each case, the output is the same two artifacts: a static site you open in a browser, and an MCP server any LLM client can talk to.
+— or install the GitHub Actions adapter with `/grimoire:update --setup`. The Actions runner has no Claude login, so it needs one secret: a subscription token from `claude setup-token` (`CLAUDE_CODE_OAUTH_TOKEN`); an `ANTHROPIC_API_KEY` works as the metered alternative. Full setup, tuning, and trade-offs in [docs/self-updating.md](docs/self-updating.md).
 
 ## The frontend
 
-`present` generates a self-contained static site with six study modes, each designed for a specific learning mode:
+`present` generates a self-contained static site — zero CDN dependencies, fully functional from `file://`, every page printable, WCAG AA contrast verified per palette in CI. The hub opens on an ambient constellation of your actual knowledge graph; cross-document View Transitions morph article titles between pages; everything respects `prefers-reduced-motion`.
 
-- **Read** — articles ordered by graph centrality in a 3-column editorial layout: article nav (left), centered content (right max 680px), on-page TOC (right). Reading progress bar, keyboard-navigable, self-contained from `file://`.
-- **Graph** — D3 force-directed knowledge map. Articles are nodes, cross-references are edges. Force parameters scale with graph size so small and large corpora both render readably. Click a node for details; drag to reposition; filter by tag.
-- **Search** — command-palette style with ⌘K shortcut. Default state shows example queries, a tag cloud with counts (click-to-filter), and a centrality-sorted article grid with summaries. Typing 2+ chars flips to live results with highlighted matches.
-- **Feed** — vertical timeline parsed from `wiki/log.md`. Dates on the left rail, spine line with dot markers, color-coded action tags (scouted / ingested / compiled / edited) that co-occur on a single entry when an operation touched multiple pipeline phases.
-- **Gaps** — real D3 treemap sized by `articleCount × sqrt(totalWords)`, classified into 4 coverage tiers (full ≥3 articles · partial 2 · thin 1 · missing 0). Legend and hover tooltip showing which articles cover a tag. Makes uncovered ground visible.
-- **Quiz** — Anki-style flashcards auto-generated from article H2 sections. Question visible → "Show answer" button → inline reveal → "Got it / Review again" feedback. Shuffled deck, progress tracking, keyboard-navigable (Space/Enter reveals).
+- **Read** — every article is a real page (`read/{slug}/`) with stable deep links: editorial 3-column layout, hover preview cards on internal links, a "Linked from" backlinks panel, numbered sources, freshness badges, sliding table-of-contents marker, reading progress.
+- **Graph** — D3 force-directed map, warm-started from a deterministic build-time layout. Click for 1-hop focus, double-click to open the article, toggle cluster hulls, node colors derived from your palette.
+- **Search** — command-palette style (⌘K), full keyboard navigation (↑↓ ↵), live results with highlighting, tag-cloud browsing, recovery suggestions on empty results.
+- **Feed** — timeline of the wiki's history from `log.md`; update runs render as digest cards with stat chips.
+- **Gaps** — coverage treemap computed at build time (no client-side layout engine), with a second lens that recolors by freshness. Cells are keyboard-focusable.
+- **Quiz** — flashcards auto-generated from article sections, with a 3D flip, shuffled deck, and streak rewards.
 
-**Theming.** Everything compiles to CSS custom properties on `:root`, so palette switching is a single class change — no rebuild. Configured via `_config/design.md`:
-
-- **8 palettes**: `linear-editorial` (default, Source Serif 4 + Inter), `midnight-teal`, `noir-cinematic`, `cold-steel`, `warm-concrete`, `electric-dusk`, `smoke-light`, `obsidian-chalk`
-- **6 typography systems**: `linear-editorial`, `editorial`, `technical`, `minimal`, `playful`, `brutalist`
-- **Dual theme** — light default, explicit `.theme-dark` toggle, automatic `prefers-color-scheme` support
-- **Fluid typography** via `clamp()` — same CSS renders from 375px phone to 1440px desktop
-- **Mobile-first** with 479 / 767 / 1023 / 1024 breakpoints, WCAG AA contrast, reduced-motion respected, print stylesheet
+**Theming** via `_config/design.md`: 8 palettes, 6 typography systems (plus individual `font-heading` / `font-body` / `font-mono` overrides), light/dark with system preference, `motion: subtle | expressive | none` and `density: compact | comfortable | spacious` applied as real design tokens, and `modes:` to disable any study mode you don't want.
 
 ## The MCP server
 
-`serve` starts a stdio MCP server that exposes seven tools designed for token-efficient LLM retrieval:
+`serve` starts a stdio MCP server with seven tools designed for token-efficient retrieval:
 
 | Tool | Returns |
 |---|---|
-| `grimoire_query` | Top 3 matching articles with their one-line summaries (hybrid FlexSearch + substring rerank that prefers title/summary matches). Token-efficient routing — the client LLM fetches full content only when it needs to. |
-| `grimoire_list_topics` | The LLM routing table: every article's slug + one-line summary, plus tag counts. Designed so a client can scan the whole corpus cheaply and decide what to read. |
-| `grimoire_get_article` | A specific article by slug. Takes an optional `mode: "auto" \| "summary" \| "full"`. Auto mode returns a summary envelope (title + summary + section index + hints) for articles over 15 KB to stay under MCP token caps; `full` forces complete markdown. |
-| `grimoire_get_section` | A specific H2 section of an article, case-insensitive heading match. Token-efficient retrieval when you only need one part of a long article. |
+| `grimoire_query` | Top matching articles with one-line summaries (hybrid FlexSearch + substring rerank) |
+| `grimoire_list_topics` | The routing table: every article's slug + summary + tag counts, cheap to scan |
+| `grimoire_get_article` | One article; `mode: auto` returns a summary envelope for large articles to respect token caps |
+| `grimoire_get_section` | A single H2 section — the cheapest way to answer a pointed question |
 | `grimoire_open_questions` | Unresolved questions parsed from `overview.md` |
-| `grimoire_coverage_gaps` | Topics with thin or missing coverage |
-| `grimoire_search` | Full-text search across all articles via Papyr Core |
+| `grimoire_coverage_gaps` | Thin/missing topics, plus articles past their staleness window |
+| `grimoire_search` | Full-text search across all articles |
 
-Every article's `summary` frontmatter field is the load-bearing routing signal: LLM clients read the routing table first (cheap), pick the right article (free), and pull just the relevant section (also cheap). This is the Karpathy LLM-wiki pattern, built into the MCP server.
-
-The server reads `wiki/.compile/` once on startup — restart to pick up changes. Validation is Zod-based; the data layer uses immutable readonly types throughout.
-
-To connect from Claude Desktop or any MCP client, add an entry to your MCP config. Point the command at the bundled `dist/serve.js` inside the installed plugin:
+The pattern: clients scan the routing table first (cheap), pick an article (free), pull one section (cheap). Connect any MCP client by pointing it at the bundle:
 
 ```json
 {
@@ -204,91 +126,54 @@ To connect from Claude Desktop or any MCP client, add an entry to your MCP confi
 }
 ```
 
-Marketplace installs live under `~/.claude-v/plugins/cache/athanor/grimoire/<version>/` — point the first path at that directory's `dist/serve.js`. The bundle is self-contained; no `npm install` is required.
+`/grimoire:serve` writes this snippet for you with the paths resolved. The server reads compile artifacts once at startup — re-run compile and restart the client after merging an update PR. Multiple servers run side by side, one per knowledge base.
 
-You can run multiple Grimoire servers side by side — one per knowledge base, each with its own name.
+## Example use cases
 
-## Requirements
-
-- **Node.js 20+** (the bundled `dist/*.js` files are emitted by esbuild with `target: node20`)
-- **Claude Code** with plugin support
-
-## Dependencies
-
-Runtime:
-
-- **papyr-core** — markdown parsing, graph construction, full-text search indexing (FlexSearch), analytics. Drives `compile` and `grimoire_search`.
-- **@modelcontextprotocol/sdk** — MCP server framework. Drives `serve`.
-- **zod** — schema validation for MCP tool inputs.
-
-Dev:
-
-- **tsx** — TypeScript execution without a build step
-- **vitest** — test runner
-
-See `package.json` for versions.
-
-## Architecture
-
-Grimoire follows ICM (Interpreted Context Methodology): one stage, one job, plain text as the interface between stages. See `SOUL.md` for the product bible and identity, `docs/` for detailed specs (architecture, mcp-spec, design-engine, frontend-modes, scout-spec), and `docs/decisions.md` for the decision log.
+- **Learn a technology in depth** — `/grimoire "A deep study of WebGPU for engineers building compute shaders"` scouts the spec, W3C drafts, and conference talks; you curate; out comes a linked study site and an MCP expert grounded in your curated sources. The weekly update PR tells you when the spec moves.
+- **Onboard to a team's stack** — build a grimoire about your frameworks and conventions, commit it next to `CLAUDE.md`. Every new hire gets a wiki *and* an LLM expert; the update loop keeps it honest as tools change.
+- **Research a market before building** — scout competitor docs, community threads, and surveys; use gaps mode to see what you don't understand yet; let scheduled updates track the space as it moves.
+- **Give Claude expert knowledge of a niche** — your internal SDK, an obscure scientific field. Point Claude Desktop at the MCP server; answers cite your corpus, not the open web.
 
 ## Reference example
 
-[`examples/mcp/`](./examples/mcp/) is a complete, inspectable Grimoire workspace about the Model Context Protocol itself — built using the full pipeline (scout→ingest→compile→present) against 9 real web sources from the official MCP spec, TypeScript SDK docs, MCP blog, and community pattern articles. Raw source text is preserved in `raw/mcp/`, scout scores are in `scout-report.md`, and all 5 wiki articles cite the URLs they were compiled from.
-
-**View the frontend** — after `present` runs, the `site/` directory contains a self-contained static site. Open it directly in your browser:
+[`examples/mcp/`](./examples/mcp/) is a complete, inspectable workspace about the Model Context Protocol itself — built with the real pipeline against 9 web sources, raw text preserved, every article citing its URLs. Generate and open its site:
 
 ```bash
-open examples/mcp/site/index.html        # macOS
-xdg-open examples/mcp/site/index.html    # Linux
-start examples/mcp/site/index.html       # Windows
+node dist/compile.js examples/mcp && node dist/present.js examples/mcp
+open examples/mcp/site/index.html
 ```
 
-No server needed. No network requests. Everything (including the D3 graph visualization) is inlined. The landing page links to all 6 study modes: read, graph, search, feed, gaps, and quiz.
+Or query it over MCP: `node dist/serve.js examples/mcp`.
 
-**Query via MCP** — point any MCP client at the serve bundle:
+## Requirements
 
-```bash
-node dist/serve.js examples/mcp
-```
-
-This starts a stdio MCP server exposing 7 tools (`grimoire_query`, `grimoire_list_topics`, `grimoire_get_article`, `grimoire_get_section`, `grimoire_open_questions`, `grimoire_coverage_gaps`, `grimoire_search`). See [The MCP server](#the-mcp-server) for client configuration.
+- **Node.js 20+** (the bundles target `node20`)
+- **Claude Code** with plugin support — local runs and local cron use your existing login; no API key anywhere except the optional cloud scheduler, where a subscription token suffices
 
 ## Development
 
-Run the tests (183 total across ten suites):
-
 ```bash
-npm test          # vitest run
-npm run test:watch
+git clone https://github.com/vedantggwp/grimoire.git
+cd grimoire && npm install
+npm test            # 334 tests across 19 suites
+npm run build       # regenerate dist/ bundles (commit them — installs are buildless)
 ```
 
-Run individual pipeline stages directly against a workspace:
-
-```bash
-npm run compile -- /path/to/workspace
-npm run present -- /path/to/workspace
-npm run serve   -- /path/to/workspace
-```
-
-Project structure:
+Run pipeline stages directly: `npm run compile|present|serve -- /path/to/workspace`.
 
 ```
 grimoire/
-  .claude-plugin/plugin.json     # plugin manifest
-  skills/                        # 6 skills, each with SKILL.md + references/
-  lib/
-    compile.ts                   # Papyr Core orchestration
-    present/                     # 12-module static site generator
-    serve.ts                     # MCP server
-  test/                          # vitest suites + sample-wiki fixture
-  docs/                          # specs, roadmap, decisions, changelog
-  SOUL.md                        # product bible
-  MANIFEST.md                    # workspace change ledger
+  .claude-plugin/plugin.json   # plugin manifest
+  skills/                      # 8 skills: SKILL.md + references/ + assets/
+  lib/                         # TypeScript runtimes (compile, present/, serve, update engine)
+  test/                        # vitest suites + fixtures
+  docs/                        # architecture, specs, decisions, changelog, self-updating
+  SOUL.md                      # product bible
 ```
 
-See `MANIFEST.md` for the full file ledger.
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Security reports: [SECURITY.md](SECURITY.md). Architecture and decision history: [docs/architecture.md](docs/architecture.md), [docs/decisions.md](docs/decisions.md).
 
 ## License
 
-MIT
+[MIT](LICENSE)

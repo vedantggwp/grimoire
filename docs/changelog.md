@@ -509,7 +509,7 @@ All six skills fully implemented and verified. Plugin is publish-ready.
 
 ### What's Next
 
-- First real-project test — user to spin up a fresh Claude session with `claude --plugin-dir /Users/ved/Developer/grimoire` inside an existing project
+- First real-project test — user to spin up a fresh Claude session with `claude --plugin-dir <repo>` inside an existing project
 - Add regression tests for the three dry-run bugs
 - Follow through on deferred items: `grimoire_query` retrieval → synthesis upgrade, Claude Desktop MCP compatibility testing
 
