@@ -92,10 +92,52 @@ export const FEED_CSS = `/* === Feed — Timeline === */
 .feed-tag.compiled { background: rgba(16,163,74,0.12); color: var(--color-success); }
 .feed-tag.ingested { background: rgba(168,85,247,0.12); color: #A855F7; }
 .feed-tag.edited { background: rgba(245,158,11,0.12); color: #F59E0B; }
+.feed-tag.updated { background: rgba(139,92,246,0.12); color: #8B5CF6; }
 .theme-dark .feed-tag.scouted { background: rgba(96,165,250,0.14); color: #93C5FD; }
 .theme-dark .feed-tag.compiled { background: rgba(74,222,128,0.14); color: #6EE7B7; }
 .theme-dark .feed-tag.ingested { background: rgba(192,132,252,0.14); color: #C4B5FD; }
 .theme-dark .feed-tag.edited { background: rgba(251,191,36,0.14); color: #FCD34D; }
+.theme-dark .feed-tag.updated { background: rgba(167,139,250,0.14); color: #C4B5FD; }
+
+/* Update-run digest cards (written by /grimoire:update) */
+.feed-entry--digest {
+  background: var(--color-surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  margin: var(--space-3) 0;
+}
+.feed-entry--digest + .feed-entry { border-top: none; }
+.feed-digest__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+.feed-digest__chip {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--accent-muted);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+.feed-digest__chip strong {
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The newest entry's dot breathes briefly to draw the eye */
+@media (prefers-reduced-motion: no-preference) {
+  .motion-subtle .feed-entry:first-child::before,
+  .motion-expressive .feed-entry:first-child::before {
+    animation: feed-pulse 3s var(--ease-in-out) 2;
+  }
+  @keyframes feed-pulse {
+    50% { box-shadow: 0 0 0 8px var(--accent-muted); }
+  }
+}
 
 /* Legacy timeline compat */
 .mode-feed .timeline-entry {

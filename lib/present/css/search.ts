@@ -210,6 +210,20 @@ export const SEARCH_CSS = `/* === Search — Command palette + default state ===
   cursor: pointer; transition: background 100ms;
 }
 .search-result:hover { background: var(--surface-hover); }
+.search-result.kbd-active {
+  background: var(--accent-muted);
+  box-shadow: inset 2px 0 0 var(--color-accent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .motion-subtle .search-result,
+  .motion-expressive .search-result {
+    animation: result-rise var(--dur-3) var(--ease-out) both;
+    animation-delay: calc(var(--reveal-i, 0) * 30ms);
+  }
+  @keyframes result-rise {
+    from { opacity: 0; transform: translateY(6px); }
+  }
+}
 .search-result .title { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
 .search-result .excerpt { font-size: 12px; color: var(--text-tertiary); }
 .search-result .match {

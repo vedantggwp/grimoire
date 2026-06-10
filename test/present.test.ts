@@ -349,6 +349,50 @@ describe('present', () => {
     });
   });
 
+  describe('graph mode — v0.4.0 upgrades', () => {
+    it('colors nodes from the palette categorical ramp, not a d3 scheme', () => {
+      const html = readSiteFile('graph/index.html');
+      expect(html).toContain("'var(--cat-' + idx + ')'");
+      // The d3 bundle itself contains the identifier — assert the page no
+      // longer USES the hardcoded scheme.
+      expect(html).not.toContain('d3.scaleOrdinal(d3.schemeTableau10)');
+    });
+
+    it('embeds warm-start seed positions per node', () => {
+      const html = readSiteFile('graph/index.html');
+      expect(html).toContain('"seedX":');
+      expect(html).toContain('"seedY":');
+    });
+
+    it('has focus mode, cluster hulls, and a panel Read link', () => {
+      const html = readSiteFile('graph/index.html');
+      expect(html).toContain('applyFocus');
+      expect(html).toContain('id="graph-hull-toggle"');
+      expect(html).toContain("'../read/' + d.id + '/index.html'");
+      expect(html).toContain('Open in Read');
+    });
+  });
+
+  describe('search mode — v0.4.0 upgrades', () => {
+    it('supports keyboard result navigation', () => {
+      const html = readSiteFile('search/index.html');
+      expect(html).toContain('aria-activedescendant');
+      expect(html).toContain('kbd-active');
+      expect(html).toContain('ArrowDown');
+    });
+
+    it('search results navigate to per-article routes on click', () => {
+      const html = readSiteFile('search/index.html');
+      expect(html).toContain(".closest('.search-result[data-slug]')");
+      expect(html).toContain("'../read/' + row.dataset.slug + '/index.html'");
+    });
+
+    it('offers tag-pill recovery on empty results', () => {
+      const html = readSiteFile('search/index.html');
+      expect(html).toContain('search-recover-tag');
+    });
+  });
+
   describe('graph mode', () => {
     it('inlines d3 — no CDN, no network dependency', () => {
       const html = readSiteFile('graph/index.html');
@@ -430,30 +474,48 @@ describe('present', () => {
       const idx01 = html.indexOf('Apr 1, 2026');
       expect(idx03).toBeLessThan(idx01);
     });
+
+    it('renders update-run digests as stat-chip cards', () => {
+      // The fixture log contains a structured update-run entry (the format
+      // pinned in skills/update/SKILL.md Step 9).
+      const html = readSiteFile('feed/index.html');
+      expect(html).toContain('feed-entry--digest');
+      expect(html).toContain('feed-digest__chip');
+      expect(html).toContain('<strong>+2</strong> sources');
+      expect(html).toContain('update run</span>');
+    });
   });
 
   describe('gaps mode', () => {
-    it('shows tag data in the treemap payload', () => {
+    it('renders server-side treemap cells with percent geometry — no d3', () => {
       const html = readSiteFile('gaps/index.html');
       expect(html).toContain('reactivity');
-      expect(html).toContain('articles');
-      // New D3 treemap embeds tag data in a window global that the
-      // client-side script reads into d3.hierarchy.
-      expect(html).toContain('window.GAPS_DATA');
+      expect(html).toMatch(/class="treemap-cell treemap-cell--(full|partial|thin)/);
+      expect(html).toMatch(/style="left:[\d.]+%;top:[\d.]+%;width:[\d.]+%;height:[\d.]+%/);
+      // The d3 bundle is gone from this page (it was ~270KB of the old one).
+      expect(html).not.toContain('Mike Bostock');
+      expect(html).not.toContain('window.GAPS_DATA');
     });
 
-    it('uses the D3 treemap container and legend', () => {
+    it('cells are keyboard-focusable with descriptive labels', () => {
+      const html = readSiteFile('gaps/index.html');
+      expect(html).toContain('tabindex="0"');
+      expect(html).toMatch(/aria-label="[^"]+ — (full|partial|thin) coverage/);
+    });
+
+    it('uses the treemap container and legend', () => {
       const html = readSiteFile('gaps/index.html');
       expect(html).toContain('class="treemap-container"');
       expect(html).toContain('class="gaps-legend"');
     });
 
-    it('classifies coverage tiers in the payload', () => {
+    it('offers the freshness lens when the report exists', () => {
+      // The sample fixture compiles with freshness.json (v0.4.0+), so the
+      // lens toggle and second legend must be present.
       const html = readSiteFile('gaps/index.html');
-      // The serialized cells include a tier per tag — at least one should
-      // be full/partial/thin/missing for a non-empty sample wiki.
-      const hasTier = /"tier":"(full|partial|thin|missing)"/.test(html);
-      expect(hasTier).toBe(true);
+      expect(html).toContain('id="gaps-lens"');
+      expect(html).toContain('data-lens="freshness"');
+      expect(html).toContain('data-legend="freshness"');
     });
   });
 
@@ -482,6 +544,15 @@ describe('present', () => {
     it('includes shuffle logic', () => {
       const html = readSiteFile('quiz/index.html');
       expect(html).toContain('shuffle');
+    });
+
+    it('renders real 3D flip faces with streak rewards', () => {
+      const html = readSiteFile('quiz/index.html');
+      expect(html).toContain('id="quiz-card3d"');
+      expect(html).toContain('quiz-face--front');
+      expect(html).toContain('quiz-face--back');
+      expect(html).toContain('id="quiz-streak"');
+      expect(html).toContain('id="quiz-burst"');
     });
 
     // Regression test for 2026-04-10 dry-run bug #1

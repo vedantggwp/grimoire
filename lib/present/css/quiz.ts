@@ -35,6 +35,34 @@ export const QUIZ_CSS = `/* === Quiz — Anki-style reveal === */
 .quiz-counter { font-variant-numeric: tabular-nums; }
 .quiz-score { font-variant-numeric: tabular-nums; }
 
+/* 3D flip container — faces stack in the same grid cell so the card
+   auto-sizes to the taller face; rotating the container flips them. */
+.quiz-card3d {
+  display: grid;
+  position: relative;
+  perspective: 1200px;
+  transform-style: preserve-3d;
+  transition: transform var(--dur-3) var(--ease-spring);
+}
+.quiz-card3d.flipped { transform: rotateY(180deg); }
+.quiz-card3d.no-flip-transition { transition: none; }
+.quiz-face {
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.quiz-face--back { transform: rotateY(180deg); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .motion-subtle .quiz-card3d.entering,
+  .motion-expressive .quiz-card3d.entering {
+    animation: quiz-card-in var(--dur-2) var(--ease-out);
+  }
+  @keyframes quiz-card-in {
+    from { opacity: 0; transform: translateX(16px); }
+  }
+}
+
 .quiz-card {
   background: var(--color-surface);
   border: 1px solid var(--border);
@@ -45,6 +73,52 @@ export const QUIZ_CSS = `/* === Quiz — Anki-style reveal === */
 }
 .quiz-card:focus-visible {
   box-shadow: var(--shadow-card), 0 0 0 3px var(--accent-muted);
+}
+
+/* Streak chip + celebration burst */
+.quiz-streak {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-warning);
+  font-variant-numeric: tabular-nums;
+}
+.quiz-streak.pulsing { animation: streak-pulse 600ms var(--ease-spring); }
+@keyframes streak-pulse {
+  40% { transform: scale(1.35); }
+}
+.quiz-burst {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 0; height: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.quiz-burst span {
+  position: absolute;
+  width: 7px; height: 7px;
+  border-radius: 2px;
+  opacity: 0;
+}
+.quiz-burst span:nth-child(4n+1) { background: var(--cat-0); }
+.quiz-burst span:nth-child(4n+2) { background: var(--cat-2); }
+.quiz-burst span:nth-child(4n+3) { background: var(--cat-4); }
+.quiz-burst span:nth-child(4n+4) { background: var(--cat-6); }
+.quiz-burst.bursting span { animation: burst-fly 700ms var(--ease-out) both; }
+.quiz-burst span:nth-child(1)  { --bx: -90px;  --by: -60px; }
+.quiz-burst span:nth-child(2)  { --bx: 90px;   --by: -70px; }
+.quiz-burst span:nth-child(3)  { --bx: -120px; --by: 10px; }
+.quiz-burst span:nth-child(4)  { --bx: 120px;  --by: -10px; }
+.quiz-burst span:nth-child(5)  { --bx: -70px;  --by: -110px; }
+.quiz-burst span:nth-child(6)  { --bx: 70px;   --by: -120px; }
+.quiz-burst span:nth-child(7)  { --bx: -40px;  --by: 80px; }
+.quiz-burst span:nth-child(8)  { --bx: 40px;   --by: 90px; }
+.quiz-burst span:nth-child(9)  { --bx: -150px; --by: -30px; }
+.quiz-burst span:nth-child(10) { --bx: 150px;  --by: -40px; }
+.quiz-burst span:nth-child(11) { --bx: -20px;  --by: -140px; }
+.quiz-burst span:nth-child(12) { --bx: 20px;   --by: 70px; }
+@keyframes burst-fly {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+  100% { opacity: 0; transform: translate(var(--bx), var(--by)) rotate(260deg); }
 }
 .quiz-label {
   font-family: var(--font-mono);
@@ -65,15 +139,10 @@ export const QUIZ_CSS = `/* === Quiz — Anki-style reveal === */
   text-wrap: balance;
 }
 .quiz-answer {
-  display: none;
   font-family: var(--font-body);
   font-size: clamp(14px, 0.4vw + 12px, 16px);
   line-height: 1.7;
   color: var(--text-secondary);
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px dashed var(--border);
-  animation: quiz-reveal 240ms var(--ease);
 }
 .quiz-answer.revealed { display: block; }
 @keyframes quiz-reveal {

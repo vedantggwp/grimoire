@@ -75,64 +75,149 @@ export const GAPS_CSS = `/* === Gaps — D3 Treemap === */
   background: var(--color-surface);
   overflow: hidden;
 }
-#treemap-svg {
+.treemap-board {
+  position: relative;
   width: 100%;
   height: 100%;
-  display: block;
 }
 
-/* D3 treemap leaves */
-.treemap-leaf rect {
-  transition: filter 180ms var(--ease), opacity 180ms var(--ease);
+/* Treemap cells — DOM elements positioned by the build-time squarified
+   layout (percent geometry = responsive for free, focusable for free).
+   Labels stay full-contrast text on every tier (WCAG AA — issue #5);
+   the tier is conveyed by background tint, border, and dot. */
+.treemap-cell {
+  position: absolute;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--color-bg);
+  padding: 8px 10px;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: filter var(--dur-2) var(--ease-out);
 }
-.treemap-leaf:hover rect { filter: brightness(1.08); }
-.treemap-leaf .treemap-tag {
+.treemap-cell:hover { filter: brightness(1.06); z-index: 2; }
+.treemap-cell:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+  z-index: 2;
+}
+.treemap-cell__tag {
+  display: block;
   font-family: var(--font-heading);
   font-size: 13px; font-weight: 600;
-  fill: var(--color-text);
-  pointer-events: none;
-}
-.treemap-leaf foreignObject {
+  color: var(--color-text);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.treemap-leaf .treemap-count {
+.treemap-cell__count {
+  display: block;
   font-family: var(--font-mono);
   font-size: 10px;
-  fill: var(--text-secondary);
-  pointer-events: none;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.treemap-cell__dot {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 8px; height: 8px;
+  border-radius: 2px;
 }
 
-/* Labels stay full-contrast text on every tier (WCAG AA — issue #5);
-   the tier itself is conveyed by background tint, stroke, and dot. */
-.treemap-leaf--full rect {
-  fill: color-mix(in srgb, var(--color-success) 18%, var(--color-surface));
-  stroke: color-mix(in srgb, var(--color-success) 45%, transparent);
+.treemap-cell--full {
+  background: color-mix(in srgb, var(--color-success) 18%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
 }
-.treemap-leaf--full .treemap-dot { fill: var(--color-success); }
-.treemap-leaf--full .treemap-tag { fill: var(--color-text); }
+.treemap-cell--full .treemap-cell__dot { background: var(--color-success); }
+.treemap-cell--partial {
+  background: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+}
+.treemap-cell--partial .treemap-cell__dot { background: var(--color-warning); }
+.treemap-cell--thin {
+  background: color-mix(in srgb, var(--color-error) 14%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-error) 38%, transparent);
+}
+.treemap-cell--thin .treemap-cell__dot { background: var(--color-error); }
+.treemap-cell--missing {
+  background: var(--color-bg);
+  border-style: dashed;
+  border-color: var(--text-tertiary);
+}
+.treemap-cell--missing .treemap-cell__dot { background: var(--text-tertiary); }
 
-.treemap-leaf--partial rect {
-  fill: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface));
-  stroke: color-mix(in srgb, var(--color-warning) 40%, transparent);
+/* Freshness lens — recolors by per-tag staleness (update engine data) */
+.lens-freshness .treemap-cell {
+  background: var(--color-bg);
+  border-color: var(--border);
 }
-.treemap-leaf--partial .treemap-dot { fill: var(--color-warning); }
-.treemap-leaf--partial .treemap-tag { fill: var(--color-text); }
+.lens-freshness .treemap-cell__dot { background: var(--text-tertiary); }
+.lens-freshness .treemap-cell--f-fresh,
+.lens-freshness .treemap-cell--f-evergreen {
+  background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
+}
+.lens-freshness .treemap-cell--f-fresh .treemap-cell__dot,
+.lens-freshness .treemap-cell--f-evergreen .treemap-cell__dot { background: var(--color-success); }
+.lens-freshness .treemap-cell--f-aging {
+  background: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+}
+.lens-freshness .treemap-cell--f-aging .treemap-cell__dot { background: var(--color-warning); }
+.lens-freshness .treemap-cell--f-stale {
+  background: color-mix(in srgb, var(--color-error) 16%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-error) 42%, transparent);
+}
+.lens-freshness .treemap-cell--f-stale .treemap-cell__dot { background: var(--color-error); }
+.lens-freshness .treemap-cell--f-unknown {
+  background: var(--color-bg);
+  border-style: dashed;
+}
 
-.treemap-leaf--thin rect {
-  fill: color-mix(in srgb, var(--color-error) 14%, var(--color-surface));
-  stroke: color-mix(in srgb, var(--color-error) 38%, transparent);
+/* Lens toggle */
+.gaps-lens {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  margin-bottom: 14px;
 }
-.treemap-leaf--thin .treemap-dot { fill: var(--color-error); }
-.treemap-leaf--thin .treemap-tag { fill: var(--color-text); }
+.gaps-lens button {
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.gaps-lens button:hover { color: var(--color-text); }
+.gaps-lens button.active {
+  background: var(--surface-hover);
+  color: var(--color-text);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.gaps-lens button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
 
-.treemap-leaf--missing rect {
-  fill: var(--color-bg);
-  stroke: var(--text-tertiary);
-  stroke-dasharray: 3 3;
+/* Cells pop in with a soft stagger (pure CSS — runs without JS) */
+@media (prefers-reduced-motion: no-preference) {
+  .motion-subtle .treemap-cell,
+  .motion-expressive .treemap-cell {
+    animation: cell-pop var(--dur-3) var(--ease-out) both;
+    animation-delay: calc(var(--reveal-i, 0) * 30ms);
+  }
+  @keyframes cell-pop {
+    from { opacity: 0; transform: scale(0.97); }
+  }
 }
-.treemap-leaf--missing .treemap-dot { fill: var(--text-tertiary); }
-.treemap-leaf--missing .treemap-tag { fill: var(--color-text); }
 
 .treemap-tooltip {
   position: absolute;
