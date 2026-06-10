@@ -1,0 +1,50 @@
+# Grimoire scheduled update — installed by /grimoire:update --setup
+#
+# Runs /grimoire:update headlessly on a cron schedule. The update is governed
+# by _config/update.md and ships as a PR (never commits to the default
+# branch). Requires:
+#   - ANTHROPIC_API_KEY (or CLAUDE_CODE_OAUTH_TOKEN) in the repo's Actions secrets
+#   - "Allow GitHub Actions to create and approve pull requests" enabled
+#     (Settings → Actions → General)
+#   - .claude/settings.json declaring the grimoire plugin so the headless
+#     run auto-loads it (the --setup flow writes this)
+#
+# Note: PRs created with the default GITHUB_TOKEN do not trigger this repo's
+# own `on: pull_request` workflows (GitHub recursion guard). If your CI must
+# run on update PRs, use a PAT instead of github.token for GH_TOKEN below.
+
+name: Grimoire Update
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # weekly, Monday 06:00 UTC — edit to taste
+  workflow_dispatch: {} # manual trigger from the Actions tab
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: grimoire-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # full history — the update branches and diffs
+
+      - uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }} # for `gh pr create`
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Subscription auth alternative — replace the line above with:
+          # claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: '/grimoire:update --workspace {{WORKSPACE_PATH}}'
+          claude_args: |
+            --allowedTools "Bash(git:*),Bash(gh:*),Bash(node:*),WebSearch,WebFetch,Read,Write,Edit,Glob,Grep"

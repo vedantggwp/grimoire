@@ -196,7 +196,8 @@ After collecting all answers and the workspace path, create the structure:
 {target}/
 ├── SCHEMA.md              # Populated from answers (Q1-Q5)
 ├── _config/
-│   └── design.md          # Populated from Q6
+│   ├── design.md          # Populated from Q6
+│   └── update.md          # Update policy, scaffolded with defaults
 ├── wiki/
 │   ├── index.md           # Empty index from template
 │   ├── overview.md        # Stub overview
@@ -231,6 +232,15 @@ Use the design config template from:
 `${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/design-config.md`
 
 Replace `palette: midnight-teal` with the user's Q6 choice.
+
+### Populating _config/update.md
+
+Copy the update policy template verbatim from:
+`${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/update-config.md`
+
+No questionnaire input feeds it — the commented defaults are the
+documentation. It governs `/grimoire:update` (scheduled refresh runs);
+the engine also works without the file, so deleting it is safe.
 
 ### Populating wiki/index.md
 

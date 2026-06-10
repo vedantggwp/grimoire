@@ -264,15 +264,63 @@ Next step:
   Run ingest to fetch and compile wiki articles
 ```
 
+## Delta Mode
+
+Activated when invoked by `/grimoire:update`, or when the user asks "what's
+new about {topic}" against an existing grimoire. Delta mode finds what the
+wiki *doesn't already have* — it replaces the broad 6-category sweep of
+Step 2 with temporal and gap-driven angles, and adds a hard cross-run dedup
+rule. Steps 3–4 (execution, scoring) are unchanged; the checkpoint in Step 5
+is owned by the caller (`update` substitutes its policy file; an interactive
+"what's new" run keeps the normal checkpoint).
+
+### Inputs
+
+Read `wiki/.compile/update-context.json` (run compile first if absent):
+`lastUpdate` (ISO date of last activity), `knownUrls` (normalized URL
+ledger), and the resolved policy (watchlist).
+
+### Delta angles (replace Step 2's list; cap 4–8 total)
+
+1. **Temporal** — `{topic} changes since {lastUpdate}`, `{topic} news
+   {current year}`, and a release-notes/changelog angle for the topic's
+   primary technology if it has one
+2. **Open questions** — one angle per top-3 entries in `wiki/overview.md`'s
+   Open Questions section (these are the questions the wiki itself says it
+   can't answer — the strongest signal of what information is needed)
+3. **Coverage gaps** — one angle per gap from the overview's coverage
+   analysis and `audit.json` orphaned links (topics referenced but unwritten)
+4. **Watchlist** — every entry from the policy's `## Watchlist`: plain
+   phrases become search angles; **URLs are WebFetched directly** every run.
+   The watchlist is also the degradation path: when WebSearch is unavailable
+   (some headless environments), delta scout still functions on watchlist
+   URLs alone.
+
+### Cross-run dedup (hard rule)
+
+Before scoring, drop any candidate whose normalized URL appears in
+`knownUrls`. Normalization must match `lib/source-ledger.ts` `normalizeUrl`
+(the source of truth): lowercase host, strip `www.`, strip the `#fragment`,
+strip `utm_*` params, strip a trailing slash. Record the dropped count in
+scout-notes.md under Deduplication.
+
+### Scoring in delta mode
+
+The 6-signal rubric is unchanged. Two natural shifts: **Recency** dominates
+(delta candidates are new by construction — score it honestly anyway), and
+**Uniqueness** is judged against the existing corpus: "does this add to what
+`raw/` already holds", not just against the other candidates.
+
 ## Validation Rules
 
 - Every source must be scored on all 6 signals with a written rationale — no partial scores
 - No duplicate URLs may appear in the final report (dedup before presenting)
 - The Gaps section must identify at least one area with thin or missing coverage
-- The human checkpoint (Step 5) MUST be reached and confirmed before any output files are written
+- The human checkpoint (Step 5) MUST be reached and confirmed before any output files are written — EXCEPT in Delta Mode under `/grimoire:update`, where the update policy substitutes for the checkpoint and the update skill owns all writes
+- In Delta Mode, candidates matching `update-context.json` knownUrls are dropped before scoring — never re-propose an ingested source
 - All dates use ISO 8601 format: YYYY-MM-DD
 - All filenames are slugified: lowercase, hyphens only, no spaces
-- Do NOT fetch or read source content — that is ingest's job
+- Do NOT fetch or read source content — that is ingest's job (Delta Mode exception: policy Watchlist URLs are fetched to check for changes)
 - Use `${CLAUDE_PLUGIN_ROOT}` for all internal path references (rubric, templates)
 - Output files go in the grimoire workspace alongside SCHEMA.md, NOT inside the plugin directory
 - Respect `scope.out` from SCHEMA.md — do not surface sources that fall outside declared scope
