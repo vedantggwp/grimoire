@@ -11,7 +11,7 @@ import { join, resolve, dirname } from 'node:path';
 import { parseDesignConfig } from './config.js';
 import { generateCSS } from './css/index.js';
 import { loadSiteData } from './data.js';
-import { esc } from './esc.js';
+import { esc, jsonForScript } from './esc.js';
 import { computeHubStats, hubLeadText, recommendedMode, shortTopic } from './hub.js';
 import { hubShell } from './html.js';
 import { generateReadMode, sortByCentrality } from './modes/read.js';
@@ -108,7 +108,7 @@ function generateHub(data: SiteData, config: DesignConfig): string {
     })),
     data.graphData.edges,
   );
-  const hubGraph = JSON.stringify({
+  const hubGraph = jsonForScript({
     nodes: layoutNodes.map(n => ({
       id: n.id,
       label: n.label,

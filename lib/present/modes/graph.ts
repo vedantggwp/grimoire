@@ -15,7 +15,7 @@ import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
 import { d3MinSource } from './d3-source.js';
 import { computeForceLayout } from '../layout.js';
-import { esc } from '../esc.js';
+import { esc, jsonForScript } from '../esc.js';
 
 function graphScript(): string {
   // Emit d3 as a plain (non-module) script tag. The UMD wrapper assigns
@@ -193,9 +193,10 @@ node.on('click', function(e, d) {
     (d.summary ? '<p class="graph-panel__summary"></p>' : '') +
     '<p>Links: ' + d.forwardLinkCount + ' outgoing, ' + d.backlinkCount + ' incoming</p>' +
     '<p>Words: ' + d.wordCount + '</p>' +
-    (d.tags.length ? '<p>Tags: ' + d.tags.join(', ') + '</p>' : '') +
-    '<p><a class="btn" href="../read/' + d.id + '/index.html">Open in Read &rarr;</a></p>';
+    (d.tags.length ? '<p class="graph-panel__tags"></p>' : '') +
+    '<p><a class="btn" href="../read/' + encodeURIComponent(d.id) + '/index.html">Open in Read &rarr;</a></p>';
   if (d.summary) panelMeta.querySelector('.graph-panel__summary').textContent = d.summary;
+  if (d.tags.length) panelMeta.querySelector('.graph-panel__tags').textContent = 'Tags: ' + d.tags.join(', ');
   panel.classList.add('graph-panel--open');
 });
 
@@ -420,7 +421,7 @@ export function generateGraphMode(data: SiteData, config: DesignConfig): string 
     data.articles.map(a => [a.slug, a.summary.length > 200 ? `${a.summary.slice(0, 200).trimEnd()}…` : a.summary]),
   );
 
-  const graphDataJSON = JSON.stringify({
+  const graphDataJSON = jsonForScript({
     nodes: data.graphData.nodes.map(n => ({
       ...n,
       seedX: seedById.get(n.id)?.x ?? 0.5,

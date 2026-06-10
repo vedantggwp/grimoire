@@ -85,6 +85,12 @@ describe('update policy', () => {
     expect(policy.minScore).toBe(15);
   });
 
+  it('rejects inverted staleness windows (aging < fresh)', () => {
+    expect(() => parseUpdatePolicy('---\nstaleness:\n  fresh: 90\n  aging: 30\n---\n')).toThrow(
+      /staleness\.aging \(30\) must be >= staleness\.fresh \(90\)/,
+    );
+  });
+
   it('throws a descriptive error for invalid values', () => {
     expect(() => parseUpdatePolicy('---\nautonomy: yolo\n---\n')).toThrow(
       /_config\/update\.md has invalid policy fields — autonomy/,

@@ -10,7 +10,7 @@
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
-import { esc } from '../esc.js';
+import { esc, jsonForScript } from '../esc.js';
 import { sortByCentrality } from './read.js';
 import { popoverScript } from '../js/popover.js';
 
@@ -102,7 +102,7 @@ function buildLinkPreviews(
       readingTime: a.readingTime,
     };
   }
-  return JSON.stringify(previews);
+  return jsonForScript(previews);
 }
 
 // Wikilinks arrive as in-page anchors (`href="#slug" data-wikilink-slug`).

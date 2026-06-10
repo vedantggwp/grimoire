@@ -15,7 +15,7 @@
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
-import { esc } from '../esc.js';
+import { esc, jsonForScript } from '../esc.js';
 
 export function sortByCentrality(articles: readonly ArticleData[]): readonly ArticleData[] {
   return [...articles].sort((a, b) => {
@@ -36,7 +36,7 @@ function buildArticlesJSON(data: SiteData): string {
     headings: a.headings.map(h => h.text),
     excerpt: a.html.replace(/<[^>]+>/g, '').slice(0, 200),
   }));
-  return JSON.stringify(articles);
+  return jsonForScript(articles);
 }
 
 export function buildTagCloud(articles: readonly ArticleData[]): string {

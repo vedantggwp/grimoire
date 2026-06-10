@@ -115,15 +115,20 @@ export function parseUpdatePolicy(markdown: string): UpdatePolicy {
   const fm = parsed.data;
   const defaults = DEFAULT_UPDATE_POLICY;
 
+  const freshDays = fm.staleness?.fresh ?? defaults.staleness.freshDays;
+  const agingDays = fm.staleness?.aging ?? defaults.staleness.agingDays;
+  if (agingDays < freshDays) {
+    throw new Error(
+      `_config/update.md has invalid policy fields — staleness.aging (${agingDays}) must be >= staleness.fresh (${freshDays})`,
+    );
+  }
+
   return {
     autonomy: fm.autonomy ?? defaults.autonomy,
     minScore: fm.min_score ?? defaults.minScore,
     maxSourcesPerRun: fm.max_sources_per_run ?? defaults.maxSourcesPerRun,
     maxConnectionsPerRun: fm.max_connections_per_run ?? defaults.maxConnectionsPerRun,
-    staleness: {
-      freshDays: fm.staleness?.fresh ?? defaults.staleness.freshDays,
-      agingDays: fm.staleness?.aging ?? defaults.staleness.agingDays,
-    },
+    staleness: { freshDays, agingDays },
     verifyStale: fm.verify_stale ?? defaults.verifyStale,
     maxStaleChecks: fm.max_stale_checks ?? defaults.maxStaleChecks,
     cadence: fm.cadence ?? defaults.cadence,

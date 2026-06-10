@@ -17,6 +17,12 @@
 #   - .claude/settings.json declaring the grimoire plugin so the headless
 #     run auto-loads it (the --setup flow writes this)
 #
+# Security note: the update agent ingests untrusted web content (that is its
+# job), so treat its grants as a blast-radius decision. It can never write to
+# the default branch (the skill forbids it and PR review gates every change),
+# permissions above are the minimum for branch+PR, and you review the diff —
+# including raw/ archives — before merging.
+#
 # Note: PRs created with the default GITHUB_TOKEN do not trigger this repo's
 # own `on: pull_request` workflows (GitHub recursion guard). If your CI must
 # run on update PRs, use a PAT instead of github.token for GH_TOKEN below.
@@ -28,10 +34,10 @@ on:
     - cron: '0 6 * * 1' # weekly, Monday 06:00 UTC — edit to taste
   workflow_dispatch: {} # manual trigger from the Actions tab
 
+# Least privilege: the job pushes a branch and opens a PR — nothing else.
 permissions:
   contents: write
   pull-requests: write
-  id-token: write
 
 concurrency:
   group: grimoire-update
@@ -55,4 +61,4 @@ jobs:
           # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: '/grimoire:update --workspace {{WORKSPACE_PATH}}'
           claude_args: |
-            --allowedTools "Bash(git:*),Bash(gh:*),Bash(node:*),WebSearch,WebFetch,Read,Write,Edit,Glob,Grep"
+            --allowedTools "Bash(git:*),Bash(gh pr:*),Bash(gh auth:*),Bash(node:*),WebSearch,WebFetch,Read,Write,Edit,Glob,Grep"

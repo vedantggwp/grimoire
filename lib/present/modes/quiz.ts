@@ -10,7 +10,7 @@
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
-import { esc } from '../esc.js';
+import { esc, jsonForScript } from '../esc.js';
 
 interface FlashCard {
   readonly front: string;
@@ -370,7 +370,7 @@ function quizScript(): string {
 
 export function generateQuizMode(data: SiteData, config: DesignConfig): string {
   const cards = extractCards(data.articles);
-  const cardsJSON = JSON.stringify(cards);
+  const cardsJSON = jsonForScript(cards);
 
   const body = `
 <script>window.QUIZ_CARDS = ${cardsJSON};</script>
