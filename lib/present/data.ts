@@ -19,6 +19,7 @@ import type {
   LogEntry,
 } from './types.js';
 import { SUPPORT_SLUGS, SUPPORT_FILES } from '../support-slugs.js';
+import { slugLikePapyr } from '../slug.js';
 import { esc as escapeHtml } from './esc.js';
 
 // --- Helpers ---
@@ -38,16 +39,7 @@ function stripLeadingH1(html: string): string {
   return html.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>\s*/, '');
 }
 
-// Slugs MUST be derived exactly the way papyr-core derives them for files
-// with a path: basename without extension, slugified lower/strict. Compile's
-// notes.json is the article manifest; any drift between the two derivations
-// makes present silently drop articles (issue #1 — nested taxonomy
-// directories rendered 0 articles because present used the relative path).
-export function slugLikePapyr(relPath: string): string {
-  const filename = relPath.split('/').pop() || relPath;
-  const basename = filename.replace(/\.(md|markdown)$/i, '');
-  return slugify(basename, { lower: true, strict: true });
-}
+export { slugLikePapyr };
 
 // Some authors repeat the frontmatter `title:` as an `## Title` first line,
 // which renders the title twice in read mode (issue #6). Strip the leading

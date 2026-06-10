@@ -297,6 +297,64 @@ scope:
       expect(result).toContain('Coverage Gaps');
       expect(result).toMatch(/\(\d+ issues\)/);
     });
+
+    // v0.4.0 — staleness exposure. Crafted reports keep these assertions
+    // time-independent.
+    it('appends a Stale Articles section when the freshness report has stale or aging articles', () => {
+      const withFreshness: WikiData = {
+        ...data,
+        freshness: {
+          generatedAt: '2026-06-10T00:00:00.000Z',
+          policy: { freshDays: 30, agingDays: 90, source: 'defaults' },
+          articles: [
+            {
+              slug: 'vue-reactivity', title: 'Vue Reactivity System',
+              updated: '2026-01-01', checked: null, effectiveDate: '2026-01-01',
+              ageDays: 160, tier: 'stale', newestSourceCollected: null,
+            },
+            {
+              slug: 'react-fundamentals', title: 'React Fundamentals',
+              updated: '2026-04-20', checked: '2026-04-25', effectiveDate: '2026-04-25',
+              ageDays: 46, tier: 'aging', newestSourceCollected: null,
+            },
+          ],
+          summary: { fresh: 0, aging: 1, stale: 1, evergreen: 0, unknown: 0 },
+        },
+      };
+
+      const result = handleCoverageGaps(withFreshness);
+      expect(result).toContain('### Stale Articles (freshness policy: 30/90 days)');
+      expect(result).toContain('[STALE] "Vue Reactivity System" (vue-reactivity): 160 days');
+      expect(result).toContain('updated 2026-01-01');
+      expect(result).toContain('[AGING] "React Fundamentals" (react-fundamentals): 46 days');
+      expect(result).toContain('checked 2026-04-25');
+      // Stale entries are ordered before aging entries.
+      expect(result.indexOf('[STALE]')).toBeLessThan(result.indexOf('[AGING]'));
+    });
+
+    it('emits no stale section when every article is fresh', () => {
+      const allFresh: WikiData = {
+        ...data,
+        freshness: {
+          generatedAt: '2026-06-10T00:00:00.000Z',
+          policy: { freshDays: 30, agingDays: 90, source: 'defaults' },
+          articles: [{
+            slug: 'vue-reactivity', title: 'Vue Reactivity System',
+            updated: '2026-06-09', checked: null, effectiveDate: '2026-06-09',
+            ageDays: 1, tier: 'fresh', newestSourceCollected: null,
+          }],
+          summary: { fresh: 1, aging: 0, stale: 0, evergreen: 0, unknown: 0 },
+        },
+      };
+      expect(handleCoverageGaps(allFresh)).not.toContain('Stale Articles');
+    });
+
+    it('degrades to legacy output when the freshness report is absent', () => {
+      const legacy: WikiData = { ...data, freshness: null };
+      const result = handleCoverageGaps(legacy);
+      expect(result).not.toContain('Stale Articles');
+      expect(result).toContain('Coverage Gaps');
+    });
   });
 
   describe('handleSearch', () => {
