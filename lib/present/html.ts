@@ -50,17 +50,22 @@ export function hubHead(title: string, config: DesignConfig): string {
 </head>`;
 }
 
-const MODES = [
-  { id: 'read', label: 'Read' },
-  { id: 'graph', label: 'Graph' },
-  { id: 'search', label: 'Search' },
-  { id: 'feed', label: 'Feed' },
-  { id: 'gaps', label: 'Gaps' },
-  { id: 'quiz', label: 'Quiz' },
-] as const;
+const MODE_LABELS: Readonly<Record<string, string>> = {
+  read: 'Read',
+  graph: 'Graph',
+  search: 'Search',
+  feed: 'Feed',
+  gaps: 'Gaps',
+  quiz: 'Quiz',
+};
 
-export function navBar(currentMode: string, data: SiteData): string {
-  const tabs = MODES.map(m => {
+// Issue #9 — nav renders only the modes enabled in the design config.
+function enabledModes(config: DesignConfig): readonly { id: string; label: string }[] {
+  return config.modes.map(id => ({ id, label: MODE_LABELS[id] ?? id }));
+}
+
+export function navBar(currentMode: string, data: SiteData, config: DesignConfig): string {
+  const tabs = enabledModes(config).map(m => {
     const active = m.id === currentMode ? ' active' : '';
     const href = m.id === currentMode ? '#' : `../${m.id}/index.html`;
     return `<a href="${href}" class="tab${active}">${m.label}</a>`;
@@ -80,8 +85,8 @@ export function navBar(currentMode: string, data: SiteData): string {
 </nav>`;
 }
 
-export function hubNav(data: SiteData): string {
-  const tabs = MODES.map(m => {
+export function hubNav(data: SiteData, config: DesignConfig): string {
+  const tabs = enabledModes(config).map(m => {
     return `<a href="${m.id}/index.html" class="tab">${m.label}</a>`;
   }).join('\n        ');
 
@@ -120,11 +125,11 @@ export function pageShell(
     : '';
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="motion-${config.motion} density-${config.density}">
 ${htmlHead(title, config)}
 <body class="mode-${mode}">
 <a href="#main" class="skip-link">Skip to content</a>
-${navBar(mode, data)}
+${navBar(mode, data, config)}
 ${progressBar}
 <main id="main" class="container">
 ${bodyContent}
@@ -142,11 +147,11 @@ export function hubShell(
   data: SiteData,
 ): string {
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="motion-${config.motion} density-${config.density}">
 ${hubHead(title, config)}
 <body>
 <a href="#main" class="skip-link">Skip to content</a>
-${hubNav(data)}
+${hubNav(data, config)}
 <main id="main" class="container">
 ${bodyContent}
 </main>

@@ -10,11 +10,7 @@
  */
 
 import type { DesignConfig } from '../types.js';
-import {
-  resolvePalette,
-  resolveTypography,
-  getGoogleFontsUrl,
-} from '../config.js';
+import { resolvePalette, resolveTypography } from '../config.js';
 import { themeTokensCSS } from './tokens.js';
 import { RESET_CSS, BASE_CSS, COMPONENTS_CSS, TAIL_CSS } from './base.js';
 import { HUB_CSS } from './hub.js';
@@ -31,11 +27,10 @@ import { REDUCED_MOTION_CSS } from './motion.js';
 export function generateCSS(config: DesignConfig): string {
   const palette = resolvePalette(config);
   const typo = resolveTypography(config);
-  const fontsUrl = getGoogleFontsUrl(typo);
 
   const sections = [
     RESET_CSS,
-    themeTokensCSS(palette, typo),
+    themeTokensCSS(palette, typo, { motion: config.motion, density: config.density }),
     BASE_CSS,
     HUB_CSS,
     READ_CSS,
@@ -57,5 +52,7 @@ export function generateCSS(config: DesignConfig): string {
     SEARCH_MODE_OVERRIDE_CSS,
   ].join('\n\n');
 
-  return `@import url('${fontsUrl}');\n\n${sections}\n\n${modeOverrides}\n`;
+  // Fonts load once via the <link rel="stylesheet"> in every page head —
+  // the old additional @import here double-fetched on the slower CSS path.
+  return `${sections}\n\n${modeOverrides}\n`;
 }

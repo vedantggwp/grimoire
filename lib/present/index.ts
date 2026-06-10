@@ -24,18 +24,25 @@ import type { SiteData, DesignConfig } from './types.js';
 
 // --- Hub page ---
 
+const MODE_CARDS = [
+  { id: 'read', title: 'Read', icon: '📖', desc: 'Articles sorted by graph centrality. Start here for a deep, linear study of the core concepts.', when: 'Deep study of key topics' },
+  { id: 'graph', title: 'Graph', icon: '🕸', desc: 'Force-directed knowledge map showing how articles connect.', when: 'Explore connections' },
+  { id: 'search', title: 'Search', icon: '🔍', desc: 'Full-text search across all articles and tags.', when: 'Find a concept fast' },
+  { id: 'feed', title: 'Feed', icon: '📋', desc: 'Chronological changelog of all activity.', when: 'See what changed' },
+  { id: 'gaps', title: 'Gaps', icon: '🔬', desc: 'Coverage gap analysis by topic area.', when: 'Find thin spots' },
+  { id: 'quiz', title: 'Quiz', icon: '🧠', desc: 'Flashcard-style study quiz.', when: 'Test understanding' },
+] as const;
+
 function generateHub(data: SiteData, config: DesignConfig): string {
-  const modes = [
-    { id: 'read', title: 'Read', icon: '📖', desc: 'Articles sorted by graph centrality. Start here for a deep, linear study of the core concepts.', when: 'Deep study of key topics' },
-    { id: 'graph', title: 'Graph', icon: '🕸', desc: 'Force-directed knowledge map showing how articles connect.', when: 'Explore connections' },
-    { id: 'search', title: 'Search', icon: '🔍', desc: 'Full-text search across all articles and tags.', when: 'Find a concept fast' },
-    { id: 'feed', title: 'Feed', icon: '📋', desc: 'Chronological changelog of all activity.', when: 'See what changed' },
-    { id: 'gaps', title: 'Gaps', icon: '🔬', desc: 'Coverage gap analysis by topic area.', when: 'Find thin spots' },
-    { id: 'quiz', title: 'Quiz', icon: '🧠', desc: 'Flashcard-style study quiz.', when: 'Test understanding' },
-  ];
+  // Issue #9 — hub cards mirror the enabled-modes config; the recommended
+  // badge can only land on a mode that actually exists.
+  const modes = MODE_CARDS.filter(m => config.modes.includes(m.id));
 
   const stats = computeHubStats(data);
-  const recommended = recommendedMode(data);
+  const naturalPick = recommendedMode(data);
+  const recommended = config.modes.includes(naturalPick as (typeof config.modes)[number])
+    ? naturalPick
+    : 'read';
 
   // Top articles by centrality score for the featured-card preview list.
   const topArticles = [...data.articles]
@@ -156,13 +163,20 @@ async function main(): Promise<void> {
   // Hub
   files.push(writeFile(join(siteDir, 'index.html'), generateHub(data, config)));
 
-  // Modes
-  files.push(writeFile(join(siteDir, 'read', 'index.html'), generateReadMode(data, config)));
-  files.push(writeFile(join(siteDir, 'graph', 'index.html'), generateGraphMode(data, config)));
-  files.push(writeFile(join(siteDir, 'search', 'index.html'), generateSearchMode(data, config)));
-  files.push(writeFile(join(siteDir, 'feed', 'index.html'), generateFeedMode(data, config)));
-  files.push(writeFile(join(siteDir, 'gaps', 'index.html'), generateGapsMode(data, config)));
-  files.push(writeFile(join(siteDir, 'quiz', 'index.html'), generateQuizMode(data, config)));
+  // Modes — only the ones enabled in the design config (issue #9)
+  const generators: Record<string, (d: SiteData, c: DesignConfig) => string> = {
+    read: generateReadMode,
+    graph: generateGraphMode,
+    search: generateSearchMode,
+    feed: generateFeedMode,
+    gaps: generateGapsMode,
+    quiz: generateQuizMode,
+  };
+  for (const mode of config.modes) {
+    const generate = generators[mode];
+    if (!generate) continue;
+    files.push(writeFile(join(siteDir, mode, 'index.html'), generate(data, config)));
+  }
 
   // Summary
   const totalSize = files.reduce((sum, f) => sum + f.size, 0);

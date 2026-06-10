@@ -2,14 +2,23 @@
  * present — Type definitions
  */
 
+export type MotionLevel = 'subtle' | 'expressive' | 'none';
+export type Density = 'compact' | 'comfortable' | 'spacious';
+
+export const ALL_MODES = ['read', 'graph', 'search', 'feed', 'gaps', 'quiz'] as const;
+export type ModeId = (typeof ALL_MODES)[number];
+
 export interface DesignConfig {
   readonly palette: string;
   readonly typography: string;
-  readonly motion: string;
-  readonly density: string;
+  readonly motion: MotionLevel;
+  readonly density: Density;
+  /** Enabled study modes, in canonical order. `read` is always present. */
+  readonly modes: readonly ModeId[];
   readonly overrides?: {
     readonly accent?: string;
     readonly fontDisplay?: string;
+    readonly fontBody?: string;
     readonly fontMono?: string;
   };
 }

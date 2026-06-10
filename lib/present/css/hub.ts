@@ -55,12 +55,12 @@ export const HUB_CSS = `/* === Hub — Bento grid === */
   grid-template-columns: repeat(3, 1fr);
   grid-auto-rows: min-content;
   align-items: start;
-  gap: clamp(10px, 1.2vw, 16px);
+  gap: var(--gap-grid);
 }
 .bento-card {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
-  padding: clamp(20px, 2.4vw, 30px);
+  padding: var(--pad-card);
   cursor: pointer;
   transition: transform 200ms var(--ease), box-shadow 200ms var(--ease);
   box-shadow: var(--shadow-card);
@@ -76,7 +76,7 @@ export const HUB_CSS = `/* === Hub — Bento grid === */
 .bento-card.featured {
   grid-column: span 2;
   grid-row: span 2;
-  padding: clamp(24px, 3vw, 40px);
+  padding: var(--pad-card-lg);
 }
 .bento-preview {
   list-style: none; margin: 18px 0 0; padding: 0;

@@ -5,8 +5,113 @@
  * typography families, radii, easing, and layout dimensions.
  */
 
-import type { PaletteColors, PaletteDef } from '../types.js';
+import type { Density, MotionLevel, PaletteColors, PaletteDef } from '../types.js';
 import type { TypographySet } from '../config.js';
+import { categoricalRamp } from '../color.js';
+
+// --- Motion tokens ---
+// Durations scale with the configured motion level; `none` collapses every
+// duration to 0.01ms so transitions resolve instantly without breaking
+// `transitionend` listeners.
+
+const MOTION_DURATIONS: Readonly<Record<MotionLevel, readonly [string, string, string, string]>> = {
+  subtle: ['120ms', '200ms', '320ms', '560ms'],
+  expressive: ['150ms', '250ms', '400ms', '700ms'],
+  none: ['0.01ms', '0.01ms', '0.01ms', '0.01ms'],
+};
+
+const REVEAL_DISTANCE: Readonly<Record<MotionLevel, string>> = {
+  subtle: '12px',
+  expressive: '20px',
+  none: '0px',
+};
+
+const TILT_MAX: Readonly<Record<MotionLevel, string>> = {
+  subtle: '2deg',
+  expressive: '4deg',
+  none: '0deg',
+};
+
+function motionVars(motion: MotionLevel): string {
+  const [d1, d2, d3, d4] = MOTION_DURATIONS[motion];
+  return [
+    `--dur-1: ${d1};`,
+    `--dur-2: ${d2};`,
+    `--dur-3: ${d3};`,
+    `--dur-4: ${d4};`,
+    `--reveal-distance: ${REVEAL_DISTANCE[motion]};`,
+    `--tilt-max: ${TILT_MAX[motion]};`,
+  ].join('\n  ');
+}
+
+// --- Spacing tokens ---
+// Strict 4px grid (issue #4). Semantic tokens swap between grid-aligned
+// fluid clamps per density — named-token swaps, never multiplication, so
+// every computed endpoint stays on the grid.
+
+const SPACE_SCALE = [4, 8, 12, 16, 24, 32, 40, 48, 64, 96] as const;
+
+interface SemanticSpacing {
+  readonly padCard: string;
+  readonly padCardLg: string;
+  readonly padSection: string;
+  readonly gapGrid: string;
+  readonly gapStack: string;
+}
+
+const DENSITY_SPACING: Readonly<Record<Density, SemanticSpacing>> = {
+  comfortable: {
+    padCard: 'clamp(20px, 2.4vw, 32px)',
+    padCardLg: 'clamp(24px, 3vw, 40px)',
+    padSection: 'clamp(32px, 5vw, 64px)',
+    gapGrid: 'clamp(12px, 1.2vw, 16px)',
+    gapStack: '12px',
+  },
+  compact: {
+    padCard: 'clamp(12px, 1.6vw, 20px)',
+    padCardLg: 'clamp(16px, 2vw, 24px)',
+    padSection: 'clamp(24px, 3.5vw, 48px)',
+    gapGrid: 'clamp(8px, 1vw, 12px)',
+    gapStack: '8px',
+  },
+  spacious: {
+    padCard: 'clamp(24px, 3vw, 40px)',
+    padCardLg: 'clamp(32px, 3.6vw, 48px)',
+    padSection: 'clamp(40px, 6vw, 80px)',
+    gapGrid: 'clamp(16px, 1.8vw, 24px)',
+    gapStack: '16px',
+  },
+};
+
+function spacingVars(density: Density): string {
+  const scale = SPACE_SCALE.map((px, i) => `--space-${i + 1}: ${px}px;`);
+  const semantic = DENSITY_SPACING[density];
+  return [
+    ...scale,
+    `--pad-card: ${semantic.padCard};`,
+    `--pad-card-lg: ${semantic.padCardLg};`,
+    `--pad-section: ${semantic.padSection};`,
+    `--gap-grid: ${semantic.gapGrid};`,
+    `--gap-stack: ${semantic.gapStack};`,
+  ].join('\n  ');
+}
+
+// --- Z-layer scale ---
+
+const Z_LAYERS = [
+  '--z-hulls: 1;',
+  '--z-sticky: 100;',
+  '--z-progress: 101;',
+  '--z-popover: 200;',
+  '--z-overlay: 300;',
+  '--z-skip: 999;',
+].join('\n  ');
+
+// --- Categorical color variables ---
+
+function catVars(colors: readonly string[]): string {
+  return colors.map((hex, i) => `--cat-${i}: ${hex};`).join('\n  ');
+}
 
 export function lightVars(colors: PaletteColors): string {
   return [
@@ -76,10 +181,24 @@ export function darkVars(colors: PaletteColors): string {
   ].join('\n  ');
 }
 
-export function themeTokensCSS(palette: PaletteDef, typo: TypographySet): string {
+export interface TokenConfig {
+  readonly motion: MotionLevel;
+  readonly density: Density;
+}
+
+export function themeTokensCSS(
+  palette: PaletteDef,
+  typo: TypographySet,
+  tokens: TokenConfig,
+): string {
+  const ramp = categoricalRamp(palette.light.accent);
+
   return `/* === Light mode (default) === */
 :root {
   ${lightVars(palette.light)}
+
+  /* Categorical ramp (graph nodes, tag accents) */
+  ${catVars(ramp.light)}
 
   /* Typography */
   --font-heading: '${typo.headings}', Georgia, 'Times New Roman', serif;
@@ -94,6 +213,18 @@ export function themeTokensCSS(palette: PaletteDef, typo: TypographySet): string
 
   /* Easing */
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: var(--ease);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: var(--ease-out);
+
+  /* Motion (level: ${tokens.motion}) */
+  ${motionVars(tokens.motion)}
+
+  /* Spacing — 4px grid (density: ${tokens.density}) */
+  ${spacingVars(tokens.density)}
+
+  /* Z-layers */
+  ${Z_LAYERS}
 
   /* Layout */
   --container-max: 1100px;
@@ -101,19 +232,32 @@ export function themeTokensCSS(palette: PaletteDef, typo: TypographySet): string
   --nav-height: 56px;
 }
 
+/* Spring easing where linear() is supported (no-op fallback above) */
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --ease-spring: linear(0, 0.32, 0.72, 0.95, 1.02, 1);
+  }
+}
+
 /* === Dark mode — system preference === */
 @media (prefers-color-scheme: dark) {
   :root:not(.theme-light) {
     ${darkVars(palette.dark)}
+
+    ${catVars(categoricalRamp(palette.dark.accent).dark)}
   }
 }
 
 /* === Dark mode — explicit toggle === */
 .theme-dark {
   ${darkVars(palette.dark)}
+
+  ${catVars(categoricalRamp(palette.dark.accent).dark)}
 }
 
 .theme-light {
   ${lightVars(palette.light)}
+
+  ${catVars(ramp.light)}
 }`;
 }

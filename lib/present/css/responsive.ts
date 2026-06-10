@@ -68,8 +68,6 @@ export const RESPONSIVE_CSS = `/* === Responsive === */
   .hub-stat { font-size: 11.5px; }
   .treemap { grid-template-columns: 1fr; }
   .grid--2 { grid-template-columns: 1fr; }
-  .bento-card { padding: 20px; }
-  .bento-card.featured { padding: 22px; }
 }
 
 @media (min-width: 640px) {

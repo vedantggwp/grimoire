@@ -3,7 +3,15 @@
  */
 
 import { readFileSync } from 'node:fs';
-import type { DesignConfig, PaletteDef, PaletteColors } from './types.js';
+import { ALL_MODES } from './types.js';
+import type {
+  Density,
+  DesignConfig,
+  ModeId,
+  MotionLevel,
+  PaletteColors,
+  PaletteDef,
+} from './types.js';
 
 // --- Palette definitions ---
 
@@ -94,7 +102,52 @@ const DEFAULT_CONFIG: DesignConfig = {
   typography: 'linear-editorial',
   motion: 'subtle',
   density: 'comfortable',
+  modes: [...ALL_MODES],
 };
+
+// --- Validated unions ---
+
+const MOTION_LEVELS: readonly MotionLevel[] = ['subtle', 'expressive', 'none'];
+const DENSITIES: readonly Density[] = ['compact', 'comfortable', 'spacious'];
+
+function validateUnion<T extends string>(
+  value: string | undefined,
+  allowed: readonly T[],
+  fallback: T,
+  field: string,
+): T {
+  if (value === undefined) return fallback;
+  if ((allowed as readonly string[]).includes(value)) return value as T;
+  console.warn(
+    `[present] Unknown ${field} "${value}" — using "${fallback}" (valid: ${allowed.join(', ')})`,
+  );
+  return fallback;
+}
+
+// Issue #9 — `modes:` in _config/design.md disables study modes. `read` is
+// the spine of the site (every cross-mode link targets it) and is forced on.
+function parseModes(value: string | undefined): readonly ModeId[] {
+  if (value === undefined) return DEFAULT_CONFIG.modes;
+
+  const requested = value
+    .split(',')
+    .map(m => m.trim().toLowerCase())
+    .filter(Boolean);
+
+  const valid = ALL_MODES.filter(mode => requested.includes(mode));
+  const unknown = requested.filter(m => !(ALL_MODES as readonly string[]).includes(m));
+  if (unknown.length > 0) {
+    console.warn(`[present] Unknown mode(s) ignored: ${unknown.join(', ')}`);
+  }
+
+  if (!valid.includes('read')) {
+    if (requested.length > 0) {
+      console.warn('[present] The read mode cannot be disabled — including it.');
+    }
+    return ['read', ...valid];
+  }
+  return valid;
+}
 
 // --- Frontmatter parser ---
 
@@ -135,9 +188,14 @@ export function parseDesignConfig(configPath: string): DesignConfig {
 
   const yaml = extractYamlFrontmatter(content);
 
+  // Issue #3 — fonts are individually overridable. `font-heading` is the
+  // canonical key; `font-display` stays as a back-compat alias.
+  const fontHeading = yaml['font-heading'] ?? yaml['font-display'];
+
   const overrides: DesignConfig['overrides'] = {
     ...(yaml['accent'] ? { accent: yaml['accent'] } : {}),
-    ...(yaml['font-display'] ? { fontDisplay: yaml['font-display'] } : {}),
+    ...(fontHeading ? { fontDisplay: fontHeading } : {}),
+    ...(yaml['font-body'] ? { fontBody: yaml['font-body'] } : {}),
     ...(yaml['font-mono'] ? { fontMono: yaml['font-mono'] } : {}),
   };
 
@@ -146,8 +204,9 @@ export function parseDesignConfig(configPath: string): DesignConfig {
   return {
     palette: yaml['palette'] ?? DEFAULT_CONFIG.palette,
     typography: yaml['typography'] ?? DEFAULT_CONFIG.typography,
-    motion: yaml['motion'] ?? DEFAULT_CONFIG.motion,
-    density: yaml['density'] ?? DEFAULT_CONFIG.density,
+    motion: validateUnion(yaml['motion'], MOTION_LEVELS, DEFAULT_CONFIG.motion, 'motion'),
+    density: validateUnion(yaml['density'], DENSITIES, DEFAULT_CONFIG.density, 'density'),
+    modes: parseModes(yaml['modes']),
     ...(hasOverrides ? { overrides } : {}),
   };
 }
@@ -169,7 +228,7 @@ export function resolveTypography(config: DesignConfig): TypographySet {
 
   return {
     headings: config.overrides?.fontDisplay ?? base.headings,
-    body: base.body,
+    body: config.overrides?.fontBody ?? base.body,
     mono: config.overrides?.fontMono ?? base.mono,
   };
 }

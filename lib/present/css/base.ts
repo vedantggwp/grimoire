@@ -235,7 +235,7 @@ pre code {
 .card {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
-  padding: 28px;
+  padding: var(--pad-card);
   box-shadow: var(--shadow-card);
   transition: box-shadow 200ms var(--ease), transform 200ms var(--ease);
 }

@@ -82,7 +82,8 @@ describe('present', () => {
       const htmlFiles = ['index.html', 'read/index.html', 'graph/index.html'];
       for (const file of htmlFiles) {
         const content = readSiteFile(file);
-        expect(content).toContain('<html lang="en">');
+        // motion/density classes are applied at generation time (v0.4.0)
+        expect(content).toContain('<html lang="en" class="motion-subtle density-comfortable">');
         expect(content).toContain('<head>');
         expect(content).toContain('<body');
         expect(content).toContain('</html>');
@@ -97,10 +98,15 @@ describe('present', () => {
   });
 
   describe('CSS', () => {
-    it('includes Google Fonts import', () => {
+    it('loads Google Fonts via <link>, not a CSS @import', () => {
+      // Fonts load once through the <head> link; the old @import inside the
+      // stylesheet double-fetched on the slower CSS path.
       const css = readSiteFile('assets/style.css');
-      expect(css).toContain("@import url('https://fonts.googleapis.com/css2");
+      expect(css).not.toContain('@import');
       expect(css).toContain('Playfair');
+
+      const html = readSiteFile('read/index.html');
+      expect(html).toContain('<link rel="stylesheet" href="https://fonts.googleapis.com/css2');
     });
 
     it('includes CSS reset', () => {
