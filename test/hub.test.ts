@@ -178,4 +178,42 @@ describe('present hub helpers', () => {
     expect(lead).toContain('Grimoire');
     expect(lead).toContain('developers');
   });
+
+  // Issue #7 — sentence audiences must not produce dangling suffixes or
+  // doubled punctuation, and unbounded audiences must not flood the hero.
+  it('does not double the terminal period for single-sentence audiences', () => {
+    const lead = hubLeadText(
+      'Grimoire',
+      'Springpod staff who ship products with AI tooling.',
+    );
+    expect(lead).toContain('springpod staff who ship products with AI tooling.');
+    expect(lead).not.toContain('..');
+    expect(lead).not.toMatch(/\slevel\b/);
+  });
+
+  it('uses only the first sentence of a multi-sentence audience', () => {
+    const lead = hubLeadText(
+      'Grimoire',
+      'Staff who ship products. Includes engineers, designers, and reviewers.',
+    );
+    expect(lead).toContain('staff who ship products.');
+    expect(lead).not.toContain('Includes engineers');
+  });
+
+  it('phrases skill-level audiences as "a … audience"', () => {
+    expect(hubLeadText('Grimoire', 'beginner')).toContain('built for a beginner audience.');
+    expect(hubLeadText('Grimoire', 'Intermediate')).toContain('built for an intermediate audience.');
+  });
+
+  it('caps very long audiences at a word boundary with an ellipsis', () => {
+    const audience = `engineers ${'who maintain large distributed systems '.repeat(6)}every day`;
+    const lead = hubLeadText('Grimoire', audience);
+    expect(lead).toContain('…');
+    expect(lead.length).toBeLessThan(200);
+    expect(lead).not.toContain('  ');
+  });
+
+  it('falls back to a general audience when the field is effectively empty', () => {
+    expect(hubLeadText('Grimoire', '.')).toContain('built for a general audience.');
+  });
 });

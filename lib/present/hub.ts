@@ -49,12 +49,43 @@ export function recommendedMode(data: SiteData): string {
   return 'read';
 }
 
+// Skill-level audience values read awkwardly when interpolated bare
+// ("built for beginner.") — they get the "a … audience" phrasing instead.
+const LEVEL_AUDIENCES = new Set([
+  'beginner', 'intermediate', 'advanced', 'expert', 'mixed', 'general',
+]);
+
+const LEAD_MAX_CHARS = 120;
+
+function capAtWordBoundary(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.lastIndexOf(' ', max);
+  return `${text.slice(0, cut > 0 ? cut : max)}…`;
+}
+
 export function hubLeadText(topic: string, audience: string): string {
   const name = shortTopic(topic);
   const joined = audience.replace(/\s+/g, ' ').trim();
   const stripped = joined.replace(/^(advanced|intermediate|beginner)\s*[—–-]\s*/i, '');
   const firstSentence = stripped.split(/\.\s/)[0].trim();
-  const desc = firstSentence.length > 0 ? firstSentence : joined.split('—')[0].trim();
-  const lower = desc.charAt(0).toLowerCase() + desc.slice(1);
+  // Single-sentence audiences keep their terminal period through the split,
+  // which produced "… tooling.." in the rendered lead (issue #7). Strip it
+  // before the template adds its own.
+  const desc = (firstSentence.length > 0 ? firstSentence : joined.split('—')[0].trim())
+    .replace(/[.\s]+$/, '');
+
+  if (desc.length === 0) {
+    return `A structured knowledge base about ${name}, built for a general audience.`;
+  }
+
+  const capped = capAtWordBoundary(desc, LEAD_MAX_CHARS);
+
+  if (LEVEL_AUDIENCES.has(capped.toLowerCase())) {
+    const level = capped.toLowerCase();
+    const article = /^[aeiou]/.test(level) ? 'an' : 'a';
+    return `A structured knowledge base about ${name}, built for ${article} ${level} audience.`;
+  }
+
+  const lower = capped.charAt(0).toLowerCase() + capped.slice(1);
   return `A structured knowledge base about ${name}, built for ${lower}.`;
 }

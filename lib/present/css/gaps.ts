@@ -103,26 +103,28 @@ export const GAPS_CSS = `/* === Gaps — D3 Treemap === */
   pointer-events: none;
 }
 
+/* Labels stay full-contrast text on every tier (WCAG AA — issue #5);
+   the tier itself is conveyed by background tint, stroke, and dot. */
 .treemap-leaf--full rect {
   fill: color-mix(in srgb, var(--color-success) 18%, var(--color-surface));
   stroke: color-mix(in srgb, var(--color-success) 45%, transparent);
 }
 .treemap-leaf--full .treemap-dot { fill: var(--color-success); }
-.treemap-leaf--full .treemap-tag { fill: var(--color-success); }
+.treemap-leaf--full .treemap-tag { fill: var(--color-text); }
 
 .treemap-leaf--partial rect {
   fill: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface));
   stroke: color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 .treemap-leaf--partial .treemap-dot { fill: var(--color-warning); }
-.treemap-leaf--partial .treemap-tag { fill: color-mix(in srgb, var(--color-warning) 80%, var(--color-text)); }
+.treemap-leaf--partial .treemap-tag { fill: var(--color-text); }
 
 .treemap-leaf--thin rect {
   fill: color-mix(in srgb, var(--color-error) 14%, var(--color-surface));
   stroke: color-mix(in srgb, var(--color-error) 38%, transparent);
 }
 .treemap-leaf--thin .treemap-dot { fill: var(--color-error); }
-.treemap-leaf--thin .treemap-tag { fill: color-mix(in srgb, var(--color-error) 75%, var(--color-text)); }
+.treemap-leaf--thin .treemap-tag { fill: var(--color-text); }
 
 .treemap-leaf--missing rect {
   fill: var(--color-bg);
@@ -130,7 +132,7 @@ export const GAPS_CSS = `/* === Gaps — D3 Treemap === */
   stroke-dasharray: 3 3;
 }
 .treemap-leaf--missing .treemap-dot { fill: var(--text-tertiary); }
-.treemap-leaf--missing .treemap-tag { fill: var(--text-tertiary); }
+.treemap-leaf--missing .treemap-tag { fill: var(--color-text); }
 
 .treemap-tooltip {
   position: absolute;
@@ -174,4 +176,5 @@ export const GAPS_CSS = `/* === Gaps — D3 Treemap === */
   padding: 16px; border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--color-surface);
+  color: var(--color-text);
 }`;

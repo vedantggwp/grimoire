@@ -6,8 +6,9 @@
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { parseMarkdown } from 'papyr-core';
+import slugify from 'slugify';
 import { z } from 'zod';
 import type {
   SiteData,
@@ -35,6 +36,51 @@ function stripFrontmatter(md: string): string {
 // rendered page template already emits a single <h1>, so we avoid duplication.
 function stripLeadingH1(html: string): string {
   return html.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>\s*/, '');
+}
+
+// Slugs MUST be derived exactly the way papyr-core derives them for files
+// with a path: basename without extension, slugified lower/strict. Compile's
+// notes.json is the article manifest; any drift between the two derivations
+// makes present silently drop articles (issue #1 — nested taxonomy
+// directories rendered 0 articles because present used the relative path).
+export function slugLikePapyr(relPath: string): string {
+  const filename = relPath.split('/').pop() || relPath;
+  const basename = filename.replace(/\.(md|markdown)$/i, '');
+  return slugify(basename, { lower: true, strict: true });
+}
+
+// Some authors repeat the frontmatter `title:` as an `## Title` first line,
+// which renders the title twice in read mode (issue #6). Strip the leading
+// <h2> only when it slug-matches the title, so legitimate first sections
+// survive.
+export function stripDuplicateTitleH2(
+  html: string,
+  title: string,
+): { readonly html: string; readonly stripped: boolean } {
+  const match = html.match(/^\s*<h2[^>]*>([\s\S]*?)<\/h2>\s*/);
+  if (!match) return { html, stripped: false };
+
+  const headingText = match[1].replace(/<[^>]+>/g, '').trim();
+  const matchesTitle =
+    headingText.length > 0 &&
+    slugify(headingText, { lower: true, strict: true }) ===
+      slugify(title, { lower: true, strict: true });
+
+  if (!matchesTitle) return { html, stripped: false };
+  return { html: html.slice(match[0].length), stripped: true };
+}
+
+function withoutDuplicateTitleHeading(
+  headings: readonly { level: number; text: string }[],
+  title: string,
+): readonly { level: number; text: string }[] {
+  const titleSlug = slugify(title, { lower: true, strict: true });
+  const idx = headings.findIndex(
+    h => h.level === 2 && slugify(h.text, { lower: true, strict: true }) === titleSlug,
+  );
+  return idx === -1
+    ? headings
+    : [...headings.slice(0, idx), ...headings.slice(idx + 1)];
 }
 
 function extractDomainBlock(content: string): string {
@@ -158,17 +204,34 @@ function stripNewClass(attrs: string): string {
   });
 }
 
-function resolveWikilinks(html: string, slugToTitle: ReadonlyMap<string, string>): string {
-  return html.replace(
-    /<a([^>]*?)href="#\/note\/([^"#]+)(?:#[^"]*)?"([^>]*)>([\s\S]*?)<\/a>/g,
-    (_match, beforeHref: string, slug: string, afterHref: string, innerHtml: string) => {
-      const knownTitle = slugToTitle.get(slug);
-      const attrs = knownTitle
-        ? stripNewClass(`${beforeHref}href="#${slug}" data-wikilink-slug="${slug}"${afterHref}`)
-        : `${beforeHref}href="#${slug}" data-wikilink-slug="${slug}"${afterHref}`;
-      const text = innerHtml.trim() === slug && knownTitle ? escapeHtml(knownTitle) : innerHtml;
-      return `<a${attrs}>${text}</a>`;
-    },
+// Legacy href forms from earlier directory conventions (issue #8). Both are
+// rewritten to the in-page `#{slug}` route the site actually serves.
+const LEGACY_LINK_PATTERNS: readonly RegExp[] = [
+  /<a([^>]*?)href="#\/note\/([^"#]+)(?:#[^"]*)?"([^>]*)>([\s\S]*?)<\/a>/g,
+  /<a([^>]*?)href="\/client-config\/([^"#]+)(?:#[^"]*)?"([^>]*)>([\s\S]*?)<\/a>/g,
+];
+
+const LEGACY_LINK_SURVIVOR = /href="(?:#\/note\/|\/client-config\/)/;
+
+export function resolveWikilinks(html: string, slugToTitle: ReadonlyMap<string, string>): string {
+  const rewrite = (
+    _match: string,
+    beforeHref: string,
+    slug: string,
+    afterHref: string,
+    innerHtml: string,
+  ): string => {
+    const knownTitle = slugToTitle.get(slug);
+    const attrs = knownTitle
+      ? stripNewClass(`${beforeHref}href="#${slug}" data-wikilink-slug="${slug}"${afterHref}`)
+      : `${beforeHref}href="#${slug}" data-wikilink-slug="${slug}"${afterHref}`;
+    const text = innerHtml.trim() === slug && knownTitle ? escapeHtml(knownTitle) : innerHtml;
+    return `<a${attrs}>${text}</a>`;
+  };
+
+  return LEGACY_LINK_PATTERNS.reduce(
+    (acc, pattern) => acc.replace(pattern, rewrite),
+    html,
   );
 }
 
@@ -176,6 +239,7 @@ export const ArticleSchema = z.object({
   slug: z.string().min(1),
   title: z.string().min(1),
   summary: z.string(),
+  category: z.string().min(1).optional(),
   tags: z.array(z.string()),
   html: z.string(),
   wordCount: z.number(),
@@ -329,35 +393,58 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
 
-  // Build articles by reading wiki/**/*.md (supports subdirectories for taxonomy)
-  const mdFiles = collectMdFiles(wikiDir, wikiDir);
+  // Build articles by reading wiki/**/*.md (supports subdirectories for
+  // taxonomy). Sorted for deterministic builds regardless of readdir order.
+  const mdFiles = [...collectMdFiles(wikiDir, wikiDir)].sort();
   const slugToTitle = new Map(notesManifest.map(note => [note.slug, note.title]));
 
   const articles: ArticleData[] = [];
+  const slugToFile = new Map<string, string>();
 
   for (const filePath of mdFiles) {
     const raw = readFileSync(filePath, 'utf-8');
     const rel = relative(wikiDir, filePath);
-    const slug = rel.replace(/\.md$/, '');
+    const slug = slugLikePapyr(rel);
+
+    // Two files with the same basename collide on slug inside papyr-core
+    // (issue #1, secondary). Keep the first, warn loudly about the rest.
+    const collidingFile = slugToFile.get(slug);
+    if (collidingFile) {
+      console.warn(
+        `[present] Slug collision: "${rel}" and "${collidingFile}" both map to "${slug}" — rename one file; skipping "${rel}"`,
+      );
+      continue;
+    }
 
     const manifest = notesManifest.find(n => n.slug === slug);
     if (!manifest) continue;
+    slugToFile.set(slug, rel);
+
+    const parentDir = dirname(rel);
+    const category = parentDir === '.' ? undefined : parentDir;
 
     const parsed = await parseMarkdown(stripFrontmatter(raw), { path: rel });
     const resolvedHtml = resolveWikilinks(parsed.html, slugToTitle);
+    const { html: dedupedHtml, stripped } = stripDuplicateTitleH2(
+      stripLeadingH1(resolvedHtml),
+      manifest.title,
+    );
 
     const article = validateArticleData({
       slug,
       title: manifest.title,
       summary: manifest.summary ?? '',
       tags: manifest.tags,
-      html: stripLeadingH1(resolvedHtml),
+      html: dedupedHtml,
       wordCount: manifest.wordCount,
       readingTime: manifest.readingTime,
       linksTo: manifest.linksTo,
-      headings: manifest.headings,
+      headings: stripped
+        ? withoutDuplicateTitleHeading(manifest.headings, manifest.title)
+        : manifest.headings,
       confidence: manifest.confidence ?? '',
       sources: manifest.sources ?? [],
+      ...(category ? { category } : {}),
     }, slug);
 
     if (!article) continue;
@@ -370,6 +457,11 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
       if (!knownSlugs.has(target)) {
         console.warn(`[present] Dangling link: ${article.slug} -> ${target} (target not in article set)`);
       }
+    }
+    if (LEGACY_LINK_SURVIVOR.test(article.html)) {
+      console.warn(
+        `[present] Legacy link form survived in "${article.slug}" — check the source markdown for /client-config/ or #/note/ hrefs`,
+      );
     }
   }
 

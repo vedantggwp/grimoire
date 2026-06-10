@@ -35,6 +35,8 @@ export interface ArticleData {
   readonly slug: string;
   readonly title: string;
   readonly summary: string;
+  /** Taxonomy directory the article lives in (`wiki/{category}/{slug}.md`), if any. */
+  readonly category?: string;
   readonly tags: readonly string[];
   readonly html: string;
   readonly wordCount: number;
