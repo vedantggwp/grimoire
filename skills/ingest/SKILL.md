@@ -16,7 +16,7 @@ with frontmatter and cross-references.
 ## Prerequisites
 
 - A grimoire workspace must exist — check for `SCHEMA.md` in the workspace root.
-  If it is missing, tell the user to run `/grimoire:init` first.
+  If it is missing, tell the user to run `/grimoire:new` first.
 - Either `approved-sources.md` exists in the workspace (produced by scout),
   OR the user provides a direct source (URL, local file path, or pasted text).
 - Read `SCHEMA.md` before doing anything else — it defines the taxonomy, naming
@@ -75,7 +75,7 @@ Retrieve the full source content.
 - **Pasted text**: Use as-is.
 
 Save the raw file using the template at:
-`${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/raw-template.md`
+`${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/raw-template.md`
 
 File location in the workspace:
 
@@ -140,7 +140,7 @@ Execute only the confirmed actions from Step 4.
 ### New articles
 
 Use the article template at:
-`${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/article-template.md`
+`${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/article-template.md`
 
 Populate frontmatter:
 
@@ -202,7 +202,7 @@ Update three files in the workspace. Do not skip any of them.
 
 **wiki/index.md** — If the file is missing (user deleted it, or this workspace
 was not scaffolded by init), create it first using the index template at
-`${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/index-template.md`, then
+`${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/index-template.md`, then
 populate. Otherwise, add new articles to the correct category table, update
 the summary line and date for any modified articles, and increment the total
 article count if you created new articles.

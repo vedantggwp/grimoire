@@ -21,7 +21,7 @@ grimoire/
     plugin.json              # Plugin manifest
   skills/                    # Claude-driven workflows
     run/                     # One-command orchestrator (2 checkpoints)
-    init/                    # Interactive questionnaire + scaffold
+    new/                     # Interactive questionnaire + scaffold
     scout/                   # Web research + 6-signal scoring
     ingest/                  # Fetch, preserve raw, compile articles
     compile/                 # Graph audit, backlinks, taxonomy
@@ -42,7 +42,7 @@ Skills auto-discover from `skills/*/SKILL.md` when Claude Code loads the plugin.
 ## Five Stages
 
 ```
- init            scout            ingest            compile           present           serve
+ new             scout            ingest            compile           present           serve
   |                |                 |                 |                 |                |
   v                v                 v                 v                 v                v
   SCHEMA.md      scout-report.md    raw/*.md          wiki/.compile/    site/             MCP server
@@ -57,7 +57,7 @@ Skills auto-discover from `skills/*/SKILL.md` when Claude Code loads the plugin.
 | Stage | Job | Human checkpoint? |
 |-------|-----|-------------------|
 | `run` | One-command orchestrator | Yes — 2 taste checkpoints |
-| `init` | 7-question questionnaire, workspace scaffold | Implicit (interactive) |
+| `new` | 7-question questionnaire, workspace scaffold | Implicit (interactive) |
 | `scout` | Research + score sources, curate approved list | Yes — approve before ingest |
 | `ingest` | Fetch, preserve raw, compile articles | Yes — approve takeaways before write |
 | `compile` | Graph audit, link repair, overview, gap analysis | No — deterministic |
@@ -74,7 +74,7 @@ two taste checkpoints:
   /grimoire "topic"
        |
        v
-    init (auto)  →  smart defaults from topic sentence
+    new (auto)  →  smart defaults from topic sentence
        |
        v
     scout (auto)  →  search angles derived, searches executed
@@ -95,7 +95,7 @@ two taste checkpoints:
   ──CHECKPOINT 2──  final review (approve or give feedback)
 ```
 
-Individual skills (`/grimoire:init`, `/grimoire:scout`, etc.) retain their
+Individual skills (`/grimoire:new`, `/grimoire:scout`, etc.) retain their
 full checkpoint flows for power users who want granular control. Flags like
 `--guided`, `--review-angles`, and `--sequential` restore individual
 checkpoints within the orchestrated flow.
@@ -106,7 +106,7 @@ Every stage reads from the workspace, writes back to the workspace. Files
 between stages are the contract:
 
 - `SCHEMA.md` — workspace config (topic, scope, audience, taxonomy)
-- `scout-queue.md` — seed URLs from init
+- `scout-queue.md` — seed URLs from onboarding
 - `scout-report.md`, `approved-sources.md`, `scout-notes.md` — scout outputs
 - `raw/{topic}/{date}-{source}.md` — immutable source archive
 - `wiki/*.md` — compiled articles with frontmatter

@@ -30,7 +30,7 @@ No `npm install`, no build step: the plugin ships pre-built bundles in `dist/` t
 ## How it works
 
 ```
-init      scaffolds the workspace (SCHEMA.md, _config/, wiki/)
+new       scaffolds the workspace (SCHEMA.md, _config/, wiki/)
   |
 scout     finds and scores sources (6-signal confidence rubric)
   |        -> scout-report.md, approved-sources.md   [you curate]
@@ -52,8 +52,8 @@ Every handoff between stages is a markdown or JSON file you can inspect and edit
 
 | Skill | What it does |
 |---|---|
-| `run` | One-command pipeline: init → scout → ingest → compile → present, with exactly 2 taste checkpoints |
-| `init` | Interactive questionnaire + workspace scaffold, with project auto-discovery |
+| `run` | One-command pipeline: new → scout → ingest → compile → present, with exactly 2 taste checkpoints |
+| `new` | Interactive questionnaire + workspace scaffold, with project auto-discovery |
 | `scout` | Web research with 6-signal confidence scoring; delta mode for update runs |
 | `ingest` | Fetches approved sources, preserves raw text immutably, compiles wiki articles |
 | `compile` | Graph audit, backlink repair, overview evolution, gap analysis, emergent taxonomy, freshness report |
@@ -61,7 +61,7 @@ Every handoff between stages is a markdown or JSON file you can inspect and edit
 | `serve` | MCP server exposing 7 retrieval tools |
 | `update` | Self-updating: scheduled delta scout → policy-gated ingest → connection mining → freshness → PR |
 
-`init`, `scout`, `ingest`, `run`, and `update` are Claude-driven workflows defined in `SKILL.md` files. `compile`, `present`, and `serve` have TypeScript runtimes bundled into self-contained ESM files under `dist/`, invoked via `node ${CLAUDE_PLUGIN_ROOT}/dist/<skill>.js`.
+`new`, `scout`, `ingest`, `run`, and `update` are Claude-driven workflows defined in `SKILL.md` files. `compile`, `present`, and `serve` have TypeScript runtimes bundled into self-contained ESM files under `dist/`, invoked via `node ${CLAUDE_PLUGIN_ROOT}/dist/<skill>.js`.
 
 ## Keeping it current
 
@@ -73,7 +73,7 @@ A knowledge base built once decays. `/grimoire:update` is the maintenance loop:
 4. **Freshness** — every article is tiered fresh / aging / stale against configurable windows; optionally the stalest articles' sources are re-fetched and verified.
 5. **PR-gated shipping** — everything lands on a branch with a digest (sources found, skipped-with-scores, articles changed, connections made) as the PR body. The update never touches your default branch. A run with nothing new is a no-op — no empty PRs.
 
-Your judgment lives in [`_config/update.md`](skills/init/assets/templates/update-config.md) — score thresholds, per-run caps, staleness windows, watchlist — and in PR review.
+Your judgment lives in [`_config/update.md`](skills/new/assets/templates/update-config.md) — score thresholds, per-run caps, staleness windows, watchlist — and in PR review.
 
 **Scheduling.** Run it manually ("what's new?"), from local cron — which uses your existing Claude Code login, zero extra credentials:
 

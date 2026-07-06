@@ -3,9 +3,9 @@ name: run
 description: >-
   Use this skill when the user wants to create a grimoire in one command, says
   "grimoire about X", "build a knowledge base about X", or provides a quoted topic
-  like '/grimoire "reinforcement learning"'. Chains init → scout → ingest → compile
+  like '/grimoire "reinforcement learning"'. Chains new → scout → ingest → compile
   → present into a single flow with exactly two taste checkpoints: source curation
-  and final review. Use /grimoire:init, /grimoire:scout, etc. for individual stages.
+  and final review. Use /grimoire:new, /grimoire:scout, etc. for individual stages.
 version: 0.1.0
 ---
 
@@ -18,7 +18,7 @@ checkpoints, smart defaults for everything else.
 
 - **This skill (`/grimoire "topic"`)** — first-time users, repeat users who want speed,
   anyone who says "build a knowledge base about X" without specifying a stage.
-- **Individual skills** (`/grimoire:init`, `/grimoire:scout`, etc.) — power users who
+- **Individual skills** (`/grimoire:new`, `/grimoire:scout`, etc.) — power users who
   want granular control, users who explicitly name a stage, incremental operations
   on an existing grimoire.
 
@@ -26,7 +26,7 @@ checkpoints, smart defaults for everything else.
 
 | Flag | What it does | Default |
 |------|-------------|---------|
-| `--guided` | Run the full 7-question init questionnaire (Step 1 becomes interactive) | off |
+| `--guided` | Run the full 7-question onboarding questionnaire (Step 1 becomes interactive) | off |
 | `--review-angles` | Add scout angle approval checkpoint before searching | off |
 | `--sequential` | Process sources one-at-a-time with per-source takeaway approval | off |
 | `--from <path>` | Inherit palette, typography, audience, and taxonomy style from an existing grimoire | none |
@@ -39,7 +39,7 @@ Detect these from the user's input. Examples:
 - "Grimoire about Rust, midnight-teal palette" → `--palette midnight-teal`
 - "Grimoire about ML, I want to review each source individually" → `--sequential`
 
-## Step 1 — Init (automatic)
+## Step 1 — New (automatic)
 
 Extract the topic from the user's input. The quoted or natural-language topic IS
 the topic — do not ask a questionnaire unless `--guided` is set.
@@ -66,10 +66,10 @@ taxonomy style. The topic and scope still come from the user's input.
 Do not ask — scaffold silently. If the directory already exists and contains
 `SCHEMA.md`, warn and ask to confirm overwrite.
 
-Scaffold the workspace using the same templates as `/grimoire:init`:
-- `SCHEMA.md` from `${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/schema-template.md`
-- `_config/design.md` from `${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/design-config.md`
-- `wiki/index.md` from `${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/index-template.md`
+Scaffold the workspace using the same templates as `/grimoire:new`:
+- `SCHEMA.md` from `${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/schema-template.md`
+- `_config/design.md` from `${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/design-config.md`
+- `wiki/index.md` from `${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/index-template.md`
 - `wiki/overview.md` — stub
 - `wiki/log.md` — empty changelog
 - `raw/` — empty directory
@@ -82,8 +82,8 @@ Workspace scaffolded at {path} for "{topic}" (audience: {audience}, palette: {pa
 
 ### Guided flow (`--guided`)
 
-Delegate to `/grimoire:init` — run the full 7-question questionnaire. After init
-completes, continue to Step 2 with the scaffolded workspace.
+Delegate to `/grimoire:new` — run the full 7-question questionnaire. After the
+questionnaire completes, continue to Step 2 with the scaffolded workspace.
 
 ## Step 2 — Scout (automatic)
 
@@ -276,7 +276,7 @@ Next steps:
 
 If a CLAUDE.md was detected in cwd during Step 1, ask: "Add a grimoire reference
 to your project's CLAUDE.md?" If yes, append the integration snippet as described
-in `skills/init/SKILL.md` Step 6.
+in `skills/new/SKILL.md` Step 6.
 
 ### If feedback given
 
@@ -310,7 +310,7 @@ If the user runs `/grimoire "add sources about X"` or `/grimoire "expand coverag
 of Y"` and a `SCHEMA.md` already exists in the working directory or a child
 directory, treat this as an **incremental** run:
 
-1. **Skip init** — the workspace already exists
+1. **Skip scaffolding** — the workspace already exists
 2. **Targeted scout** — derive search angles from the new subtopic only, not the
    full original topic. Add new sources to the existing `approved-sources.md`
 3. **Checkpoint 1** — present only the NEW sources for approval (show existing

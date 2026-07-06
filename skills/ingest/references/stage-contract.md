@@ -9,8 +9,8 @@ Fetch approved sources, preserve raw text, and compile structured wiki articles.
 | `SCHEMA.md` | Topic, scope, taxonomy, naming conventions |
 | `wiki/index.md` | Existing article inventory |
 | `wiki/*.md` | Existing articles (for merge decisions) |
-| Templates: `${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/raw-template.md` | Raw source format |
-| Templates: `${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/article-template.md` | Article format |
+| Templates: `${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/raw-template.md` | Raw source format |
+| Templates: `${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/article-template.md` | Article format |
 
 ## Process
 1. Identify the next pending source from approved-sources.md (highest priority first).

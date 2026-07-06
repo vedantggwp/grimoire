@@ -9,7 +9,7 @@ grimoire/
 ├── .claude-plugin/
 │   └── plugin.json              # REQUIRED — only hard requirement
 ├── skills/                       # Auto-discovered via SKILL.md in subdirs
-│   └── init/
+│   └── new/
 │       ├── SKILL.md             # Required per skill
 │       ├── references/          # Loaded on-demand
 │       └── assets/              # Templates, not loaded into context

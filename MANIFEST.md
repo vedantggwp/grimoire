@@ -4,6 +4,7 @@
 - `README.md` — v0.4.0 rewrite: quick start, positioning (vs notes apps / chat / RAG), pipeline incl. update stage, 8-skill table, self-updating section with both schedulers and the subscription-auth story, accurate v0.4 frontend + MCP reference, example use cases, dev guide with CONTRIBUTING/SECURITY links
 - `CLAUDE.md` — Project instructions, plugin structure overview, core rules
 - `SOUL.md` — Product soul: identity, vision, boundaries, principles
+- `NOTES.md` — Task-local survivor notes for the init-to-new rename acceptance grep
 - `package.json` — v0.3.1; runtime deps (papyr-core, @modelcontextprotocol/sdk, zod, d3); esbuild@0.28.0 dev dep (exact pin) for production bundling; `build` / `build:watch` / `prepack` scripts
 - `LICENSE` — MIT license (full text, created 2026-04-10)
 - `.gitignore` — Standard ignores; `**/.compile/`, `**/site/` derived artifacts excluded; `package-lock.json` is NOT ignored (ships for reproducibility)
@@ -12,14 +13,14 @@
 - `.claude-plugin/plugin.json` — Plugin manifest v0.2.2; top-level `homepage` and `repository` fields pointing at vedantggwp/grimoire; published through the Athanor marketplace at vedantggwp/athanor
 
 ## Skills
-- `skills/init/SKILL.md` — v0.2.0: project auto-discovery (detects existing projects, pre-fills answers, confirmation step) + workspace location checkpoint; 7 steps
-- `skills/init/references/questionnaire.md` — 7-question onboarding flow
-- `skills/init/assets/templates/schema-template.md` — SCHEMA.md template
-- `skills/init/assets/templates/design-config.md` — Design configuration template
-- `skills/init/assets/templates/article-template.md` — Wiki article format
-- `skills/init/assets/templates/raw-template.md` — Raw source preservation format
-- `skills/init/assets/templates/archive-template.md` — Archived query format
-- `skills/init/assets/templates/index-template.md` — Wiki index table format
+- `skills/new/SKILL.md` — v0.2.0: project auto-discovery (detects existing projects, pre-fills answers, confirmation step) + workspace location checkpoint; 7 steps
+- `skills/new/references/questionnaire.md` — 7-question onboarding flow
+- `skills/new/assets/templates/schema-template.md` — SCHEMA.md template
+- `skills/new/assets/templates/design-config.md` — Design configuration template
+- `skills/new/assets/templates/article-template.md` — Wiki article format
+- `skills/new/assets/templates/raw-template.md` — Raw source preservation format
+- `skills/new/assets/templates/archive-template.md` — Archived query format
+- `skills/new/assets/templates/index-template.md` — Wiki index table format
 - `skills/scout/SKILL.md` — Source research + 6-signal confidence scoring
 - `skills/scout/references/stage-contract.md` — Scout stage contract
 - `skills/scout/references/scout-spec.md` — Full scout specification
@@ -36,12 +37,12 @@
 - `skills/serve/SKILL.md` — v0.2.0: resolves plugin root + workspace to absolute paths, writes pre-filled `mcp-config-snippet.json` to workspace root, prints paste-ready JSON inline (no more `~` / env-var placeholders — Claude Desktop config is plain JSON and doesn't expand them)
 - `skills/serve/references/stage-contract.md` — Serve stage contract
 - `skills/serve/references/mcp-spec.md` — MCP server tool inventory (fixed stale "watches for changes" claim)
-- `skills/run/SKILL.md` — v0.1.0: One-command orchestrator chaining init→scout→ingest→compile→present with 2 taste checkpoints (source curation, final review); smart defaults from topic inference; flags for --guided, --review-angles, --sequential, --from, --no-present, --palette; incremental mode for existing workspaces
+- `skills/run/SKILL.md` — v0.1.0: One-command orchestrator chaining new→scout→ingest→compile→present with 2 taste checkpoints (source curation, final review); smart defaults from topic inference; flags for --guided, --review-angles, --sequential, --from, --no-present, --palette; incremental mode for existing workspaces
 - `skills/update/SKILL.md` — v0.1.0: The scheduled editorial pass (/grimoire:update). Headless contract (never AskUserQuestion — policy file + PR review replace checkpoints), 12 steps: compile context → delta scout → policy auto-curation → batch ingest → compile fixes → connection pass → freshness pass → present → digest → ship per autonomy with explicit degradation ladder (pr → branch → digest-only). Flags: --dry-run, --workspace, --setup (installs the GitHub Actions adapter)
 - `skills/update/references/digest-template.md` — Update digest structure: What's New, Sources table (incl. below-threshold so reviewers can promote), Articles, New Connections, Freshness, Attention Needed
 - `skills/update/references/pr-template.md` — PR title format + reviewer checklist appended to the digest body
 - `skills/update/assets/github-workflow.yml` — Flagship scheduler template: weekly cron + workflow_dispatch, claude-code-action@v1 automation mode, allowedTools allowlist, contents/PR/id-token permissions, GITHUB_TOKEN recursion-guard note
-- `skills/init/assets/templates/update-config.md` — `_config/update.md` policy template: commented frontmatter (cadence, autonomy, min_score, caps, staleness windows, verify_stale) + Watchlist + Connection exclusions sections; verified to round-trip through lib/update-policy.ts
+- `skills/new/assets/templates/update-config.md` — `_config/update.md` policy template: commented frontmatter (cadence, autonomy, min_score, caps, staleness windows, verify_stale) + Watchlist + Connection exclusions sections; verified to round-trip through lib/update-policy.ts
 - `skills/run/references/design-shortcuts.md` — Natural-language phrase mapping for palette, typography, density, and motion config changes
 - `skills/serve/references/integration.md` — CLAUDE.md integration rules
 
