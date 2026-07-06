@@ -32,7 +32,12 @@ interface GraphData {
 }
 
 interface AnalyticsData {
-  readonly basic: { readonly totalNotes: number; readonly totalWords: number };
+  readonly basic: {
+    readonly totalNotes: number;
+    readonly totalWords: number;
+    readonly contentArticles?: number;
+    readonly supportPages?: number;
+  };
   readonly content: { readonly wordDistribution: { readonly median: number } };
   readonly tags: { readonly tagDistribution: Record<string, number> };
 }
@@ -309,6 +314,32 @@ const STOP_WORDS = new Set([
   'do', 'does', 'did', 'of', 'for', 'to', 'in', 'on', 'at', 'by',
   'with', 'from', 'as', 'and', 'or', 'but', 'about', 'tell', 'me',
 ]);
+
+export const grimoireQueryInputSchema = z
+  .object({
+    query: z.string().optional().describe('The question to answer'),
+  })
+  .catchall(z.unknown())
+  .superRefine((args, ctx) => {
+    const question = (args as Record<string, unknown>).question;
+    if (args.query === undefined && typeof question !== 'string') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['query'],
+        message: 'Expected query or question',
+      });
+    }
+  });
+
+export function normalizeQueryInput(args: z.infer<typeof grimoireQueryInputSchema>): string {
+  if (typeof args.query === 'string') return args.query;
+  const question = (args as Record<string, unknown>).question;
+  return typeof question === 'string' ? question : '';
+}
+
+export function parseQueryInput(args: unknown): string {
+  return normalizeQueryInput(grimoireQueryInputSchema.parse(args));
+}
 
 // Shared hit shape so the fallback path can substitute for papyr-core's SearchResult.
 interface SearchHit {
@@ -789,12 +820,14 @@ function createServer(data: WikiData): McpServer {
     },
   );
 
-  server.tool(
+  server.registerTool(
     'grimoire_query',
-    'Answer a natural-language question by finding the most relevant articles. Returns top-3 matches with summaries and slugs for deeper retrieval. Use this FIRST for factual questions. For keyword search, use grimoire_search instead.',
-    { query: z.string().describe('The question to answer') },
-    async ({ query }) => ({
-      content: [{ type: 'text' as const, text: handleQuery(query, data) }],
+    {
+      description: 'Answer a natural-language question by finding the most relevant articles. Returns top-3 matches with summaries and slugs for deeper retrieval. Use this FIRST for factual questions. For keyword search, use grimoire_search instead.',
+      inputSchema: grimoireQueryInputSchema,
+    },
+    async (args) => ({
+      content: [{ type: 'text' as const, text: handleQuery(normalizeQueryInput(args), data) }],
     }),
   );
 

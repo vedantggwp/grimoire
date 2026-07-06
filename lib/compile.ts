@@ -176,6 +176,8 @@ export interface OverviewMetadata {
   readonly requiredCitations: readonly string[];
   readonly coverageStats: {
     readonly articleCount: number;
+    readonly contentArticles: number;
+    readonly supportPages: number;
     readonly totalWords: number;
     readonly sourceCount: number;
     readonly crossRefs: number;
@@ -190,6 +192,19 @@ export interface OverviewMetadata {
 
 function contentArticles<T extends { slug: string }>(notes: readonly T[]): readonly T[] {
   return notes.filter((n) => !SUPPORT_SLUGS.has(n.slug));
+}
+
+function articleCounts(notes: readonly { slug: string }[]): {
+  readonly totalNotes: number;
+  readonly contentArticles: number;
+  readonly supportPages: number;
+} {
+  const contentCount = contentArticles(notes).length;
+  return {
+    totalNotes: notes.length,
+    contentArticles: contentCount,
+    supportPages: notes.length - contentCount,
+  };
 }
 
 // Nested cooccurrence map keyed by (lexSmaller, lexLarger) — avoids
@@ -307,6 +322,8 @@ export function buildTaxonomyProposal(
   if (uniqueTags.size < 5) return null;
 
   const groups = buildCandidateGroups(content);
+  if (groups.length === 0) return null;
+
   const categorized = new Set<string>();
   for (const g of groups) for (const s of g.articles) categorized.add(s);
   const uncategorized = content.map((n) => n.slug).filter((s) => !categorized.has(s)).sort();
@@ -331,6 +348,7 @@ export function buildOverviewMetadata(
   now: Date = new Date(),
 ): OverviewMetadata {
   const content = contentArticles(notes);
+  const counts = articleCounts(notes);
 
   const ranked = content
     .map((n) => ({ slug: n.slug, title: n.title, centrality: centrality.get(n.slug) ?? 0 }))
@@ -364,6 +382,8 @@ export function buildOverviewMetadata(
     requiredCitations: ranked.map((r) => r.slug),
     coverageStats: {
       articleCount: content.length,
+      contentArticles: counts.contentArticles,
+      supportPages: counts.supportPages,
       totalWords,
       sourceCount: sourceUrls.size,
       crossRefs: crossRefCount,
@@ -372,6 +392,19 @@ export function buildOverviewMetadata(
     },
     topicClusters,
   };
+}
+
+function taxonomyProposalConditionsMet(
+  notes: readonly NoteManifestEntry[],
+  schemaTaxonomy: SchemaTaxonomy,
+): boolean {
+  if (schemaTaxonomy === 'defined') return false;
+  const content = contentArticles(notes);
+  if (content.length < 5) return false;
+
+  const uniqueTags = new Set<string>();
+  for (const n of content) for (const t of n.tags) uniqueTags.add(t);
+  return uniqueTags.size >= 5;
 }
 
 const EMPTY_FRONTMATTER: ArticleFrontmatter = {
@@ -474,8 +507,11 @@ async function compile(): Promise<void> {
   }
 
   const { notes, graph, searchIndex, analytics, buildInfo } = result;
+  const counts = articleCounts(notes);
 
-  console.log(`Processed ${notes.length} notes in ${buildInfo.duration}ms\n`);
+  console.log(
+    `Processed ${counts.contentArticles} content articles and ${counts.supportPages} support pages (${counts.totalNotes} markdown files) in ${buildInfo.duration}ms\n`,
+  );
 
   // Step 2: Ensure output directory
   mkdirSync(outputDir, { recursive: true });
@@ -536,7 +572,11 @@ async function compile(): Promise<void> {
 
   // Step 8: Write analytics.json
   writeJSON('analytics.json', {
-    basic: analytics.basic,
+    basic: {
+      ...analytics.basic,
+      contentArticles: counts.contentArticles,
+      supportPages: counts.supportPages,
+    },
     graph: analytics.graph,
     content: analytics.content,
     tags: analytics.tags,
@@ -577,11 +617,15 @@ async function compile(): Promise<void> {
   // Step 5.5 conditions are met. Absence of the file = conditions not met,
   // so a stale file from a previous run must be removed.
   const workspaceDir = dirname(resolvedWikiDir);
-  const proposal = buildTaxonomyProposal(noteManifest, parseSchemaTaxonomy(workspaceDir));
+  const schemaTaxonomy = parseSchemaTaxonomy(workspaceDir);
+  const proposal = buildTaxonomyProposal(noteManifest, schemaTaxonomy);
   if (proposal) {
     writeJSON('taxonomy-proposal.json', proposal);
   } else {
     removeStaleArtifact('taxonomy-proposal.json');
+    if (taxonomyProposalConditionsMet(noteManifest, schemaTaxonomy)) {
+      console.log('  taxonomy: no candidate groups — no proposal');
+    }
   }
 
   // Step 12 — update-engine artifacts (v0.4.0): freshness tiers, connection
@@ -617,7 +661,8 @@ async function compile(): Promise<void> {
   // Summary
   const f = freshness.summary;
   console.log('\nCompile summary:');
-  console.log(`  Notes:           ${notes.length}`);
+  console.log(`  Content articles: ${counts.contentArticles}`);
+  console.log(`  Support pages:    ${counts.supportPages}`);
   console.log(`  Links:           ${linkValidation.totalLinks} total, ${linkValidation.orphanedLinks} orphaned`);
   console.log(`  Orphan notes:    ${orphanedNotes.length}`);
   console.log(`  Components:      ${components.length}`);

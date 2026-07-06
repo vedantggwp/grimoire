@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'node:child_process';
-import { readFileSync, existsSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, rmSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const WIKI_DIR = join(__dirname, 'fixtures/sample-wiki/wiki');
@@ -10,6 +11,80 @@ const TSX_RUNNER = 'node --import tsx/esm';
 
 function readJSON(filename: string): unknown {
   return JSON.parse(readFileSync(join(COMPILE_DIR, filename), 'utf-8'));
+}
+
+function createNoCandidateTaxonomyWorkspace(root: string): void {
+  const wikiDir = join(root, 'wiki');
+  mkdirSync(wikiDir, { recursive: true });
+  mkdirSync(join(wikiDir, '.compile'), { recursive: true });
+
+  writeFileSync(join(root, 'SCHEMA.md'), `# Test Schema
+
+## Domain
+
+\`\`\`
+topic: Dogfood Taxonomy Edge
+taxonomy: "emergent"
+scope:
+  in: "Taxonomy proposal regression"
+  out: "Production content"
+\`\`\`
+`, 'utf-8');
+
+  writeFileSync(join(wikiDir, 'index.md'), `# Wiki Index
+
+| Article | Summary |
+|---------|---------|
+| [[article-one]] | First article |
+| [[article-two]] | Second article |
+| [[article-three]] | Third article |
+| [[article-four]] | Fourth article |
+| [[article-five]] | Fifth article |
+`, 'utf-8');
+
+  writeFileSync(join(wikiDir, 'overview.md'), `# Overview
+
+## Open Questions
+
+- What categories should emerge?
+`, 'utf-8');
+
+  writeFileSync(join(wikiDir, 'log.md'), `# Wiki Log
+
+## 2026-07-06 — Test workspace
+
+- Created for taxonomy proposal regression.
+`, 'utf-8');
+
+  const articles = [
+    ['article-one', 'Article One', 'alpha'],
+    ['article-two', 'Article Two', 'bravo'],
+    ['article-three', 'Article Three', 'charlie'],
+    ['article-four', 'Article Four', 'delta'],
+    ['article-five', 'Article Five', 'echo'],
+  ] as const;
+
+  for (const [slug, title, tag] of articles) {
+    writeFileSync(join(wikiDir, `${slug}.md`), `---
+title: "${title}"
+summary: "${title} covers a distinct topic with a unique tag so no taxonomy group can be inferred."
+tags: [${tag}]
+sources: []
+updated: 2026-07-06
+confidence: P1
+---
+
+# ${title}
+
+## Overview
+
+${title} is intentionally tagged with only ${tag}. The fixture has enough
+content articles and enough unique tags to pass the taxonomy proposal gates,
+but no pair of tags co-occurs across two articles.
+`, 'utf-8');
+  }
+
+  writeFileSync(join(wikiDir, '.compile', 'taxonomy-proposal.json'), '{"stale": true}', 'utf-8');
 }
 
 describe('compile', () => {
@@ -121,6 +196,8 @@ describe('compile', () => {
     it('provides basic stats', () => {
       const analytics = readJSON('analytics.json') as any;
       expect(analytics.basic.totalNotes).toBe(7);
+      expect(analytics.basic.contentArticles).toBe(4);
+      expect(analytics.basic.supportPages).toBe(3);
       expect(analytics.basic.totalWords).toBeGreaterThan(0);
       expect(analytics.basic.averageWordsPerNote).toBeGreaterThan(0);
     });
@@ -257,6 +334,8 @@ describe('compile', () => {
     it('emits coverage stats (articleCount, totalWords, sourceCount, crossRefs)', () => {
       const meta = readJSON('overview-metadata.json') as any;
       expect(meta.coverageStats.articleCount).toBe(4); // 4 content articles in sample-wiki
+      expect(meta.coverageStats.contentArticles).toBe(4);
+      expect(meta.coverageStats.supportPages).toBe(3);
       expect(meta.coverageStats.totalWords).toBeGreaterThan(0);
       expect(meta.coverageStats.crossRefs).toBeGreaterThan(0);
       expect(typeof meta.coverageStats.componentCount).toBe('number');
@@ -323,6 +402,49 @@ describe('compile — workspace root input', () => {
     expect(react).toBeDefined();
     expect(react.confidence).toBe('P0');
     expect(react.sources.length).toBeGreaterThan(0);
+  });
+});
+
+describe('compile — dogfood count and taxonomy regressions', () => {
+  const WORKSPACE_DIR = mkdtempSync(join(tmpdir(), 'grimoire-dogfood-'));
+  const WIKI_DIR = join(WORKSPACE_DIR, 'wiki');
+  const COMPILE_DIR = join(WIKI_DIR, '.compile');
+  let stdout = '';
+
+  beforeAll(() => {
+    createNoCandidateTaxonomyWorkspace(WORKSPACE_DIR);
+    stdout = execSync(`${TSX_RUNNER} ${SCRIPT} ${WORKSPACE_DIR}`, {
+      cwd: join(__dirname, '..'),
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 30000,
+    });
+  });
+
+  afterAll(() => {
+    rmSync(WORKSPACE_DIR, { recursive: true, force: true });
+  });
+
+  it('reports content articles and support pages separately in user-facing output and JSON', () => {
+    expect(stdout).toContain('Processed 5 content articles and 3 support pages');
+    expect(stdout).toContain('Content articles: 5');
+    expect(stdout).toContain('Support pages:    3');
+    expect(stdout).not.toContain('Processed 8 notes');
+
+    const analytics = JSON.parse(readFileSync(join(COMPILE_DIR, 'analytics.json'), 'utf-8')) as any;
+    expect(analytics.basic.totalNotes).toBe(8);
+    expect(analytics.basic.contentArticles).toBe(5);
+    expect(analytics.basic.supportPages).toBe(3);
+
+    const overview = JSON.parse(readFileSync(join(COMPILE_DIR, 'overview-metadata.json'), 'utf-8')) as any;
+    expect(overview.coverageStats.articleCount).toBe(5);
+    expect(overview.coverageStats.contentArticles).toBe(5);
+    expect(overview.coverageStats.supportPages).toBe(3);
+  });
+
+  it('removes stale taxonomy-proposal.json and logs when candidate groups are empty', () => {
+    expect(existsSync(join(COMPILE_DIR, 'taxonomy-proposal.json'))).toBe(false);
+    expect(stdout).toContain('taxonomy: no candidate groups — no proposal');
   });
 });
 

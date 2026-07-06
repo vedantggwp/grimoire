@@ -125,8 +125,9 @@ gives you the deterministic inputs for the overview:
 - `requiredCitations` — the slugs that **must** appear as `[[slug]]`
   wikilinks in the overview. Step 9 audits this. If you skip any, the
   compile will loop back here until it's fixed
-- `coverageStats` — article count, source count, cross-refs, total
-  words; use these verbatim in the `## Coverage` section
+- `coverageStats` — content article count, support page count, source
+  count, cross-refs, total words; use these verbatim in the `## Coverage`
+  section
 - `topicClusters` — connected-component groupings for `## Topic Clusters`
 
 Now read the full content of each `topCentralityArticles` entry and
@@ -140,7 +141,7 @@ connections. Not a list of articles — a narrative about the state of knowledge
 
 ## Coverage
 
-{Summary statistics: N articles, N sources, N cross-references, N words total.
+{Summary statistics: N content articles, N support pages, N sources, N cross-references, N words total.
 Note the strongest clusters and most-connected articles.}
 
 ## Topic Clusters
@@ -285,7 +286,8 @@ Save the report to `{workspace}/wiki/.compile/compile-report.md`:
 
 ## Graph Summary
 
-- Notes: {N}
+- Content articles: {N}
+- Support pages: {N}
 - Cross-references: {N} total, {N} valid, {N} orphaned
 - Orphan notes: {list or "none"}
 - Connected components: {N}
@@ -316,7 +318,7 @@ Append a compile entry:
 
 - Fixes applied: {N} (backlinks: {N}, broken links: {N}, index entries: {N})
 - Heuristic issues: {N} surfaced
-- Graph: {N} notes, {N} links, {N} components
+- Graph: {N} content articles, {N} support pages, {N} links, {N} components
 - Coverage gaps: {N} identified
 ```
 

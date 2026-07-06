@@ -10,7 +10,7 @@ version: 0.2.0
 
 # serve
 
-Expose a grimoire through a custom MCP server with 6 query tools over stdio.
+Expose a grimoire through a custom MCP server with 7 query tools over stdio.
 
 ## Prerequisites
 
@@ -155,6 +155,7 @@ Add to your `.mcp.json` or Claude Desktop config:
 - `grimoire_query` — ask a question, get a synthesized answer with sources
 - `grimoire_list_topics` — see what the wiki covers
 - `grimoire_get_article` — read a specific article
+- `grimoire_get_section` — read one heading-level section of an article
 - `grimoire_open_questions` — see what's still unresolved
 - `grimoire_coverage_gaps` — find what's missing
 - `grimoire_search` — full-text search
@@ -177,7 +178,7 @@ MCP server ready.
   Server:     {server-name}
   Serve JS:   {SERVE_JS}
   Transport:  stdio
-  Tools:      6 registered
+  Tools:      7 registered
   Articles:   {N} indexed
   Search:     FlexSearch index loaded ({N} documents)
 
@@ -199,7 +200,7 @@ Append:
 ```markdown
 ## {YYYY-MM-DD} — MCP Server Configured
 
-- Tools: grimoire_query, grimoire_list_topics, grimoire_get_article, grimoire_open_questions, grimoire_coverage_gaps, grimoire_search
+- Tools: grimoire_query, grimoire_list_topics, grimoire_get_article, grimoire_get_section, grimoire_open_questions, grimoire_coverage_gaps, grimoire_search
 - Articles indexed: {N}
 - Integration: {CLAUDE.md path if configured, or "none"}
 ```
@@ -222,6 +223,11 @@ understanding the wiki's scope.
 
 Returns the full markdown content of a specific article by slug. Use when
 the LLM needs the complete article text for detailed analysis.
+
+### grimoire_get_section
+
+Returns one H2 section from a specific article by slug and heading. Use when
+the LLM only needs a targeted slice of a larger article.
 
 ### grimoire_open_questions
 
