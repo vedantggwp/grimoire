@@ -26,3 +26,6 @@ test-results/
 
 # Local MCP config (machine-specific absolute paths — recreate from README's MCP section)
 .mcp.json
+
+# Growth operations workspace (scheduled-routine outputs, drafts, metrics)
+.growth/
