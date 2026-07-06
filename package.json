@@ -1,6 +1,6 @@
 {
   "name": "grimoire",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Knowledge base builder — Claude Code plugin",
   "type": "module",
   "license": "MIT",
@@ -12,7 +12,9 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "d3": "^7.9.0",
+    "gray-matter": "^4.0.3",
     "papyr-core": "^1.0.0",
+    "slugify": "^1.6.9",
     "zod": "^4.3.6"
   },
   "scripts": {

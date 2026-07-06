@@ -12,8 +12,8 @@
  * nested `wiki/` subdirectory.
  */
 
-import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 import matter from 'gray-matter';
 
 import {
@@ -35,6 +35,11 @@ import {
 } from 'papyr-core';
 
 import { SUPPORT_SLUGS } from './support-slugs.js';
+import { slugLikePapyr } from './slug.js';
+import { loadUpdatePolicy } from './update-policy.js';
+import { buildSourceLedger, normalizeFrontmatterDate } from './source-ledger.js';
+import { buildFreshnessReport } from './freshness.js';
+import { buildConnectionCandidates } from './connections.js';
 
 // --- CLI ---
 
@@ -94,13 +99,26 @@ function writeJSON(filename: string, data: unknown): void {
   console.log(`  ✓ ${filename}`);
 }
 
+// Conditional artifacts signal by absence — a leftover file from a previous
+// run would falsely claim the condition still holds.
+function removeStaleArtifact(filename: string): void {
+  const filepath = join(outputDir, filename);
+  if (existsSync(filepath)) {
+    rmSync(filepath);
+    console.log(`  ✗ ${filename} (condition no longer met — removed)`);
+  }
+}
+
 // Extract frontmatter fields we care about directly from the source file.
 // We don't rely on papyr-core's internal ParsedNote shape exposing these —
-// gray-matter is already a transitive dependency and gives us a stable contract.
+// gray-matter gives us a stable contract.
 interface ArticleFrontmatter {
   readonly summary: string;
   readonly confidence: string;
   readonly sources: readonly { readonly url: string; readonly title: string }[];
+  readonly updated: string | null;
+  readonly checked: string | null;
+  readonly evergreen: boolean;
 }
 
 type SchemaTaxonomy = 'emergent' | 'defined' | 'unknown';
@@ -356,9 +374,45 @@ export function buildOverviewMetadata(
   };
 }
 
-function extractFrontmatter(wikiDir: string, slug: string): ArticleFrontmatter {
+const EMPTY_FRONTMATTER: ArticleFrontmatter = {
+  summary: '',
+  confidence: '',
+  sources: [],
+  updated: null,
+  checked: null,
+  evergreen: false,
+};
+
+// Walk the wiki for **/*.md (excluding .compile/) and map each papyr-style
+// slug to its file. Slugs are basenames, so a nested article like
+// wiki/standards/quality.md must resolve to slug "quality" — joining
+// wikiDir + slug + ".md" silently lost frontmatter for nested files.
+function mapSlugsToFiles(wikiDir: string, dir: string = wikiDir): Map<string, string> {
+  const map = new Map<string, string>();
+  let entries;
   try {
-    const filePath = join(wikiDir, `${slug}.md`);
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return map;
+  }
+
+  for (const entry of [...entries].sort((a, b) => a.name.localeCompare(b.name))) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory() && !entry.name.startsWith('.')) {
+      for (const [slug, path] of mapSlugsToFiles(wikiDir, fullPath)) {
+        if (!map.has(slug)) map.set(slug, path);
+      }
+    } else if (entry.name.endsWith('.md')) {
+      const slug = slugLikePapyr(relative(wikiDir, fullPath));
+      if (!map.has(slug)) map.set(slug, fullPath);
+    }
+  }
+  return map;
+}
+
+function extractFrontmatter(filePath: string | undefined): ArticleFrontmatter {
+  if (!filePath) return EMPTY_FRONTMATTER;
+  try {
     const raw = readFileSync(filePath, 'utf-8');
     const data = matter(raw).data ?? {};
 
@@ -377,10 +431,17 @@ function extractFrontmatter(wikiDir: string, slug: string): ArticleFrontmatter {
       }
     }
 
-    return { summary, confidence, sources };
+    return {
+      summary,
+      confidence,
+      sources,
+      updated: normalizeFrontmatterDate(data.updated),
+      checked: normalizeFrontmatterDate(data.checked),
+      evergreen: data.evergreen === true,
+    };
   } catch {
-    // File not found or unreadable — emit empty fields, don't fail the build.
-    return { summary: '', confidence: '', sources: [] };
+    // File unreadable — emit empty fields, don't fail the build.
+    return EMPTY_FRONTMATTER;
   }
 }
 
@@ -483,9 +544,10 @@ async function compile(): Promise<void> {
 
   // Step 9: Write notes manifest (lightweight — slugs, titles, tags, word counts,
   // plus frontmatter fields that downstream skills need for token-efficient
-  // routing: summary, confidence, sources).
+  // routing: summary, confidence, sources, freshness dates).
+  const slugToFile = mapSlugsToFiles(resolvedWikiDir);
   const noteManifest = notes.map(n => {
-    const fm = extractFrontmatter(resolvedWikiDir, n.slug);
+    const fm = extractFrontmatter(slugToFile.get(n.slug));
     return {
       slug: n.slug,
       title: n.title,
@@ -497,6 +559,9 @@ async function compile(): Promise<void> {
       headings: n.headings.map(h => ({ level: h.level, text: h.text })),
       confidence: fm.confidence,
       sources: fm.sources,
+      updated: fm.updated,
+      checked: fm.checked,
+      evergreen: fm.evergreen,
     };
   });
   writeJSON('notes.json', noteManifest);
@@ -509,20 +574,56 @@ async function compile(): Promise<void> {
   );
 
   // Step 11 — taxonomy-proposal.json: conditional, only when the skill's
-  // Step 5.5 conditions are met. Absence of the file = conditions not met.
+  // Step 5.5 conditions are met. Absence of the file = conditions not met,
+  // so a stale file from a previous run must be removed.
   const workspaceDir = dirname(resolvedWikiDir);
   const proposal = buildTaxonomyProposal(noteManifest, parseSchemaTaxonomy(workspaceDir));
   if (proposal) {
     writeJSON('taxonomy-proposal.json', proposal);
+  } else {
+    removeStaleArtifact('taxonomy-proposal.json');
   }
 
+  // Step 12 — update-engine artifacts (v0.4.0): freshness tiers, connection
+  // candidates, and the pre-scout context for /grimoire:update. The policy
+  // and ledger degrade gracefully — no _config/update.md means defaults, no
+  // raw/ or approved-sources.md means an empty ledger.
+  const policy = loadUpdatePolicy(workspaceDir);
+  const ledger = buildSourceLedger(workspaceDir);
+
+  const freshness = buildFreshnessReport(noteManifest, ledger, policy);
+  writeJSON('freshness.json', freshness);
+
+  const candidates = buildConnectionCandidates(
+    noteManifest,
+    graph.edges,
+    components,
+    policy.connectionExclusions,
+  );
+  if (candidates.length > 0) {
+    writeJSON('connection-candidates.json', candidates);
+  } else {
+    removeStaleArtifact('connection-candidates.json');
+  }
+
+  writeJSON('update-context.json', {
+    generatedAt: new Date().toISOString(),
+    policy,
+    lastUpdate: ledger.lastUpdate,
+    knownUrlCount: ledger.knownUrls.length,
+    knownUrls: ledger.knownUrls,
+  });
+
   // Summary
+  const f = freshness.summary;
   console.log('\nCompile summary:');
   console.log(`  Notes:           ${notes.length}`);
   console.log(`  Links:           ${linkValidation.totalLinks} total, ${linkValidation.orphanedLinks} orphaned`);
   console.log(`  Orphan notes:    ${orphanedNotes.length}`);
   console.log(`  Components:      ${components.length}`);
   console.log(`  Graph density:   ${stats.density.toFixed(3)}`);
+  console.log(`  Freshness:       ${f.fresh} fresh / ${f.aging} aging / ${f.stale} stale / ${f.evergreen} evergreen / ${f.unknown} unknown`);
+  console.log(`  Connections:     ${candidates.length} candidate cross-reference${candidates.length === 1 ? '' : 's'}`);
   console.log(`  Build time:      ${buildInfo.duration}ms`);
   console.log(`\nOutputs written to: ${outputDir}\n`);
 }

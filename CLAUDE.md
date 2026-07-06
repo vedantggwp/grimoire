@@ -20,6 +20,7 @@ Grimoire is a Claude Code plugin. Skills are auto-discovered from `skills/*/SKIL
 | `compile` | Cross-references, backlinks, overview, gap analysis |
 | `present` | Generate study-oriented static frontend |
 | `serve` | Expose knowledge via custom MCP server |
+| `update` | Headless scheduled refresh: delta scout → policy ingest → connections → freshness → PR |
 
 ## Core Rules
 

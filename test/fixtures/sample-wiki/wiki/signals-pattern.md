@@ -8,6 +8,7 @@ sources:
     accessed: 2026-04-03
 updated: 2026-04-03
 confidence: P1
+evergreen: true
 ---
 
 # The Signals Pattern

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-05 — Update run (automated)
+
+- sources-added: 2
+- articles-changed: 3
+- connections-made: 1
+- Scouted 6 candidates, 4 already known
+- Stale check: vue-reactivity verified, checked date bumped
+
 ## 2026-04-01 — Ingested: React Documentation
 
 - Source: https://react.dev

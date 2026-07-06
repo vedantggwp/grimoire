@@ -7,6 +7,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { importSearchIndex, searchNotes, type SearchIndex, type SerializedSearchIndex } from 'papyr-core';
 import { shortTopic } from './short-topic.js';
+import type { FreshnessReport } from './freshness.js';
 
 // --- Types ---
 
@@ -51,6 +52,9 @@ export interface WikiData {
   // searchIndex is null when compile's search-index export failed. Handlers
   // must check and fall back to substring search over the notes manifest.
   readonly searchIndex: SearchIndex | null;
+  // freshness is null on workspaces compiled before v0.4.0 — handlers must
+  // degrade to the legacy output when absent.
+  readonly freshness: FreshnessReport | null;
   readonly overviewContent: string;
   readonly schemaInfo: SchemaInfo;
   readonly wikiDir: string;
@@ -226,6 +230,16 @@ export function loadWikiData(workspacePath: string): WikiData {
     );
   }
 
+  const freshnessPath = join(compileDir, 'freshness.json');
+  let freshness: FreshnessReport | null = null;
+  if (existsSync(freshnessPath)) {
+    try {
+      freshness = readJsonFile<FreshnessReport>(freshnessPath);
+    } catch {
+      freshness = null;
+    }
+  }
+
   const auditPath = join(compileDir, 'audit.json');
   const audit = existsSync(auditPath)
     ? readJsonFile<AuditData>(auditPath)
@@ -248,6 +262,7 @@ export function loadWikiData(workspacePath: string): WikiData {
     analytics,
     audit,
     searchIndex,
+    freshness,
     overviewContent,
     schemaInfo,
     wikiDir,
@@ -696,11 +711,42 @@ export function handleCoverageGaps(data: WikiData): string {
     gaps.push('', '### Missing Articles (orphaned links)', '', ...orphanEntries);
   }
 
+  // 4. Articles past their staleness window (freshness.json, v0.4.0+).
+  // Workspaces compiled before v0.4.0 have no freshness report — degrade to
+  // the legacy output silently.
+  const staleEntries: string[] = [];
+  if (data.freshness) {
+    const byTier = (tier: 'stale' | 'aging') =>
+      data.freshness!.articles
+        .filter((a) => a.tier === tier)
+        .sort((a, b) => (b.ageDays ?? 0) - (a.ageDays ?? 0));
+
+    for (const article of byTier('stale')) {
+      staleEntries.push(
+        `- [STALE] "${article.title}" (${article.slug}): ${article.ageDays} days since last verified (${article.checked ? `checked ${article.checked}` : `updated ${article.updated}`})`,
+      );
+    }
+    for (const article of byTier('aging')) {
+      staleEntries.push(
+        `- [AGING] "${article.title}" (${article.slug}): ${article.ageDays} days since last verified (${article.checked ? `checked ${article.checked}` : `updated ${article.updated}`})`,
+      );
+    }
+
+    if (staleEntries.length > 0) {
+      gaps.push(
+        '',
+        `### Stale Articles (freshness policy: ${data.freshness.policy.freshDays}/${data.freshness.policy.agingDays} days)`,
+        '',
+        ...staleEntries,
+      );
+    }
+  }
+
   if (gaps.length === 0) {
     return 'No coverage gaps detected.';
   }
 
-  const totalGaps = thinTags.length + thinArticles.length + orphanEntries.length;
+  const totalGaps = thinTags.length + thinArticles.length + orphanEntries.length + staleEntries.length;
   return [
     `## Coverage Gaps (${totalGaps} issues)`,
     '',
@@ -737,7 +783,7 @@ export function handleSearch(
 
 function createServer(data: WikiData): McpServer {
   const server = new McpServer(
-    { name: 'grimoire', version: '0.3.1' },
+    { name: 'grimoire', version: '0.4.0' },
     {
       instructions: `Grimoire is a curated knowledge base about "${shortTopic(data.schemaInfo.topic)}". Routing pattern for efficient retrieval:\n1. Call grimoire_list_topics first to see all articles with summaries\n2. Use grimoire_get_article(slug) for a specific article\n3. Use grimoire_get_section(slug, heading) for just one section (most token-efficient)\nFor questions: grimoire_query. For keyword search: grimoire_search.\nPrefer get_section over get_article when you know which section you need.`,
     },
@@ -799,7 +845,7 @@ function createServer(data: WikiData): McpServer {
 
   server.tool(
     'grimoire_coverage_gaps',
-    'Identify structural weaknesses: tags with only one article, articles below median word count, and topics referenced but not yet written. Use when asking about wiki health or what to write next.',
+    'Identify structural weaknesses: tags with only one article, articles below median word count, topics referenced but not yet written, plus articles past their staleness window. Use when asking about wiki health, what to write next, or what needs re-verification.',
     {},
     async () => ({
       content: [{ type: 'text' as const, text: handleCoverageGaps(data) }],

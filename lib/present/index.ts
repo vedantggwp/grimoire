@@ -5,15 +5,20 @@
  * Usage: node dist/present.js <workspace-path>
  */
 
-import { existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 
 import { parseDesignConfig } from './config.js';
-import { generateCSS } from './css.js';
+import { generateCSS } from './css/index.js';
 import { loadSiteData } from './data.js';
+import { esc, jsonForScript } from './esc.js';
 import { computeHubStats, hubLeadText, recommendedMode, shortTopic } from './hub.js';
 import { hubShell } from './html.js';
-import { generateReadMode } from './modes/read.js';
+import { generateReadMode, sortByCentrality } from './modes/read.js';
+import { generateArticlePage } from './modes/read-article.js';
+import { computeForceLayout } from './layout.js';
+import { constellationScript } from './js/constellation.js';
+import { countUpScript, tiltScript } from './js/runtime.js';
 import { generateGraphMode } from './modes/graph.js';
 import { generateSearchMode } from './modes/search.js';
 import { generateFeedMode } from './modes/feed.js';
@@ -23,22 +28,25 @@ import type { SiteData, DesignConfig } from './types.js';
 
 // --- Hub page ---
 
-function esc(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+const MODE_CARDS = [
+  { id: 'read', title: 'Read', icon: '📖', desc: 'Articles sorted by graph centrality. Start here for a deep, linear study of the core concepts.', when: 'Deep study of key topics' },
+  { id: 'graph', title: 'Graph', icon: '🕸', desc: 'Force-directed knowledge map showing how articles connect.', when: 'Explore connections' },
+  { id: 'search', title: 'Search', icon: '🔍', desc: 'Full-text search across all articles and tags.', when: 'Find a concept fast' },
+  { id: 'feed', title: 'Feed', icon: '📋', desc: 'Chronological changelog of all activity.', when: 'See what changed' },
+  { id: 'gaps', title: 'Gaps', icon: '🔬', desc: 'Coverage gap analysis by topic area.', when: 'Find thin spots' },
+  { id: 'quiz', title: 'Quiz', icon: '🧠', desc: 'Flashcard-style study quiz.', when: 'Test understanding' },
+] as const;
 
 function generateHub(data: SiteData, config: DesignConfig): string {
-  const modes = [
-    { id: 'read', title: 'Read', icon: '📖', desc: 'Articles sorted by graph centrality. Start here for a deep, linear study of the core concepts.', when: 'Deep study of key topics' },
-    { id: 'graph', title: 'Graph', icon: '🕸', desc: 'Force-directed knowledge map showing how articles connect.', when: 'Explore connections' },
-    { id: 'search', title: 'Search', icon: '🔍', desc: 'Full-text search across all articles and tags.', when: 'Find a concept fast' },
-    { id: 'feed', title: 'Feed', icon: '📋', desc: 'Chronological changelog of all activity.', when: 'See what changed' },
-    { id: 'gaps', title: 'Gaps', icon: '🔬', desc: 'Coverage gap analysis by topic area.', when: 'Find thin spots' },
-    { id: 'quiz', title: 'Quiz', icon: '🧠', desc: 'Flashcard-style study quiz.', when: 'Test understanding' },
-  ];
+  // Issue #9 — hub cards mirror the enabled-modes config; the recommended
+  // badge can only land on a mode that actually exists.
+  const modes = MODE_CARDS.filter(m => config.modes.includes(m.id));
 
   const stats = computeHubStats(data);
-  const recommended = recommendedMode(data);
+  const naturalPick = recommendedMode(data);
+  const recommended = config.modes.includes(naturalPick as (typeof config.modes)[number])
+    ? naturalPick
+    : 'read';
 
   // Top articles by centrality score for the featured-card preview list.
   const topArticles = [...data.articles]
@@ -50,7 +58,7 @@ function generateHub(data: SiteData, config: DesignConfig): string {
     .slice(0, 4)
     .map(x => x.article);
 
-  const cards = modes.map(m => {
+  const cards = modes.map((m, i) => {
     const isFeatured = m.id === recommended;
     const featuredClass = isFeatured ? ' featured' : '';
     const badge = isFeatured ? `\n      <div class="badge">Recommended</div>` : '';
@@ -59,7 +67,7 @@ function generateHub(data: SiteData, config: DesignConfig): string {
           .map(a => `<li><span class="bento-preview__num">${topArticles.indexOf(a) + 1}</span>${esc(a.title)}</li>`)
           .join('')}</ul>`
       : '';
-    return `<a href="${m.id}/index.html" class="bento-card${featuredClass}">${badge}
+    return `<a href="${m.id}/index.html" class="bento-card${featuredClass} reveal" style="--reveal-i: ${i}">${badge}
       <span class="icon">${m.icon}</span>
       <h3>${esc(m.title)}</h3>
       <p>${esc(m.desc)}</p>${preview}
@@ -79,23 +87,56 @@ function generateHub(data: SiteData, config: DesignConfig): string {
         ? 'Density is not meaningful for small corpora (< 10 articles).'
         : '',
     },
-  ].map(s =>
-    `<div class="hub-stat"${s.title ? ` title="${esc(s.title)}"` : ''}><strong>${esc(s.value)}</strong>${esc(s.label)}</div>`
-  ).join('\n      ');
+  ].map(s => {
+    // Pure counts tick up on first view; non-numeric values render plain.
+    const numeric = s.value.match(/^(\d+)(%?)$/);
+    const strong = numeric
+      ? `<strong data-count="${numeric[1]}"${numeric[2] ? ' data-count-suffix="%"' : ''}>${esc(s.value)}</strong>`
+      : `<strong>${esc(s.value)}</strong>`;
+    return `<div class="hub-stat"${s.title ? ` title="${esc(s.title)}"` : ''}>${strong}${esc(s.label)}</div>`;
+  }).join('\n      ');
 
   const displayName = shortTopic(data.schema.topic);
 
+  // The hero constellation is the wiki's real graph: positions computed at
+  // build time (deterministic), drawn as ambient canvas texture at runtime.
+  const layoutNodes = computeForceLayout(
+    data.graphData.nodes.map(n => ({
+      id: n.id,
+      label: n.label,
+      weight: n.linkCount + n.backlinkCount + n.wordCount / 2000,
+    })),
+    data.graphData.edges,
+  );
+  const hubGraph = jsonForScript({
+    nodes: layoutNodes.map(n => ({
+      id: n.id,
+      label: n.label,
+      x: Number(n.x.toFixed(4)),
+      y: Number(n.y.toFixed(4)),
+      r: Number(n.r.toFixed(4)),
+    })),
+    edges: data.graphData.edges.map(e => ({ source: e.source, target: e.target })),
+  });
+
   const body = `
 <div class="hub-hero">
+    <canvas id="constellation" class="hub-hero-canvas" aria-hidden="true"></canvas>
+    <div class="hub-hero-content">
     <h1 class="hub-title">${esc(displayName)}</h1>
     <p class="hub-lead">${esc(hubLeadText(data.schema.topic, data.schema.audience))}</p>
     <div class="hub-stats">
       ${statItems}
     </div>
+    </div>
   </div>
   <div class="bento">
     ${cards}
-  </div>`;
+  </div>
+<script>window.HUB_GRAPH = ${hubGraph};</script>
+${constellationScript()}
+${countUpScript()}
+${tiltScript('.bento-card')}`;
 
   return hubShell(displayName, body, config, data);
 }
@@ -149,8 +190,10 @@ async function main(): Promise<void> {
   // Load data
   const data = await loadSiteData(resolved);
 
-  // Generate
+  // Generate — site/ is fully derived; clear it so deleted articles and
+  // disabled modes don't leave stale pages behind.
   const siteDir = join(resolved, 'site');
+  rmSync(siteDir, { recursive: true, force: true });
   const files: WrittenFile[] = [];
 
   // CSS
@@ -159,13 +202,28 @@ async function main(): Promise<void> {
   // Hub
   files.push(writeFile(join(siteDir, 'index.html'), generateHub(data, config)));
 
-  // Modes
-  files.push(writeFile(join(siteDir, 'read', 'index.html'), generateReadMode(data, config)));
-  files.push(writeFile(join(siteDir, 'graph', 'index.html'), generateGraphMode(data, config)));
-  files.push(writeFile(join(siteDir, 'search', 'index.html'), generateSearchMode(data, config)));
-  files.push(writeFile(join(siteDir, 'feed', 'index.html'), generateFeedMode(data, config)));
-  files.push(writeFile(join(siteDir, 'gaps', 'index.html'), generateGapsMode(data, config)));
-  files.push(writeFile(join(siteDir, 'quiz', 'index.html'), generateQuizMode(data, config)));
+  // Modes — only the ones enabled in the design config (issue #9)
+  const generators: Record<string, (d: SiteData, c: DesignConfig) => string> = {
+    read: generateReadMode,
+    graph: generateGraphMode,
+    search: generateSearchMode,
+    feed: generateFeedMode,
+    gaps: generateGapsMode,
+    quiz: generateQuizMode,
+  };
+  for (const mode of config.modes) {
+    const generate = generators[mode];
+    if (!generate) continue;
+    files.push(writeFile(join(siteDir, mode, 'index.html'), generate(data, config)));
+  }
+
+  // Per-article pages (issue #2) — stable, deep-linkable routes under read/
+  for (const article of sortByCentrality(data.articles)) {
+    files.push(writeFile(
+      join(siteDir, 'read', article.slug, 'index.html'),
+      generateArticlePage(article, data, config),
+    ));
+  }
 
   // Summary
   const totalSize = files.reduce((sum, f) => sum + f.size, 0);

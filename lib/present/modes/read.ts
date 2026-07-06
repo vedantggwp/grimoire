@@ -1,18 +1,17 @@
 /**
- * present — Read mode
+ * present — Reading index
  *
- * 3-column editorial layout: article nav sidebar (left),
- * article content (center, max 680px), on-page TOC (right).
- * Shows one article at a time with show/hide navigation.
+ * The entry page of read mode: every article as a real link to its own
+ * page (site/read/{slug}/index.html — issue #2), ordered by graph
+ * centrality, with a "Continue reading" pickup for returning readers and
+ * a redirect shim that keeps pre-v0.4 `read/index.html#slug` hash links
+ * working (issue #8 adjacency).
  */
 
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
-
-function slugify(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-}
+import { esc } from '../esc.js';
 
 export function sortByCentrality(
   articles: readonly ArticleData[],
@@ -31,235 +30,71 @@ function countBacklinks(
   return all.filter(a => a.linksTo.includes(article.slug)).length;
 }
 
-function esc(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function buildLeftSidebar(sorted: readonly ArticleData[]): string {
-  const items = sorted.map((a, i) =>
-    `<li data-article="${esc(a.slug)}"${i === 0 ? ' class="active"' : ''}>${esc(a.title)}</li>`
-  ).join('\n        ');
-
-  return `<div class="read-sidebar">
-      <h4>Articles</h4>
-      <ul>
-        ${items}
-      </ul>
-    </div>`;
-}
-
-function buildRightTOC(article: ArticleData): string {
-  const headings = article.headings.filter(h => h.level === 2);
-  const items = headings.map((h, i) =>
-    `<li data-heading="${esc(slugify(h.text))}"${i === 0 ? ' class="active"' : ''}>${esc(h.text)}</li>`
-  ).join('\n          ');
-
-  return `<ul>
-          ${items}
-        </ul>`;
-}
-
-function confidenceBadgeClass(confidence: string): string {
-  const lower = confidence.toLowerCase();
-  if (lower === 'p0' || lower === 'high') return 'p0';
-  if (lower === 'p1' || lower === 'medium') return 'p1';
-  return 'p2';
-}
-
-function buildArticleSection(
-  article: ArticleData,
-  index: number,
-  total: number,
-  sorted: readonly ArticleData[],
-): string {
-  const tags = article.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('');
-  const confidenceBadge = article.confidence
-    ? `<span class="confidence-badge ${confidenceBadgeClass(article.confidence)}">${esc(article.confidence)}</span>`
+function buildRow(article: ArticleData, index: number): string {
+  const num = String(index + 1).padStart(2, '0');
+  const summary = article.summary
+    ? `<span class="summary">${esc(article.summary)}</span>`
     : '';
-  const sourcesBadge = article.sources.length > 0
-    ? `<span class="source-count">${article.sources.length} source${article.sources.length !== 1 ? 's' : ''}</span>`
-    : '';
-  const wordsMeta = `<span style="color:var(--text-tertiary);font-size:12px;font-family:var(--font-mono)">${article.wordCount} words &middot; ${article.readingTime} min</span>`;
+  const tags = article.tags.slice(0, 3).map(t => esc(t)).join(' &middot; ');
+  const meta = `<span class="read-row__meta">${article.readingTime} min read${tags ? ` &middot; ${tags}` : ''}</span>`;
 
-  const summaryBlock = article.summary
-    ? `<div class="summary">${esc(article.summary)}</div>`
-    : '';
-
-  const prevLink = index > 0
-    ? `<a href="#" class="btn read-nav-btn" data-article="${esc(sorted[index - 1].slug)}">&larr; ${esc(sorted[index - 1].title)}</a>`
-    : '<span></span>';
-  const nextLink = index < total - 1
-    ? `<a href="#" class="btn read-nav-btn" data-article="${esc(sorted[index + 1].slug)}">${esc(sorted[index + 1].title)} &rarr;</a>`
-    : '<span></span>';
-
-  return `<article class="article" id="${esc(article.slug)}" data-slug="${esc(article.slug)}" style="${index > 0 ? 'display:none' : ''}">
-      <div class="article-meta">
-        ${confidenceBadge}
-        ${sourcesBadge}
-        ${wordsMeta}
-      </div>
-      <h1>${esc(article.title)}</h1>
-      <div class="tag-row">${tags}</div>
-      ${summaryBlock}
-      <div class="article-body">
-        ${article.html}
-      </div>
-      <nav class="article__nav" style="display:flex;justify-content:space-between;padding:16px 0;margin-top:32px;border-top:1px solid var(--border)">
-        ${prevLink}
-        ${nextLink}
-      </nav>
-    </article>`;
+  return `<li class="read-row" style="--reveal-i: ${Math.min(index, 8)}">
+      <a class="read-row__link" href="${esc(article.slug)}/index.html">
+        <span class="read-row__num">${num}</span>
+        <span class="read-row__main">
+          <span class="read-row__title" style="view-transition-name: vta-${esc(article.slug)}">${esc(article.title)}</span>
+          ${summary}
+          ${meta}
+        </span>
+        <span class="read-row__arrow" aria-hidden="true">&rarr;</span>
+      </a>
+    </li>`;
 }
 
-// Styles are in the main stylesheet (css.ts) — no inline styles needed
-
-function readModeScript(sorted: readonly ArticleData[]): string {
-  const tocData = JSON.stringify(
-    sorted.map(a => ({
-      slug: a.slug,
-      headings: a.headings.filter(h => h.level === 2).map(h => ({
-        text: h.text,
-        id: slugify(h.text),
-      })),
-    }))
-  );
-
+function readIndexScript(slugs: readonly string[]): string {
   return `<script>
 (function() {
-  var tocData = ${tocData};
-  var bar = document.getElementById('read-progress');
-  var articles = document.querySelectorAll('.read-content .article');
-  var sidebarItems = document.querySelectorAll('.read-sidebar li');
-  var tocRight = document.querySelector('.read-toc-right');
+  var known = ${JSON.stringify(slugs)};
 
-  function esc(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  // Legacy hash links (read/index.html#slug) redirect to the article page.
+  var hash = window.location.hash.slice(1);
+  if (hash && known.indexOf(hash) !== -1) {
+    window.location.replace('./' + hash + '/index.html');
+    return;
   }
 
-  // Progress bar
-  function updateProgress() {
-    var h = document.documentElement.scrollHeight - window.innerHeight;
-    var pct = h > 0 ? (window.scrollY / h) * 100 : 0;
-    if (bar) bar.style.width = pct + '%';
-  }
-  window.addEventListener('scroll', updateProgress, { passive: true });
-
-  // Switch article
-  function showArticle(slug) {
-    var found = false;
-    articles.forEach(function(a) {
-      var active = a.dataset.slug === slug;
-      a.style.display = active ? '' : 'none';
-      if (active) found = true;
-    });
-    if (!found) return;
-    sidebarItems.forEach(function(li) {
-      li.classList.toggle('active', li.dataset.article === slug);
-    });
-    // Update right TOC
-    var entry = tocData.find(function(t) { return t.slug === slug; });
-    if (entry && tocRight) {
-      var items = entry.headings.map(function(h, i) {
-        return '<li data-heading="' + esc(h.id) + '"' + (i === 0 ? ' class="active"' : '') + '>' + esc(h.text) + '</li>';
-      }).join('');
-      tocRight.querySelector('ul').innerHTML = items;
-      bindTocClicks();
+  // Returning readers can pick up where they left off.
+  var last = null;
+  try { last = localStorage.getItem('grimoire-last-read'); } catch(e) {}
+  if (last && known.indexOf(last) !== -1) {
+    var cta = document.getElementById('read-continue');
+    var link = document.getElementById('read-continue-link');
+    var row = document.querySelector('.read-row__link[href="' + last + '/index.html"]');
+    var title = row ? row.querySelector('.read-row__title').textContent : last;
+    if (cta && link) {
+      link.href = last + '/index.html';
+      link.textContent = 'Continue reading: ' + title + ' \\u2192';
+      cta.hidden = false;
     }
-    if (window.location.hash.slice(1) !== slug) {
-      window.history.replaceState(null, '', '#' + slug);
-    }
-    window.scrollTo(0, 0);
-    updateProgress();
   }
-
-  // Sidebar click
-  sidebarItems.forEach(function(li) {
-    li.addEventListener('click', function() {
-      showArticle(li.dataset.article);
-    });
-  });
-
-  // Next/prev nav buttons
-  document.addEventListener('click', function(e) {
-    var wikilink = e.target.closest('a[data-wikilink-slug]');
-    if (wikilink) {
-      var targetSlug = wikilink.dataset.wikilinkSlug;
-      if (targetSlug && document.querySelector('.article[data-slug="' + targetSlug + '"]')) {
-        e.preventDefault();
-        showArticle(targetSlug);
-      }
-      return;
-    }
-    var btn = e.target.closest('.read-nav-btn');
-    if (btn) {
-      e.preventDefault();
-      showArticle(btn.dataset.article);
-    }
-  });
-
-  // Right TOC click — scroll to heading
-  function bindTocClicks() {
-    var tocItems = tocRight ? tocRight.querySelectorAll('li') : [];
-    tocItems.forEach(function(li) {
-      li.addEventListener('click', function() {
-        var id = li.dataset.heading;
-        var el = document.getElementById(id);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    });
-  }
-  bindTocClicks();
-
-  var initialSlug = window.location.hash.slice(1);
-  if (initialSlug && document.querySelector('.article[data-slug="' + initialSlug + '"]')) {
-    showArticle(initialSlug);
-  } else {
-    updateProgress();
-  }
-
-  // TOC highlight on scroll (observe h2 within visible article)
-  var headingObserver = new IntersectionObserver(function(entries) {
-    entries.forEach(function(entry) {
-      if (entry.isIntersecting && tocRight) {
-        var tocItems = tocRight.querySelectorAll('li');
-        tocItems.forEach(function(l) { l.classList.remove('active'); });
-        var active = tocRight.querySelector('li[data-heading="' + entry.target.id + '"]');
-        if (active) active.classList.add('active');
-      }
-    });
-  }, { rootMargin: '-20% 0px -60% 0px' });
-
-  // Observe headings in all articles (only visible ones will fire)
-  articles.forEach(function(a) {
-    a.querySelectorAll('h2[id]').forEach(function(h) {
-      headingObserver.observe(h);
-    });
-  });
 })();
 </script>`;
 }
 
 export function generateReadMode(data: SiteData, config: DesignConfig): string {
   const sorted = sortByCentrality(data.articles);
-
-  const articleSections = sorted.map((a, i) =>
-    buildArticleSection(a, i, sorted.length, sorted)
-  ).join('\n');
-
-  const firstArticleTOC = sorted.length > 0 ? buildRightTOC(sorted[0]) : '<ul></ul>';
+  const rows = sorted.map((a, i) => buildRow(a, i)).join('\n    ');
 
   const body = `
-<div class="read-3col">
-  ${buildLeftSidebar(sorted)}
-  <div class="read-content">
-    ${articleSections}
-  </div>
-  <div class="read-toc-right">
-    <h4>On this page</h4>
-    ${firstArticleTOC}
-  </div>
-</div>
-${readModeScript(sorted)}`;
+<header class="read-index-header">
+  <h1>Read</h1>
+  <p class="read-index-lead">${sorted.length} article${sorted.length === 1 ? '' : 's'}, ordered by how central each is to the knowledge graph. Start at the top for the spine of the topic.</p>
+  <p id="read-continue" hidden><a id="read-continue-link" class="btn btn--primary" href="#">Continue reading</a></p>
+</header>
+<ol class="read-index">
+    ${rows}
+</ol>
+${readIndexScript(sorted.map(a => a.slug))}`;
 
   return pageShell(`${shortTopic(data.schema.topic)} — Read`, 'read', body, config, data);
 }

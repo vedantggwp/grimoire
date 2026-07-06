@@ -63,6 +63,7 @@ Skills auto-discover from `skills/*/SKILL.md` when Claude Code loads the plugin.
 | `compile` | Graph audit, link repair, overview, gap analysis | No — deterministic |
 | `present` | Generate static study frontend | Yes — preview and iterate |
 | `serve` | MCP server over stdio | No — automated |
+| `update` | Scheduled editorial pass: delta scout, policy ingest, connections, freshness, PR | Policy file + async PR review |
 
 ## Orchestrated Flow
 
@@ -112,6 +113,9 @@ between stages are the contract:
 - `wiki/index.md`, `wiki/overview.md`, `wiki/log.md` — navigators
 - `wiki/.compile/*.json` — compile artifacts (graph, analytics, search index, audit)
 - `site/` — static frontend output
+- `_config/update.md` — standing policy for headless update runs
+- `wiki/.compile/freshness.json`, `connection-candidates.json`, `update-context.json` — update-engine artifacts (v0.4.0)
+- `_updates/{date}-update.md` — update-run digests (double as PR bodies)
 - MCP server reads `wiki/.compile/` + `wiki/*.md`, exposes tools over stdio
 
 ## Two-Layer Runtime

@@ -2,14 +2,23 @@
  * present — Type definitions
  */
 
+export type MotionLevel = 'subtle' | 'expressive' | 'none';
+export type Density = 'compact' | 'comfortable' | 'spacious';
+
+export const ALL_MODES = ['read', 'graph', 'search', 'feed', 'gaps', 'quiz'] as const;
+export type ModeId = (typeof ALL_MODES)[number];
+
 export interface DesignConfig {
   readonly palette: string;
   readonly typography: string;
-  readonly motion: string;
-  readonly density: string;
+  readonly motion: MotionLevel;
+  readonly density: Density;
+  /** Enabled study modes, in canonical order. `read` is always present. */
+  readonly modes: readonly ModeId[];
   readonly overrides?: {
     readonly accent?: string;
     readonly fontDisplay?: string;
+    readonly fontBody?: string;
     readonly fontMono?: string;
   };
 }
@@ -35,6 +44,8 @@ export interface ArticleData {
   readonly slug: string;
   readonly title: string;
   readonly summary: string;
+  /** Taxonomy directory the article lives in (`wiki/{category}/{slug}.md`), if any. */
+  readonly category?: string;
   readonly tags: readonly string[];
   readonly html: string;
   readonly wordCount: number;
@@ -76,6 +87,8 @@ export interface SiteData {
   readonly graphData: GraphData;
   readonly analytics: unknown;
   readonly logEntries: readonly LogEntry[];
+  /** null on workspaces compiled before v0.4.0 — every consumer degrades. */
+  readonly freshness: import('./freshness.js').SiteFreshness | null;
   readonly schema: {
     readonly topic: string;
     readonly scope: { readonly in: string; readonly out: string };

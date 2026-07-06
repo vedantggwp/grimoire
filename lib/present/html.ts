@@ -7,22 +7,18 @@
 import type { DesignConfig, SiteData } from './types.js';
 import { resolveTypography, getGoogleFontsUrl } from './config.js';
 import { shortTopic } from './hub.js';
+import { esc } from './esc.js';
+import { motionRuntimeScript, themeToggleScript } from './js/runtime.js';
 
-// --- Escape helper ---
-
-function esc(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+export { themeToggleScript };
 
 // --- Components ---
 
-export function htmlHead(title: string, config: DesignConfig): string {
+// depth = directory levels below the site root (modes are 1, article pages 2).
+export function htmlHead(title: string, config: DesignConfig, depth = 1): string {
   const typo = resolveTypography(config);
   const fontsUrl = getGoogleFontsUrl(typo);
+  const up = '../'.repeat(depth);
 
   return `<head>
   <meta charset="utf-8">
@@ -31,10 +27,11 @@ export function htmlHead(title: string, config: DesignConfig): string {
   <meta name="theme-color" content="#0F0F0F" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
   <title>${esc(title)}</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='%230d9488'/%3E%3Ccircle cx='25' cy='8' r='4' fill='%230d9488' opacity='0.55'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="${fontsUrl}">
-  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="stylesheet" href="${up}assets/style.css">
 </head>`;
 }
 
@@ -49,6 +46,7 @@ export function hubHead(title: string, config: DesignConfig): string {
   <meta name="theme-color" content="#0F0F0F" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
   <title>${esc(title)}</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='%230d9488'/%3E%3Ccircle cx='25' cy='8' r='4' fill='%230d9488' opacity='0.55'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="${fontsUrl}">
@@ -56,24 +54,35 @@ export function hubHead(title: string, config: DesignConfig): string {
 </head>`;
 }
 
-const MODES = [
-  { id: 'read', label: 'Read' },
-  { id: 'graph', label: 'Graph' },
-  { id: 'search', label: 'Search' },
-  { id: 'feed', label: 'Feed' },
-  { id: 'gaps', label: 'Gaps' },
-  { id: 'quiz', label: 'Quiz' },
-] as const;
+const MODE_LABELS: Readonly<Record<string, string>> = {
+  read: 'Read',
+  graph: 'Graph',
+  search: 'Search',
+  feed: 'Feed',
+  gaps: 'Gaps',
+  quiz: 'Quiz',
+};
 
-export function navBar(currentMode: string, data: SiteData): string {
-  const tabs = MODES.map(m => {
+// Issue #9 — nav renders only the modes enabled in the design config.
+function enabledModes(config: DesignConfig): readonly { id: string; label: string }[] {
+  return config.modes.map(id => ({ id, label: MODE_LABELS[id] ?? id }));
+}
+
+export function navBar(
+  currentMode: string,
+  data: SiteData,
+  config: DesignConfig,
+  depth = 1,
+): string {
+  const up = '../'.repeat(depth);
+  const tabs = enabledModes(config).map(m => {
     const active = m.id === currentMode ? ' active' : '';
-    const href = m.id === currentMode ? '#' : `../${m.id}/index.html`;
+    const href = m.id === currentMode && depth === 1 ? '#' : `${up}${m.id}/index.html`;
     return `<a href="${href}" class="tab${active}">${m.label}</a>`;
   }).join('\n        ');
 
   return `<nav>
-  <a href="../index.html" class="brand">${esc(shortTopic(data.schema.topic))}</a>
+  <a href="${up}index.html" class="brand">${esc(shortTopic(data.schema.topic))}</a>
   <div class="tabs">
     ${tabs}
   </div>
@@ -86,8 +95,8 @@ export function navBar(currentMode: string, data: SiteData): string {
 </nav>`;
 }
 
-export function hubNav(data: SiteData): string {
-  const tabs = MODES.map(m => {
+export function hubNav(data: SiteData, config: DesignConfig): string {
+  const tabs = enabledModes(config).map(m => {
     return `<a href="${m.id}/index.html" class="tab">${m.label}</a>`;
   }).join('\n        ');
 
@@ -114,55 +123,25 @@ export function footer(data: SiteData): string {
 </footer>`;
 }
 
-export function themeToggleScript(): string {
-  return `<script>
-(function() {
-  var KEY = 'grimoire-theme';
-  var toggle = document.getElementById('theme-toggle');
-  var icon = document.getElementById('theme-icon');
-  var root = document.documentElement;
-
-  function getStored() {
-    try { return localStorage.getItem(KEY); } catch(e) { return null; }
-  }
-
-  function apply(theme) {
-    root.classList.remove('theme-light', 'theme-dark');
-    if (theme) root.classList.add('theme-' + theme);
-    icon.textContent = theme === 'dark' ? '\\u2600' : '\\u263E';
-    try { localStorage.setItem(KEY, theme || ''); } catch(e) {}
-  }
-
-  var stored = getStored();
-  if (stored) apply(stored);
-
-  toggle.addEventListener('click', function() {
-    var isDark = root.classList.contains('theme-dark') ||
-      (!root.classList.contains('theme-light') &&
-       window.matchMedia('(prefers-color-scheme: dark)').matches);
-    apply(isDark ? 'light' : 'dark');
-  });
-})();
-</script>`;
-}
-
 export function pageShell(
   title: string,
   mode: string,
   bodyContent: string,
   config: DesignConfig,
   data: SiteData,
+  depth = 1,
 ): string {
   const progressBar = mode === 'read'
     ? '<div class="read-progress" id="read-progress"></div>'
     : '';
 
   return `<!DOCTYPE html>
-<html lang="en">
-${htmlHead(title, config)}
+<html lang="en" class="motion-${config.motion} density-${config.density}">
+${htmlHead(title, config, depth)}
 <body class="mode-${mode}">
+${motionRuntimeScript()}
 <a href="#main" class="skip-link">Skip to content</a>
-${navBar(mode, data)}
+${navBar(mode, data, config, depth)}
 ${progressBar}
 <main id="main" class="container">
 ${bodyContent}
@@ -180,11 +159,12 @@ export function hubShell(
   data: SiteData,
 ): string {
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="motion-${config.motion} density-${config.density}">
 ${hubHead(title, config)}
 <body>
+${motionRuntimeScript()}
 <a href="#main" class="skip-link">Skip to content</a>
-${hubNav(data)}
+${hubNav(data, config)}
 <main id="main" class="container">
 ${bodyContent}
 </main>

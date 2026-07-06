@@ -37,7 +37,7 @@ Reads `~/.config/obsidian/obsidian.json` which maps vault names to filesystem pa
 {
   "vaults": {
     "abc123": {
-      "path": "/Users/ved/Developer/grimoire-claude-code",
+      "path": "<path-to-repo>",
       "ts": 1712345678
     }
   }

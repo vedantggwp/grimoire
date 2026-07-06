@@ -10,10 +10,7 @@
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
-
-function esc(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+import { esc, jsonForScript } from '../esc.js';
 
 interface FlashCard {
   readonly front: string;
@@ -225,6 +222,8 @@ function quizScript(): string {
   var revealed = false;
 
   var cardEl = document.getElementById('quiz-card');
+  var card3d = document.getElementById('quiz-card3d');
+  var backEl = document.getElementById('quiz-card-back');
   var questionEl = document.getElementById('quiz-question');
   var answerEl = document.getElementById('quiz-answer');
   var showBtn = document.getElementById('btn-show');
@@ -235,6 +234,26 @@ function quizScript(): string {
   var scoreEl = document.getElementById('quiz-score');
   var progressEl = document.getElementById('quiz-progress');
   var progressFill = document.getElementById('quiz-progress-fill');
+  var streakEl = document.getElementById('quiz-streak');
+  var streakNEl = document.getElementById('quiz-streak-n');
+  var burstEl = document.getElementById('quiz-burst');
+  var streak = 0;
+
+  function updateStreak() {
+    if (!streakEl || !streakNEl) return;
+    streakNEl.textContent = String(streak);
+    streakEl.hidden = streak < 3;
+    if (streak === 3 || streak === 5 || streak === 10) {
+      streakEl.classList.remove('pulsing');
+      void streakEl.offsetWidth; // restart the pulse animation
+      streakEl.classList.add('pulsing');
+      if (burstEl && window.GRIMOIRE_MOTION_OK && window.GRIMOIRE_MOTION_OK()) {
+        burstEl.classList.remove('bursting');
+        void burstEl.offsetWidth;
+        burstEl.classList.add('bursting');
+      }
+    }
+  }
 
   function shuffle(arr) {
     var a = arr.slice();
@@ -259,7 +278,7 @@ function quizScript(): string {
 
   function render() {
     if (current >= deck.length) {
-      hide(cardEl);
+      hide(card3d);
       hide(showBtn);
       hide(feedbackRow);
       show(restartBtn, 'inline-flex');
@@ -269,11 +288,21 @@ function quizScript(): string {
       return;
     }
 
-    show(cardEl, 'block');
+    show(card3d);
     show(showBtn, 'inline-flex');
     hide(feedbackRow);
     hide(restartBtn);
     revealed = false;
+
+    // Reset the flip without animating backwards, then slide the new card in.
+    card3d.classList.add('no-flip-transition');
+    card3d.classList.remove('flipped');
+    void card3d.offsetWidth;
+    card3d.classList.remove('no-flip-transition');
+    card3d.classList.remove('entering');
+    void card3d.offsetWidth;
+    card3d.classList.add('entering');
+    if (backEl) backEl.setAttribute('aria-hidden', 'true');
 
     questionEl.textContent = deck[current].front;
     answerEl.textContent = deck[current].back;
@@ -288,6 +317,8 @@ function quizScript(): string {
     if (revealed) return;
     revealed = true;
     answerEl.classList.add('revealed');
+    card3d.classList.add('flipped');
+    if (backEl) backEl.setAttribute('aria-hidden', 'false');
     hide(showBtn);
     show(feedbackRow, 'flex');
   }
@@ -304,20 +335,28 @@ function quizScript(): string {
 
   gotItBtn.addEventListener('click', function() {
     gotIt++;
+    streak++;
+    updateStreak();
     current++;
     render();
   });
 
   reviewBtn.addEventListener('click', function() {
     reviewAgain++;
+    streak = 0;
+    updateStreak();
     current++;
     render();
   });
 
-  restartBtn.addEventListener('click', start);
+  restartBtn.addEventListener('click', function() {
+    streak = 0;
+    updateStreak();
+    start();
+  });
 
   if (!cards || cards.length === 0) {
-    hide(cardEl);
+    hide(card3d);
     hide(showBtn);
     hide(feedbackRow);
     progressEl.textContent = '';
@@ -331,7 +370,7 @@ function quizScript(): string {
 
 export function generateQuizMode(data: SiteData, config: DesignConfig): string {
   const cards = extractCards(data.articles);
-  const cardsJSON = JSON.stringify(cards);
+  const cardsJSON = jsonForScript(cards);
 
   const body = `
 <script>window.QUIZ_CARDS = ${cardsJSON};</script>
@@ -341,13 +380,20 @@ export function generateQuizMode(data: SiteData, config: DesignConfig): string {
   </div>
   <div class="quiz-meta">
     <span class="quiz-counter" id="quiz-progress"></span>
+    <span class="quiz-streak" id="quiz-streak" hidden>&#128293; <span id="quiz-streak-n">0</span></span>
     <span class="quiz-score" id="quiz-score"></span>
   </div>
-  <article class="quiz-card" id="quiz-card" aria-live="polite">
-    <div class="quiz-label">Question</div>
-    <p class="quiz-question" id="quiz-question"></p>
-    <div class="quiz-answer" id="quiz-answer" aria-label="Answer"></div>
-  </article>
+  <div class="quiz-card3d" id="quiz-card3d">
+    <article class="quiz-card quiz-face quiz-face--front" id="quiz-card" aria-live="polite">
+      <div class="quiz-label">Question</div>
+      <p class="quiz-question" id="quiz-question"></p>
+    </article>
+    <article class="quiz-card quiz-face quiz-face--back" id="quiz-card-back" aria-hidden="true">
+      <div class="quiz-label">Answer</div>
+      <div class="quiz-answer" id="quiz-answer"></div>
+    </article>
+    <div class="quiz-burst" id="quiz-burst" aria-hidden="true">${'<span></span>'.repeat(12)}</div>
+  </div>
   <div class="quiz-actions">
     <button class="quiz-btn quiz-btn--primary" id="btn-show">Show answer</button>
     <div class="quiz-feedback" id="quiz-feedback">

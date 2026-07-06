@@ -1,24 +1,24 @@
 /**
  * present — Gaps mode
  *
- * Coverage treemap: D3-driven hierarchical layout sized by tag weight.
- * Cell area = articles covering that tag × average article word count,
- * so visually important topics get larger cells. Classification tiers:
- *   full (3+ articles) · partial (2) · thin (1) · missing (0)
+ * Coverage treemap, computed at build time (lib/present/layout.ts
+ * squarified algorithm) and rendered as absolutely-positioned DOM cells —
+ * no d3, ~95% lighter page, and the cells are real focusable elements.
+ * Cell area = articles covering that tag × sqrt(words covered). Tiers:
+ *   full (3+ articles) · partial (2) · thin (1)
  *
- * Linear Editorial palette applies color per tier.
+ * When the update engine's freshness report exists, a second lens
+ * re-colors the map by per-tag staleness (worst tier among members).
  */
 
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
-import { d3MinSource } from './d3-source.js';
-
-function esc(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+import { squarifiedTreemap } from '../layout.js';
+import { esc } from '../esc.js';
 
 type CellTier = 'full' | 'partial' | 'thin' | 'missing';
+type FreshTier = 'fresh' | 'aging' | 'stale' | 'evergreen' | 'unknown';
 
 interface TagCell {
   readonly tag: string;
@@ -26,6 +26,7 @@ interface TagCell {
   readonly totalWords: number;
   readonly weight: number;
   readonly tier: CellTier;
+  readonly freshness: FreshTier | null;
   readonly articleTitles: readonly string[];
 }
 
@@ -36,7 +37,23 @@ function classify(articleCount: number): CellTier {
   return 'full';
 }
 
-function buildCells(articles: readonly ArticleData[]): readonly TagCell[] {
+// Worst freshness wins: a tag with one stale article needs attention even
+// if its siblings are fresh.
+const FRESHNESS_SEVERITY: readonly FreshTier[] = ['stale', 'aging', 'unknown', 'fresh', 'evergreen'];
+
+function worstFreshness(
+  tagged: readonly ArticleData[],
+  data: SiteData,
+): FreshTier | null {
+  if (!data.freshness) return null;
+  const tiers = tagged
+    .map(a => data.freshness?.bySlug[a.slug]?.tier)
+    .filter((t): t is FreshTier => t !== undefined);
+  if (tiers.length === 0) return null;
+  return FRESHNESS_SEVERITY.find(t => tiers.includes(t)) ?? null;
+}
+
+export function buildCells(articles: readonly ArticleData[], data: SiteData): readonly TagCell[] {
   const tagMap = new Map<string, ArticleData[]>();
   for (const article of articles) {
     for (const tag of article.tags) {
@@ -58,6 +75,7 @@ function buildCells(articles: readonly ArticleData[]): readonly TagCell[] {
       totalWords,
       weight,
       tier: classify(tagged.length),
+      freshness: worstFreshness(tagged, data),
       articleTitles: tagged.map(a => a.title),
     });
   }
@@ -71,115 +89,100 @@ function countByTier(cells: readonly TagCell[]): Record<CellTier, number> {
   return counts;
 }
 
+function buildTreemapCells(cells: readonly TagCell[]): string {
+  const rects = squarifiedTreemap(cells.map(c => ({ id: c.tag, value: c.weight })));
+  const byTag = new Map(cells.map(c => [c.tag, c]));
+
+  return rects.map((rect, i) => {
+    const cell = byTag.get(rect.id);
+    if (!cell) return '';
+
+    // Treemap percentages are known at build time, so label visibility is a
+    // build-time decision — no resize measurement needed for the common case.
+    const showTag = rect.width >= 12 && rect.height >= 8;
+    const showCount = rect.width >= 18 && rect.height >= 14;
+    const countText = cell.articleCount === 1 ? '1 article' : `${cell.articleCount} articles`;
+    const freshClass = cell.freshness ? ` treemap-cell--f-${cell.freshness}` : '';
+    const label = `${cell.tag} — ${cell.tier} coverage, ${countText}${cell.freshness ? `, ${cell.freshness}` : ''}`;
+
+    return `<div class="treemap-cell treemap-cell--${cell.tier}${freshClass}" tabindex="0" role="img"
+      aria-label="${esc(label)}"
+      data-tag="${esc(cell.tag)}" data-tier="${cell.tier}"${cell.freshness ? ` data-freshness="${cell.freshness}"` : ''}
+      data-count="${cell.articleCount}" data-titles="${esc(cell.articleTitles.slice(0, 5).join(', '))}"
+      style="left:${rect.left}%;top:${rect.top}%;width:${rect.width}%;height:${rect.height}%;--reveal-i:${Math.min(i, 12)}">
+      ${showTag ? `<span class="treemap-cell__tag">${esc(cell.tag)}</span>` : ''}
+      ${showCount ? `<span class="treemap-cell__count">${countText}</span>` : ''}
+      <span class="treemap-cell__dot" aria-hidden="true"></span>
+    </div>`;
+  }).join('\n    ');
+}
+
 function gapsScript(): string {
-  return `<script>${d3MinSource}</script>
-<script>
-(function () {
-  var data = window.GAPS_DATA;
-  if (!data || !data.cells || data.cells.length === 0) return;
+  return `<script>
+(function() {
+  var board = document.getElementById('treemap-board');
+  var tooltip = document.getElementById('treemap-tooltip');
+  if (!board || !tooltip) return;
 
-  var container = document.getElementById('treemap-container');
-  var width = Math.max(container.clientWidth, 320);
-  var height = Math.max(container.clientHeight || 0, 480);
-
-  var svg = d3.select('#treemap-svg')
-    .attr('viewBox', [0, 0, width, height].join(' '));
-
-  var root = d3.hierarchy({ children: data.cells })
-    .sum(function(d) { return d.weight || 0; })
-    .sort(function(a, b) { return (b.value || 0) - (a.value || 0); });
-
-  d3.treemap()
-    .size([width, height])
-    .paddingInner(3)
-    .paddingOuter(0)
-    .round(true)(root);
-
-  var leaves = root.leaves();
-
-  var cellGroup = svg.selectAll('.treemap-leaf')
-    .data(leaves)
-    .join('g')
-    .attr('class', function(d) { return 'treemap-leaf treemap-leaf--' + d.data.tier; })
-    .attr('transform', function(d) { return 'translate(' + d.x0 + ',' + d.y0 + ')'; });
-
-  cellGroup.append('rect')
-    .attr('width', function(d) { return Math.max(0, d.x1 - d.x0); })
-    .attr('height', function(d) { return Math.max(0, d.y1 - d.y0); })
-    .attr('rx', 6);
-
-  // Tag name — truncate based on cell width so text stays inside the rect.
-  // Empirically ~7px per character at 14px font weight 600.
-  function fitText(label, widthPx) {
-    var maxChars = Math.max(0, Math.floor((widthPx - 20) / 7));
-    if (maxChars <= 0) return '';
-    if (label.length <= maxChars) return label;
-    if (maxChars <= 2) return '';
-    return label.slice(0, maxChars - 1) + '…';
+  function fill(cell) {
+    var lens = board.classList.contains('lens-freshness');
+    var tier = lens && cell.dataset.freshness ? cell.dataset.freshness : cell.dataset.tier;
+    tooltip.innerHTML =
+      '<strong></strong><br><span class="tier-' + tier + '"></span> — ' +
+      cell.dataset.count + ' article' + (cell.dataset.count === '1' ? '' : 's') +
+      (cell.dataset.titles ? '<br><em></em>' : '');
+    tooltip.querySelector('strong').textContent = cell.dataset.tag;
+    tooltip.querySelector('span').textContent = tier;
+    var em = tooltip.querySelector('em');
+    if (em) em.textContent = cell.dataset.titles;
+    tooltip.style.display = 'block';
   }
 
-  cellGroup.append('text')
-    .attr('class', 'treemap-tag')
-    .attr('x', 10)
-    .attr('y', 20)
-    .text(function(d) {
-      var w = d.x1 - d.x0;
-      var h = d.y1 - d.y0;
-      if (h < 32) return '';
-      return fitText(d.data.tag, w);
-    });
+  board.addEventListener('pointermove', function(e) {
+    var cell = e.target.closest('.treemap-cell');
+    if (!cell) { tooltip.style.display = 'none'; return; }
+    fill(cell);
+    var rect = board.getBoundingClientRect();
+    tooltip.style.left = Math.min(e.clientX - rect.left + 14, rect.width - 290) + 'px';
+    tooltip.style.top = (e.clientY - rect.top + 14) + 'px';
+  });
+  board.addEventListener('pointerleave', function() { tooltip.style.display = 'none'; });
 
-  // Article count sub-label — only when cell has room for it
-  cellGroup.append('text')
-    .attr('class', 'treemap-count')
-    .attr('x', 10)
-    .attr('y', 38)
-    .text(function(d) {
-      var w = d.x1 - d.x0;
-      var h = d.y1 - d.y0;
-      if (w < 84 || h < 54) return '';
-      return d.data.articleCount === 1
-        ? '1 article'
-        : d.data.articleCount + ' articles';
-    });
+  // Keyboard: focus shows the tooltip pinned to the cell.
+  board.addEventListener('focusin', function(e) {
+    var cell = e.target.closest('.treemap-cell');
+    if (!cell) return;
+    fill(cell);
+    tooltip.style.left = cell.style.left;
+    tooltip.style.top = 'calc(' + cell.style.top + ' + 28px)';
+  });
+  board.addEventListener('focusout', function() { tooltip.style.display = 'none'; });
 
-  // Tier indicator (small dot at top-right)
-  cellGroup.append('circle')
-    .attr('class', 'treemap-dot')
-    .attr('cx', function(d) { return Math.max(0, d.x1 - d.x0) - 12; })
-    .attr('cy', 14)
-    .attr('r', 3)
-    .style('pointer-events', 'none');
-
-  // Hover — show tooltip with article titles
-  var tooltip = document.getElementById('treemap-tooltip');
-  cellGroup
-    .on('mouseenter', function(e, d) {
-      if (!tooltip) return;
-      var titles = (d.data.articleTitles || []).slice(0, 5).join(', ');
-      tooltip.innerHTML =
-        '<strong>' + d.data.tag + '</strong><br>' +
-        '<span class="tier-' + d.data.tier + '">' + d.data.tier + '</span> — ' +
-        d.data.articleCount + ' article' + (d.data.articleCount === 1 ? '' : 's') +
-        (titles ? '<br><em>' + titles + '</em>' : '');
-      tooltip.style.display = 'block';
-    })
-    .on('mousemove', function(e) {
-      if (!tooltip) return;
-      var rect = container.getBoundingClientRect();
-      tooltip.style.left = (e.clientX - rect.left + 14) + 'px';
-      tooltip.style.top = (e.clientY - rect.top + 14) + 'px';
-    })
-    .on('mouseleave', function() {
-      if (tooltip) tooltip.style.display = 'none';
+  // Coverage | Freshness lens toggle
+  var toggle = document.getElementById('gaps-lens');
+  if (toggle) {
+    toggle.addEventListener('click', function(e) {
+      var btn = e.target.closest('button[data-lens]');
+      if (!btn) return;
+      var lens = btn.dataset.lens;
+      board.classList.toggle('lens-freshness', lens === 'freshness');
+      toggle.querySelectorAll('button').forEach(function(b) {
+        b.classList.toggle('active', b === btn);
+        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+      });
+      document.querySelectorAll('[data-legend]').forEach(function(l) {
+        l.hidden = l.dataset.legend !== lens;
+      });
     });
+  }
 })();
 </script>`;
 }
 
 export function generateGapsMode(data: SiteData, config: DesignConfig): string {
-  const cells = buildCells(data.articles);
+  const cells = buildCells(data.articles, data);
   const tierCounts = countByTier(cells);
+  const hasFreshness = data.freshness !== null && cells.some(c => c.freshness !== null);
 
   const summaryStats = [
     { label: 'articles', value: String(data.articles.length) },
@@ -196,27 +199,44 @@ export function generateGapsMode(data: SiteData, config: DesignConfig): string {
     )
     .join('');
 
-  const legend = `
-  <div class="gaps-legend">
+  const lensToggle = hasFreshness
+    ? `<div class="gaps-lens" id="gaps-lens" role="group" aria-label="Treemap lens">
+    <button type="button" data-lens="coverage" class="active" aria-pressed="true">Coverage</button>
+    <button type="button" data-lens="freshness" aria-pressed="false">Freshness</button>
+  </div>`
+    : '';
+
+  const coverageLegend = `
+  <div class="gaps-legend" data-legend="coverage">
     <span class="gaps-legend__item gaps-legend__item--full"><span class="dot"></span>Full (3+ articles)</span>
     <span class="gaps-legend__item gaps-legend__item--partial"><span class="dot"></span>Partial (2)</span>
     <span class="gaps-legend__item gaps-legend__item--thin"><span class="dot"></span>Thin (1)</span>
     <span class="gaps-legend__item gaps-legend__item--missing"><span class="dot"></span>Missing (0)</span>
   </div>`;
 
-  const gapsDataJSON = JSON.stringify({ cells });
+  const freshnessLegend = hasFreshness
+    ? `
+  <div class="gaps-legend" data-legend="freshness" hidden>
+    <span class="gaps-legend__item gaps-legend__item--full"><span class="dot"></span>Fresh / evergreen</span>
+    <span class="gaps-legend__item gaps-legend__item--partial"><span class="dot"></span>Aging</span>
+    <span class="gaps-legend__item gaps-legend__item--thin"><span class="dot"></span>Stale</span>
+    <span class="gaps-legend__item gaps-legend__item--missing"><span class="dot"></span>Unknown</span>
+  </div>`
+    : '';
 
   const body = `
-<script>window.GAPS_DATA = ${gapsDataJSON};</script>
 <div class="gaps-wrap">
   <div class="gaps-header">
     <h2>Coverage Map</h2>
-    <p class="gaps-subtitle">Tag-weighted view of what this knowledge base covers well and where the thin spots are. Cell size reflects article count × depth.</p>
+    <p class="gaps-subtitle">Tag-weighted view of what this knowledge base covers well and where the thin spots are. Cell size reflects article count &times; depth.</p>
     <div class="gaps-summary">${summaryHtml}</div>
   </div>
-  ${legend}
-  <div class="treemap-container" id="treemap-container">
-    <svg id="treemap-svg"></svg>
+  ${lensToggle}
+  ${coverageLegend}${freshnessLegend}
+  <div class="treemap-container">
+    <div class="treemap-board" id="treemap-board">
+    ${buildTreemapCells(cells)}
+    </div>
     <div class="treemap-tooltip" id="treemap-tooltip"></div>
   </div>
 </div>

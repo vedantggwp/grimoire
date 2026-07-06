@@ -269,6 +269,7 @@ Grimoire complete: "{topic}"
 
 Next steps:
   - Run /grimoire:serve to expose via MCP server
+  - Schedule self-updates: /grimoire:update --setup (weekly delta scout → PR)
   - Add more sources later: /grimoire "add sources about {subtopic}"
   - Iterate: /grimoire:scout, /grimoire:ingest, /grimoire:compile
 ```

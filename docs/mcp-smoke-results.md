@@ -41,8 +41,8 @@ serve: loaded 6 articles from "Grimoire (the plugin)"
 
 ## Raw transcript
 
-- Server: `/Users/ved/Developer/grimoire/dist/serve.js`
-- Workspace: `/Users/ved/Developer/grimoire-wiki`
+- Server: `<repo>/dist/serve.js`
+- Workspace: `<sibling>/grimoire-wiki`
 - Transport: stdio (JSON-RPC 2.0)
 - SDK: `@modelcontextprotocol/sdk ^1.29.0`
 
@@ -123,10 +123,10 @@ _Fetch full article via `grimoire_get_article(
 title: "Why Grimoire exists (given Karpathy's pattern already describes it)"
 tags: [existence-justification, karpathy, llm-wiki, positioning, moat]
 sources:
-  - url: "file:///Users/ved/Developer/grimoire/SOUL.md"
+  - url: "file://<repo>/SOUL.md"
     title: "Grimoire Product Bible"
     accessed: 2026-04-16
-  - url: "file:///Users/ved/Developer/grimoire/docs/story.md"
+  - url: "file://<repo>/docs/story.md"
     title: "The Grimoire Story"
     accessed: 2026-04-16
   -

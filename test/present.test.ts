@@ -82,7 +82,8 @@ describe('present', () => {
       const htmlFiles = ['index.html', 'read/index.html', 'graph/index.html'];
       for (const file of htmlFiles) {
         const content = readSiteFile(file);
-        expect(content).toContain('<html lang="en">');
+        // motion/density classes are applied at generation time (v0.4.0)
+        expect(content).toContain('<html lang="en" class="motion-subtle density-comfortable">');
         expect(content).toContain('<head>');
         expect(content).toContain('<body');
         expect(content).toContain('</html>');
@@ -97,10 +98,15 @@ describe('present', () => {
   });
 
   describe('CSS', () => {
-    it('includes Google Fonts import', () => {
+    it('loads Google Fonts via <link>, not a CSS @import', () => {
+      // Fonts load once through the <head> link; the old @import inside the
+      // stylesheet double-fetched on the slower CSS path.
       const css = readSiteFile('assets/style.css');
-      expect(css).toContain("@import url('https://fonts.googleapis.com/css2");
+      expect(css).not.toContain('@import');
       expect(css).toContain('Playfair');
+
+      const html = readSiteFile('read/index.html');
+      expect(html).toContain('<link rel="stylesheet" href="https://fonts.googleapis.com/css2');
     });
 
     it('includes CSS reset', () => {
@@ -209,66 +215,181 @@ describe('present', () => {
 
     it('renders featured card without inline grid-row override', () => {
       const html = readSiteFile('index.html');
-      expect(html).toContain('class="bento-card featured"');
+      expect(html).toContain('class="bento-card featured reveal"');
       expect(html).not.toContain('style="grid-row:');
+    });
+
+    // v0.4.0 hub showcase
+    it('embeds the real knowledge graph for the constellation hero', () => {
+      const html = readSiteFile('index.html');
+      expect(html).toContain('id="constellation"');
+      expect(html).toContain('aria-hidden="true"');
+      expect(html).toContain('window.HUB_GRAPH = {"nodes":[');
+      expect(html).toContain('"edges":[');
+      expect(html).toContain('GRIMOIRE_MOTION_OK');
+    });
+
+    it('count-up stats carry data-count only for numeric values', () => {
+      const html = readSiteFile('index.html');
+      expect(html).toMatch(/<strong data-count="\d+">\d+<\/strong>articles/);
+      // N/A density stays plain
+      expect(html).toContain('<strong>N/A</strong>graph density');
+    });
+
+    it('runs the motion runtime before body content', () => {
+      const html = readSiteFile('index.html');
+      const runtimeIdx = html.indexOf("root.classList.add('js')");
+      const heroIdx = html.indexOf('hub-hero');
+      expect(runtimeIdx).toBeGreaterThan(-1);
+      expect(runtimeIdx).toBeLessThan(heroIdx);
     });
   });
 
-  describe('read mode', () => {
-    it('contains article content', () => {
+  describe('read mode — index page', () => {
+    it('lists every article as a real link with summaries', () => {
       const html = readSiteFile('read/index.html');
       expect(html).toContain('React Fundamentals');
       expect(html).toContain('Vue Reactivity System');
+      expect(html).toContain('href="vue-reactivity/index.html"');
+      expect(html).toContain('class="summary"');
     });
 
-    it('has table of contents', () => {
+    it('redirects legacy hash deep-links to the article page', () => {
       const html = readSiteFile('read/index.html');
-      expect(html).toContain('read-sidebar');
-      expect(html).toContain('read-toc-right');
+      expect(html).toContain("window.location.replace('./' + hash + '/index.html')");
     });
 
-    it('has progress bar', () => {
+    it('offers a continue-reading pickup for returning readers', () => {
       const html = readSiteFile('read/index.html');
-      expect(html).toContain('read-progress');
-    });
-
-    it('renders the progress bar outside main', () => {
-      const html = readSiteFile('read/index.html');
-      const progressIndex = html.indexOf('<div class="read-progress" id="read-progress"></div>');
-      const mainIndex = html.indexOf('<main id="main" class="container">');
-      expect(progressIndex).toBeGreaterThan(-1);
-      expect(mainIndex).toBeGreaterThan(-1);
-      expect(progressIndex).toBeLessThan(mainIndex);
-    });
-
-    it('has next/previous navigation', () => {
-      const html = readSiteFile('read/index.html');
-      expect(html).toContain('&larr;');
-      expect(html).toContain('&rarr;');
-    });
-
-    it('rewrites wikilinks away from papyr SPA routes', () => {
-      const html = readSiteFile('read/index.html');
-      expect(html).not.toContain('href="#/note/');
-      expect(html).toContain('data-wikilink-slug="vue-reactivity"');
-      expect(html).toContain('href="#vue-reactivity"');
-    });
-
-    it('keeps only genuine orphan wikilinks marked as new', () => {
-      const html = readSiteFile('read/index.html');
-      expect(html).toContain('<a class="internal" href="#vue-reactivity" data-wikilink-slug="vue-reactivity">Vue Reactivity System</a>');
-      expect(html).toContain('<a class="internal new" href="#nonexistent-article" data-wikilink-slug="nonexistent-article">nonexistent-article</a>');
-    });
-
-    it('handles article hashes and internal wikilink clicks in the read-mode script', () => {
-      const html = readSiteFile('read/index.html');
-      expect(html).toContain("window.history.replaceState(null, '', '#' + slug);");
-      expect(html).toContain("a[data-wikilink-slug]");
+      expect(html).toContain('grimoire-last-read');
+      expect(html).toContain('id="read-continue"');
     });
 
     it('uses relative CSS path for subpage', () => {
       const html = readSiteFile('read/index.html');
       expect(html).toContain('href="../assets/style.css"');
+    });
+  });
+
+  describe('read mode — article pages (issue #2)', () => {
+    it('writes one page per article', () => {
+      expect(existsSync(join(SITE_DIR, 'read/vue-reactivity/index.html'))).toBe(true);
+      expect(existsSync(join(SITE_DIR, 'read/react-fundamentals/index.html'))).toBe(true);
+    });
+
+    it('renders the full article shell at depth 2', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toContain('href="../../assets/style.css"');
+      expect(html).toContain('read-sidebar');
+      expect(html).toContain('read-progress');
+      expect(html).toContain('<h1 style="view-transition-name: vta-vue-reactivity">Vue Reactivity System</h1>');
+    });
+
+    it('marks the current article in the sidebar', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toContain('aria-current="page"');
+      expect(html).toContain('href="../vue-reactivity/index.html" aria-current="page"');
+    });
+
+    it('has real prev/next links in centrality order', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toMatch(/<a href="\.\.\/[a-z-]+\/index\.html" class="btn read-nav-btn" rel="(prev|next)">/);
+    });
+
+    it('rewrites known wikilinks to real article routes', () => {
+      const html = readSiteFile('read/react-fundamentals/index.html');
+      expect(html).not.toContain('href="#/note/');
+      expect(html).toContain('href="../vue-reactivity/index.html" data-wikilink-slug="vue-reactivity"');
+    });
+
+    it('keeps unresolved wikilinks inert and marked new', () => {
+      const html = readSiteFile('read/react-fundamentals/index.html');
+      expect(html).toContain('class="internal new"');
+      expect(html).toContain('data-wikilink-slug="nonexistent-article" role="link" aria-disabled="true"');
+    });
+
+    it('tracks the last-read article for the index pickup', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toContain("localStorage.setItem('grimoire-last-read'");
+    });
+
+    // Phase 3d — reading experience
+    it('renders a backlinks panel on linked-to articles', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toContain('class="article-backlinks"');
+      expect(html).toContain('Linked from');
+    });
+
+    it('renders a numbered sources section with domains', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toContain('id="sources"');
+      expect(html).toContain('class="article-sources__domain"');
+      expect(html).toContain('href="#sources" class="source-count"');
+    });
+
+    it('embeds page-local link previews and the popover script', () => {
+      const html = readSiteFile('read/react-fundamentals/index.html');
+      expect(html).toContain('window.LINK_PREVIEWS = {');
+      expect(html).toContain('"vue-reactivity"');
+      expect(html).toContain('link-preview');
+    });
+
+    it('shows a freshness badge on aging articles, none on evergreen', () => {
+      // vue-reactivity: updated 2026-04-01, never fresh again → badge stays.
+      const vue = readSiteFile('read/vue-reactivity/index.html');
+      expect(vue).toContain('freshness-badge');
+      // signals-pattern is evergreen: true in the fixture.
+      const signals = readSiteFile('read/signals-pattern/index.html');
+      expect(signals).not.toContain('freshness-badge');
+    });
+
+    it('builds the sliding TOC marker', () => {
+      const html = readSiteFile('read/vue-reactivity/index.html');
+      expect(html).toContain('read-toc-marker');
+    });
+  });
+
+  describe('graph mode — v0.4.0 upgrades', () => {
+    it('colors nodes from the palette categorical ramp, not a d3 scheme', () => {
+      const html = readSiteFile('graph/index.html');
+      expect(html).toContain("'var(--cat-' + idx + ')'");
+      // The d3 bundle itself contains the identifier — assert the page no
+      // longer USES the hardcoded scheme.
+      expect(html).not.toContain('d3.scaleOrdinal(d3.schemeTableau10)');
+    });
+
+    it('embeds warm-start seed positions per node', () => {
+      const html = readSiteFile('graph/index.html');
+      expect(html).toContain('"seedX":');
+      expect(html).toContain('"seedY":');
+    });
+
+    it('has focus mode, cluster hulls, and a panel Read link', () => {
+      const html = readSiteFile('graph/index.html');
+      expect(html).toContain('applyFocus');
+      expect(html).toContain('id="graph-hull-toggle"');
+      expect(html).toContain("'../read/' + d.id + '/index.html'");
+      expect(html).toContain('Open in Read');
+    });
+  });
+
+  describe('search mode — v0.4.0 upgrades', () => {
+    it('supports keyboard result navigation', () => {
+      const html = readSiteFile('search/index.html');
+      expect(html).toContain('aria-activedescendant');
+      expect(html).toContain('kbd-active');
+      expect(html).toContain('ArrowDown');
+    });
+
+    it('search results navigate to per-article routes on click', () => {
+      const html = readSiteFile('search/index.html');
+      expect(html).toContain(".closest('.search-result[data-slug]')");
+      expect(html).toContain("'../read/' + row.dataset.slug + '/index.html'");
+    });
+
+    it('offers tag-pill recovery on empty results', () => {
+      const html = readSiteFile('search/index.html');
+      expect(html).toContain('search-recover-tag');
     });
   });
 
@@ -353,30 +474,48 @@ describe('present', () => {
       const idx01 = html.indexOf('Apr 1, 2026');
       expect(idx03).toBeLessThan(idx01);
     });
+
+    it('renders update-run digests as stat-chip cards', () => {
+      // The fixture log contains a structured update-run entry (the format
+      // pinned in skills/update/SKILL.md Step 9).
+      const html = readSiteFile('feed/index.html');
+      expect(html).toContain('feed-entry--digest');
+      expect(html).toContain('feed-digest__chip');
+      expect(html).toContain('<strong>+2</strong> sources');
+      expect(html).toContain('update run</span>');
+    });
   });
 
   describe('gaps mode', () => {
-    it('shows tag data in the treemap payload', () => {
+    it('renders server-side treemap cells with percent geometry — no d3', () => {
       const html = readSiteFile('gaps/index.html');
       expect(html).toContain('reactivity');
-      expect(html).toContain('articles');
-      // New D3 treemap embeds tag data in a window global that the
-      // client-side script reads into d3.hierarchy.
-      expect(html).toContain('window.GAPS_DATA');
+      expect(html).toMatch(/class="treemap-cell treemap-cell--(full|partial|thin)/);
+      expect(html).toMatch(/style="left:[\d.]+%;top:[\d.]+%;width:[\d.]+%;height:[\d.]+%/);
+      // The d3 bundle is gone from this page (it was ~270KB of the old one).
+      expect(html).not.toContain('Mike Bostock');
+      expect(html).not.toContain('window.GAPS_DATA');
     });
 
-    it('uses the D3 treemap container and legend', () => {
+    it('cells are keyboard-focusable with descriptive labels', () => {
+      const html = readSiteFile('gaps/index.html');
+      expect(html).toContain('tabindex="0"');
+      expect(html).toMatch(/aria-label="[^"]+ — (full|partial|thin) coverage/);
+    });
+
+    it('uses the treemap container and legend', () => {
       const html = readSiteFile('gaps/index.html');
       expect(html).toContain('class="treemap-container"');
       expect(html).toContain('class="gaps-legend"');
     });
 
-    it('classifies coverage tiers in the payload', () => {
+    it('offers the freshness lens when the report exists', () => {
+      // The sample fixture compiles with freshness.json (v0.4.0+), so the
+      // lens toggle and second legend must be present.
       const html = readSiteFile('gaps/index.html');
-      // The serialized cells include a tier per tag — at least one should
-      // be full/partial/thin/missing for a non-empty sample wiki.
-      const hasTier = /"tier":"(full|partial|thin|missing)"/.test(html);
-      expect(hasTier).toBe(true);
+      expect(html).toContain('id="gaps-lens"');
+      expect(html).toContain('data-lens="freshness"');
+      expect(html).toContain('data-legend="freshness"');
     });
   });
 
@@ -405,6 +544,15 @@ describe('present', () => {
     it('includes shuffle logic', () => {
       const html = readSiteFile('quiz/index.html');
       expect(html).toContain('shuffle');
+    });
+
+    it('renders real 3D flip faces with streak rewards', () => {
+      const html = readSiteFile('quiz/index.html');
+      expect(html).toContain('id="quiz-card3d"');
+      expect(html).toContain('quiz-face--front');
+      expect(html).toContain('quiz-face--back');
+      expect(html).toContain('id="quiz-streak"');
+      expect(html).toContain('id="quiz-burst"');
     });
 
     // Regression test for 2026-04-10 dry-run bug #1

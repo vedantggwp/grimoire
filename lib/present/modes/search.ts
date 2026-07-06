@@ -15,10 +15,7 @@
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
-
-function esc(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+import { esc, jsonForScript } from '../esc.js';
 
 export function sortByCentrality(articles: readonly ArticleData[]): readonly ArticleData[] {
   return [...articles].sort((a, b) => {
@@ -39,7 +36,7 @@ function buildArticlesJSON(data: SiteData): string {
     headings: a.headings.map(h => h.text),
     excerpt: a.html.replace(/<[^>]+>/g, '').slice(0, 200),
   }));
-  return JSON.stringify(articles);
+  return jsonForScript(articles);
 }
 
 export function buildTagCloud(articles: readonly ArticleData[]): string {
@@ -181,7 +178,21 @@ function searchScript(): string {
     }).sort(function(a, b) { return b.count - a.count; });
 
     if (scored.length === 0 && matchedTags.length === 0) {
-      results.innerHTML = '<div class="search-empty">No results for <strong>' + esc(query) + '</strong>. Try a different term.</div>';
+      var topTags = Object.values(allTags)
+        .sort(function(a, b) { return b.count - a.count; })
+        .slice(0, 6)
+        .map(function(t) {
+          return '<button type="button" class="search-tag-pill search-recover-tag" data-query="' + esc(t.name) + '">' + esc(t.name) + '</button>';
+        }).join('');
+      results.innerHTML = '<div class="search-empty">No results for <strong>' + esc(query) + '</strong>. Try a different term' +
+        (topTags ? ', or browse a tag:<div class="search-examples">' + topTags + '</div>' : '.') + '</div>';
+      results.querySelectorAll('.search-recover-tag').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          input.value = btn.dataset.query;
+          search(input.value);
+        });
+      });
+      activeIndex = -1;
       return;
     }
 
@@ -189,10 +200,10 @@ function searchScript(): string {
 
     if (scored.length > 0) {
       html += '<div class="search-group"><div class="search-group-title">Articles (' + scored.length + ')</div>';
-      html += scored.map(function(r) {
+      html += scored.map(function(r, i) {
         var a = r.article;
         var excerpt = a.summary || a.excerpt;
-        return '<div class="search-result" data-slug="' + esc(a.slug) + '">' +
+        return '<div class="search-result" role="option" id="search-result-' + i + '" data-slug="' + esc(a.slug) + '" style="--reveal-i:' + Math.min(i, 8) + '">' +
           '<div class="title">' + highlightMatch(a.title, query) + '</div>' +
           '<div class="excerpt">' + highlightMatch(excerpt.slice(0, 140), query) + (excerpt.length > 140 ? '...' : '') + '</div>' +
           '</div>';
@@ -212,6 +223,8 @@ function searchScript(): string {
     }
 
     results.innerHTML = html;
+    activeIndex = -1;
+    input.removeAttribute('aria-activedescendant');
   }
 
   input.addEventListener('input', function() {
@@ -256,8 +269,40 @@ function searchScript(): string {
   gridCards.forEach(function(card) {
     card.addEventListener('click', function() {
       var slug = card.dataset.slug;
-      if (slug) window.location.href = '../read/index.html#' + slug;
+      if (slug) window.location.href = '../read/' + slug + '/index.html';
     });
+  });
+
+  // Result rows open their article; arrow keys walk them from the input.
+  var activeIndex = -1;
+  results.setAttribute('role', 'listbox');
+  input.setAttribute('aria-controls', 'search-results');
+
+  results.addEventListener('click', function(e) {
+    var row = e.target.closest('.search-result[data-slug]');
+    if (row) window.location.href = '../read/' + row.dataset.slug + '/index.html';
+  });
+
+  function moveActive(delta) {
+    var rows = results.querySelectorAll('.search-result[data-slug]');
+    if (rows.length === 0) return;
+    activeIndex = Math.max(0, Math.min(rows.length - 1, activeIndex + delta));
+    rows.forEach(function(r, i) { r.classList.toggle('kbd-active', i === activeIndex); });
+    var active = rows[activeIndex];
+    input.setAttribute('aria-activedescendant', active.id);
+    active.scrollIntoView({ block: 'nearest' });
+  }
+
+  input.addEventListener('keydown', function(e) {
+    if (results.style.display === 'none') return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveActive(1); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
+    if (e.key === 'Enter' && activeIndex >= 0) {
+      e.preventDefault();
+      var rows = results.querySelectorAll('.search-result[data-slug]');
+      var active = rows[activeIndex];
+      if (active) window.location.href = '../read/' + active.dataset.slug + '/index.html';
+    }
   });
 
   document.addEventListener('keydown', function(e) {
@@ -292,7 +337,7 @@ export function generateSearchMode(data: SiteData, config: DesignConfig): string
 <script>window.SEARCH_ARTICLES = ${articlesJSON};</script>
 <div class="search-page">
   <div class="search-hero">
-    <div class="search-hint-top">Press <kbd>&#8984;K</kbd> to focus search from anywhere</div>
+    <div class="search-hint-top"><kbd>&#8984;K</kbd> focus &middot; <kbd>&uarr;&darr;</kbd> navigate &middot; <kbd>&crarr;</kbd> open &middot; <kbd>ESC</kbd> clear</div>
     <div class="search-overlay">
       <div class="search-input-wrap">
         <span class="search-icon" aria-hidden="true">&#128269;</span>

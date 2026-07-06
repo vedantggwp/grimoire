@@ -325,3 +325,80 @@ describe('compile — workspace root input', () => {
     expect(react.sources.length).toBeGreaterThan(0);
   });
 });
+
+describe('compile — update-engine artifacts (v0.4.0)', () => {
+  // Relies on the main describe's beforeAll having compiled the fixture;
+  // vitest runs file-level describes sequentially, and the v0.2.4 block
+  // above recompiles from the workspace root either way.
+  it('emits freshness.json with per-article tiers and a summary', () => {
+    const freshness = readJSON('freshness.json') as any;
+    expect(freshness.policy).toMatchObject({ freshDays: 45, agingDays: 120, source: 'file' });
+    expect(Array.isArray(freshness.articles)).toBe(true);
+
+    const slugs = freshness.articles.map((a: any) => a.slug);
+    expect(slugs).not.toContain('index');
+    expect(slugs).not.toContain('overview');
+    expect(slugs).not.toContain('log');
+
+    const total = Object.values(freshness.summary as Record<string, number>)
+      .reduce((sum, n) => sum + n, 0);
+    expect(total).toBe(freshness.articles.length);
+
+    // signals-pattern is marked evergreen: true in the fixture — tier must
+    // be time-independent so this suite never rots.
+    const evergreen = freshness.articles.find((a: any) => a.slug === 'signals-pattern');
+    expect(evergreen.tier).toBe('evergreen');
+  });
+
+  it('carries updated/checked/evergreen through the notes manifest', () => {
+    const notes = readJSON('notes.json') as any[];
+    const vue = notes.find((n) => n.slug === 'vue-reactivity');
+    expect(vue.updated).toBe('2026-04-01');
+    expect(vue.checked).toBeNull();
+    expect(vue.evergreen).toBe(false);
+
+    const signals = notes.find((n) => n.slug === 'signals-pattern');
+    expect(signals.evergreen).toBe(true);
+  });
+
+  it('emits update-context.json with the resolved policy and source ledger', () => {
+    const context = readJSON('update-context.json') as any;
+    expect(context.policy.minScore).toBe(14);
+    expect(context.policy.maxSourcesPerRun).toBe(4);
+    expect(context.policy.watchlist.length).toBe(2);
+    expect(context.policy.connectionExclusions).toEqual([
+      { a: 'react-fundamentals', b: 'svelte-compilation' },
+    ]);
+
+    // approved-sources.md + raw/ frontmatter, normalized and deduped:
+    // the www/trailing-slash signals URL and the vue docs URL collapse.
+    expect(context.knownUrls).toContain('https://example.com/signals-pattern');
+    expect(context.knownUrls).toContain(
+      'https://vuejs.org/guide/essentials/reactivity-fundamentals.html',
+    );
+    expect(context.knownUrls).toContain('https://react.dev/learn');
+    expect(context.knownUrlCount).toBe(context.knownUrls.length);
+
+    // raw collected date (2026-01-15) vs whatever the fixture log holds —
+    // lastUpdate must be a concrete ISO date either way.
+    expect(context.lastUpdate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('emits connection-candidates.json only when candidates exist', () => {
+    const candidatesPath = join(COMPILE_DIR, 'connection-candidates.json');
+    if (existsSync(candidatesPath)) {
+      const candidates = readJSON('connection-candidates.json') as any[];
+      expect(candidates.length).toBeGreaterThan(0);
+      for (const c of candidates) {
+        expect(c.a < c.b).toBe(true);
+        expect(c.score).toBeGreaterThan(0);
+      }
+      // The excluded pair must never be proposed.
+      expect(
+        candidates.some(
+          (c) => c.a === 'react-fundamentals' && c.b === 'svelte-compilation',
+        ),
+      ).toBe(false);
+    }
+  });
+});
