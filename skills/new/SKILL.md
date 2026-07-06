@@ -1,15 +1,15 @@
 ---
-name: init
+name: new
 description: >-
   Use this skill when the user wants to create a new Grimoire knowledge base,
-  start a new wiki, initialize a grimoire, or says "grimoire init", "new grimoire",
-  "create a knowledge base", "start a wiki", or "/grimoire:init". Detects existing
+  start a new wiki, initialize a grimoire, or says "grimoire new", "new grimoire",
+  "grimoire init", "create a knowledge base", "start a wiki", or "/grimoire:new". Detects existing
   projects, auto-discovers context from README/CLAUDE.md/package.json/docs, offers
   workspace placement options, and scaffolds a complete grimoire workspace.
 version: 0.2.0
 ---
 
-# init
+# new
 
 Initialize a new Grimoire knowledge base. If run inside an existing project,
 intelligently discover context and pre-fill the questionnaire. Otherwise, run
@@ -116,7 +116,7 @@ not all at once. Use the full question text from the reference file for context,
 but keep the actual prompt conversational.
 
 Load the full questionnaire from:
-`${CLAUDE_PLUGIN_ROOT}/skills/init/references/questionnaire.md`
+`${CLAUDE_PLUGIN_ROOT}/skills/new/references/questionnaire.md`
 
 ### Auto-discover
 
@@ -210,7 +210,7 @@ After collecting all answers and the workspace path, create the structure:
 ### Populating SCHEMA.md
 
 Use the schema template from:
-`${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/schema-template.md`
+`${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/schema-template.md`
 
 Replace placeholders in the YAML domain block. Keep the nested `scope.in` /
 `scope.out` structure — all downstream skills parse that exact shape:
@@ -229,14 +229,14 @@ If Q5 = emergent, leave the table empty with the explanatory note.
 ### Populating _config/design.md
 
 Use the design config template from:
-`${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/design-config.md`
+`${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/design-config.md`
 
 Replace `palette: midnight-teal` with the user's Q6 choice.
 
 ### Populating _config/update.md
 
 Copy the update policy template verbatim from:
-`${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/update-config.md`
+`${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/update-config.md`
 
 No questionnaire input feeds it — the commented defaults are the
 documentation. It governs `/grimoire:update` (scheduled refresh runs);
@@ -245,7 +245,7 @@ the engine also works without the file, so deleting it is safe.
 ### Populating wiki/index.md
 
 Use the index template from:
-`${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/index-template.md`
+`${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/index-template.md`
 
 If Q5 = defined, create section headers for each category.
 
@@ -256,7 +256,7 @@ If Q4 provided URLs, create `scout-queue.md` in the target directory:
 ```markdown
 # Scout Queue
 
-Sources provided during init. Run scout to evaluate and ingest.
+Sources provided during onboarding. Run scout to evaluate and ingest.
 
 | URL | Status |
 |-----|--------|

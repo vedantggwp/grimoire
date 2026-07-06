@@ -16,7 +16,7 @@ serialized indexes for downstream skills (present, serve).
 ## Prerequisites
 
 - A grimoire workspace must exist — check for `SCHEMA.md` in the workspace root.
-  If missing, tell the user to run `/grimoire:init` first.
+  If missing, tell the user to run `/grimoire:new` first.
 - The `wiki/` directory must contain at least one article (not counting index.md,
   overview.md, or log.md). If empty, tell the user to run `/grimoire:ingest` first.
 

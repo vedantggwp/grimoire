@@ -41,7 +41,7 @@ The two principles that survive automation:
 ## Prerequisites
 
 - An existing grimoire workspace (`SCHEMA.md` present). If missing, print an
-  error directing the user to `/grimoire:init` — **never scaffold from here**.
+  error directing the user to `/grimoire:new` — **never scaffold from here**.
 - The plugin's compiled runtime: `${CLAUDE_PLUGIN_ROOT}/dist/compile.js` (and
   `dist/present.js` when a site exists).
 
@@ -61,7 +61,7 @@ Parsed from natural language, like `run`:
 
 1. Find `SCHEMA.md`: the `--workspace` path if given, else the current
    directory, else immediate child directories. Not found → print
-   `No grimoire workspace found. Run /grimoire:init first.` and stop.
+   `No grimoire workspace found. Run /grimoire:new first.` and stop.
 2. Run compile pass 1 to refresh context artifacts:
    `node ${CLAUDE_PLUGIN_ROOT}/dist/compile.js {workspace}`
 3. Read:
@@ -240,7 +240,7 @@ When invoked with `--setup`, do not run an update. Instead:
    `{{WORKSPACE_PATH}}` with the workspace path relative to the repo root
    (`.` when they're the same).
 3. Ensure `_config/update.md` exists — scaffold it from
-   `${CLAUDE_PLUGIN_ROOT}/skills/init/assets/templates/update-config.md` if
+   `${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/update-config.md` if
    missing.
 4. Ensure `.claude/settings.json` in the repo declares the Athanor
    marketplace and enables the grimoire plugin, so the headless CI run

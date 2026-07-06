@@ -16,7 +16,7 @@ the design configuration.
 ## Prerequisites
 
 - A grimoire workspace must exist — check for `SCHEMA.md`.
-  If missing, tell the user to run `/grimoire:init` first.
+  If missing, tell the user to run `/grimoire:new` first.
 - The `wiki/.compile/` directory must exist with JSON artifacts.
   If missing, tell the user to run `/grimoire:compile` first.
 - The `_config/design.md` file should exist. If missing, use defaults

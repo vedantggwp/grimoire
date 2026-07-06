@@ -13,8 +13,8 @@ Grimoire is a Claude Code plugin. Skills are auto-discovered from `skills/*/SKIL
 
 | Skill | Job |
 |-------|-----|
-| `run` | One-command pipeline: init → scout → ingest → compile → present, 2 checkpoints |
-| `init` | Interactive questionnaire + workspace scaffolding |
+| `run` | One-command pipeline: new → scout → ingest → compile → present, 2 checkpoints |
+| `new` | Interactive questionnaire + workspace scaffolding |
 | `scout` | Research sources, score confidence, curate URL list |
 | `ingest` | Fetch sources, preserve raw text, compile wiki articles |
 | `compile` | Cross-references, backlinks, overview, gap analysis |
