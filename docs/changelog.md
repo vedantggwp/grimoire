@@ -1,5 +1,92 @@
 # Changelog
 
+## 2026-07-06 — v0.3.1 Release Cut: One-Command Orchestrator + Hybrid Compile Enforcement
+
+### Context
+
+Release-engineering entry cut by the weekly release train. Everything below
+landed on `main` between 2026-04-16 and 2026-06-01 but was never captured in
+this changelog (the prior entry stops at the pre-v0.3 friction pass) and was
+never tagged — the last GitHub release is `v0.2.1`, while `package.json` and
+`.claude-plugin/plugin.json` on `main` have read `0.3.1` since 2026-04-17.
+This entry documents the 0.3.0 → 0.3.1 window as a single release proposal so
+Ved can cut a clean `v0.3.1` baseline (or fold it into v0.4.0 — see the
+release PR body for that decision).
+
+Semver: `0.2.1 → 0.3.1`. Minor bump driven by additive, backward-compatible
+features (one-command orchestrator, hybrid compile enforcement); no breaking
+changes, so not a major. Patch component reflects the follow-on 0.3.1 compile
+work layered on the 0.3.0 orchestrator.
+
+### v0.3.0 — One-command orchestrator (`b157064`)
+
+Collapses the 9–11 mandatory decision points and 6 separate slash commands
+into a single `/grimoire "topic"` flow that chains init → scout → ingest →
+compile → present with exactly two taste checkpoints (source curation after
+scout, final review after present).
+
+- `skills/run/SKILL.md` — orchestrator: smart defaults from topic inference,
+  batch ingest, inline reconfiguration at final review, incremental mode for
+  existing workspaces, six progressive-disclosure flags (`--guided`,
+  `--review-angles`, `--sequential`, `--from`, `--no-present`, `--palette`)
+- `skills/run/references/design-shortcuts.md` — natural-language phrase
+  mapping for palette, typography, density, and motion config
+- `lib/defaults.ts` — `inferSchemaFromPrompt()` generates SCHEMA defaults
+  from one sentence; `detectClaudeMd()` for project integration
+- `lib/templates.ts` — `loadTemplate()` / `applyTemplate()` power `--from`
+  grimoire-to-grimoire config inheritance
+- `lib/pipeline-types.ts` — shared orchestration types
+- Backward compatible: all six original skills retain their full checkpoint
+  flows for direct invocation; ingest gains an additive batch-mode path
+
+### v0.3.0 supporting work — workspace-root compile, MCP config, hub polish (`f13ea7b`, `9394d62`)
+
+- Compile CLI accepts workspace root *or* `wiki/` dir via `resolveWikiDir()`
+  auto-detection (backward compatible)
+- `skills/serve` restructured into 7 steps; Step 4 writes a paste-ready
+  `mcp-config-snippet.json` with literal absolute paths (Claude Desktop
+  config is plain JSON — no `~`, no env vars, no placeholders)
+- `shortTopic()` helper extracted to `lib/short-topic.ts` — stops verbose
+  multi-line SCHEMA topics from bleeding into all five MCP client display
+  sites (startup log, instructions metadata, list-topics, query prefix,
+  no-results fallback)
+- Protocol-level MCP smoke test (`scripts/mcp-smoke-client.mjs`) — machine-
+  checkable handshake verification over a real client transport
+- Doc drift fixed: "6 tools" → 7 (`grimoire_get_section` shipped in v0.2.2)
+
+### v0.3.1 — Hybrid enforcement for taxonomy + overview evolution (`18c7981`, `d73ec4b`)
+
+Closes deferred bugs 11 and 12 from the v0.2.4 dogfood inventory, where the
+compile skill silently skipped Step 5 (overview evolution) and Step 5.5
+(taxonomy proposal). Splits the work: irreducible LLM prose stays in the
+skill; deterministic scaffolding (required-citation slugs, taxonomy-proposal
+conditions, tag cooccurrence grouping) moves into `lib/compile.ts`, and the
+skill's Step 9 audit reads the emitted evidence and loops on failure.
+
+- `wiki/.compile/overview-metadata.json` (every run) — top-5 centrality
+  articles, `requiredCitations` hard-contract slug list, coverage stats,
+  topic clusters
+- `wiki/.compile/taxonomy-proposal.json` (conditional) — emitted only when
+  proposal conditions are met
+- `SUPPORT_SLUGS` extracted to shared `lib/support-slugs.ts`; tag-pair
+  cooccurrence rewritten from O(T²·S) to single-pass O(Σ tags²)
+
+### Docs hardening (`fc01b5a`, `471cc3a`, `ef3606f`)
+
+- Personal-voice references scrubbed from engineering records (decisions,
+  changelog, roadmap, launch docs, MANIFEST) — technical content preserved
+  verbatim; legitimate attribution (LICENSE, author fields, story) retained
+- gstack skill routing rules added to CLAUDE.md
+- OSS maintainer surface strengthened
+
+### Verification (release train, 2026-07-06)
+
+- `npm ci` — clean install (300 packages)
+- `npm test` — **724/724 passing** across 40 files
+- `npm run build` — bundles reproduce with **zero git diff** in `dist/`
+- `main` in sync with `origin/main`; PR-branch CI ("Node test and build")
+  green on both open PRs
+
 ## 2026-04-15 — Pre-Claude-Desktop-Test Friction Pass
 
 ### Context
