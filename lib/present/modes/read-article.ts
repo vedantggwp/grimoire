@@ -41,6 +41,14 @@ function freshnessBadge(data: SiteData, slug: string): string {
   return `<span class="freshness-badge freshness-badge--${info.tier}" title="${esc(title)}">${info.tier}${esc(dateNote)}</span>`;
 }
 
+function fidelityBadge(article: ArticleData): string {
+  if (article.sourceFidelity === 'full') return '';
+  const title = article.sourceFidelity === 'degraded'
+    ? 'At least one cited source could not be captured; verify claims against the source list.'
+    : 'At least one cited source was only partially captured; verify claims against the source list.';
+  return `<span class="fidelity-badge fidelity-badge--${article.sourceFidelity}" title="${esc(title)}">Compiled from partial captures &mdash; verify against sources</span>`;
+}
+
 function buildBacklinks(article: ArticleData, all: readonly ArticleData[]): string {
   const backlinks = all.filter(a => a.slug !== article.slug && a.linksTo.includes(article.slug));
   if (backlinks.length === 0) return '';
@@ -263,6 +271,7 @@ export function generateArticlePage(
         ${confidenceBadge}
         ${sourcesBadge}
         ${freshnessBadge(data, article.slug)}
+        ${fidelityBadge(article)}
         ${wordsMeta}
       </div>
       <h1 style="view-transition-name: vta-${esc(article.slug)}">${esc(article.title)}</h1>

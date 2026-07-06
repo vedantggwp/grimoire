@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'node:child_process';
-import { readFileSync, existsSync, rmSync } from 'node:fs';
+import { cpSync, readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const WORKSPACE = join(__dirname, 'fixtures/sample-wiki');
@@ -601,5 +602,56 @@ describe('present', () => {
       const matches = bodyOnly.match(hexPattern) ?? [];
       expect(matches, 'Found hardcoded hex colors in HTML body').toEqual([]);
     });
+  });
+});
+
+describe('present — raw-source fidelity gates', () => {
+  const SOURCE_WORKSPACE = join(__dirname, 'fixtures/degraded-source-wiki');
+  let tmpRoot = '';
+  let workspace = '';
+  let siteDir = '';
+
+  beforeAll(() => {
+    tmpRoot = mkdtempSync(join(tmpdir(), 'grimoire-present-fidelity-'));
+    workspace = join(tmpRoot, 'workspace');
+    siteDir = join(workspace, 'site');
+    cpSync(SOURCE_WORKSPACE, workspace, { recursive: true });
+
+    execSync(`${TSX_RUNNER} ${COMPILE_SCRIPT} ${workspace}`, {
+      cwd: join(__dirname, '..'),
+      stdio: 'pipe',
+      timeout: 30000,
+    });
+
+    execSync(`${TSX_RUNNER} ${PRESENT_SCRIPT} ${workspace}`, {
+      cwd: join(__dirname, '..'),
+      stdio: 'pipe',
+      timeout: 30000,
+    });
+  });
+
+  afterAll(() => {
+    rmSync(tmpRoot, { recursive: true, force: true });
+  });
+
+  function readGenerated(relativePath: string): string {
+    return readFileSync(join(siteDir, relativePath), 'utf-8');
+  }
+
+  it('renders hub source-warning stats and article fidelity badges', () => {
+    const hub = readGenerated('index.html');
+    expect(hub).toContain('source warnings');
+    expect(hub).toContain('<strong data-count="2">2</strong>');
+
+    const mixed = readGenerated('read/mixed-capture/index.html');
+    expect(mixed).toContain('fidelity-badge--mixed');
+    expect(mixed).toContain('Compiled from partial captures &mdash; verify against sources');
+
+    const degraded = readGenerated('read/degraded-capture/index.html');
+    expect(degraded).toContain('fidelity-badge--degraded');
+    expect(degraded).toContain('Compiled from partial captures &mdash; verify against sources');
+
+    const full = readGenerated('read/full-capture/index.html');
+    expect(full).not.toContain('fidelity-badge');
   });
 });

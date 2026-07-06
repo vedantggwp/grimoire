@@ -6,6 +6,8 @@ import { join } from 'node:path';
 
 const WIKI_DIR = join(__dirname, 'fixtures/sample-wiki/wiki');
 const COMPILE_DIR = join(WIKI_DIR, '.compile');
+const DEGRADED_WORKSPACE = join(__dirname, 'fixtures/degraded-source-wiki');
+const DEGRADED_COMPILE_DIR = join(DEGRADED_WORKSPACE, 'wiki/.compile');
 const SCRIPT = join(__dirname, '../lib/compile.ts');
 const TSX_RUNNER = 'node --import tsx/esm';
 
@@ -85,6 +87,64 @@ but no pair of tags co-occurs across two articles.
   }
 
   writeFileSync(join(wikiDir, '.compile', 'taxonomy-proposal.json'), '{"stale": true}', 'utf-8');
+}
+
+function createUnknownFidelityWorkspace(root: string): void {
+  const wikiDir = join(root, 'wiki');
+  const rawDir = join(root, 'raw', 'legacy');
+  mkdirSync(wikiDir, { recursive: true });
+  mkdirSync(rawDir, { recursive: true });
+
+  writeFileSync(join(root, 'SCHEMA.md'), `# Test Schema
+
+## Domain
+
+\`\`\`
+topic: Legacy Fidelity Wiki
+taxonomy: "emergent"
+scope:
+  in: "Back-compat"
+  out: "Production content"
+\`\`\`
+`, 'utf-8');
+
+  writeFileSync(join(wikiDir, 'index.md'), '# Index\n\n| Article |\n|---------|\n| [[legacy-article]] |\n', 'utf-8');
+  writeFileSync(join(wikiDir, 'overview.md'), '# Overview\n\n## Open Questions\n\n- None.\n', 'utf-8');
+  writeFileSync(join(wikiDir, 'log.md'), '# Log\n\n## 2026-07-06 — Legacy fixture\n\n- Created.\n', 'utf-8');
+
+  writeFileSync(join(wikiDir, 'legacy-article.md'), `---
+title: "Legacy Article"
+summary: "A legacy article whose raw source predates the fidelity frontmatter field and must not show a false warning."
+tags: [legacy]
+sources:
+  - url: "https://example.com/legacy-source"
+    title: "Legacy Source"
+    accessed: 2026-07-06
+updated: 2026-07-06
+confidence: P1
+---
+
+# Legacy Article
+
+## Overview
+
+Legacy content should compile as full for display while still logging that
+fidelity is untracked.
+`, 'utf-8');
+
+  writeFileSync(join(rawDir, '2026-07-06-legacy-source.md'), `---
+source_url: "https://example.com/legacy-source"
+collected: 2026-07-06
+published: 2026-07-06
+type: article
+author: "Fixture"
+title: "Legacy Source"
+---
+
+# Legacy Source
+
+Raw content from a pre-v0.5 archive with no fidelity field.
+`, 'utf-8');
 }
 
 describe('compile', () => {
@@ -362,6 +422,79 @@ describe('compile', () => {
       // not met — the skill uses this to decide whether to skip silently.
       expect(existsSync(join(COMPILE_DIR, 'taxonomy-proposal.json'))).toBe(false);
     });
+  });
+});
+
+describe('compile — raw-source fidelity gates', () => {
+  let stdout = '';
+
+  beforeAll(() => {
+    if (existsSync(DEGRADED_COMPILE_DIR)) {
+      rmSync(DEGRADED_COMPILE_DIR, { recursive: true });
+    }
+
+    stdout = execSync(`${TSX_RUNNER} ${SCRIPT} ${DEGRADED_WORKSPACE}`, {
+      cwd: join(__dirname, '..'),
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 30000,
+    });
+  });
+
+  afterAll(() => {
+    rmSync(DEGRADED_COMPILE_DIR, { recursive: true, force: true });
+  });
+
+  it('aggregates per-article sourceFidelity by worst cited raw source', () => {
+    const notes = JSON.parse(readFileSync(join(DEGRADED_COMPILE_DIR, 'notes.json'), 'utf-8')) as any[];
+    expect(notes.find(n => n.slug === 'full-capture')?.sourceFidelity).toBe('full');
+    expect(notes.find(n => n.slug === 'mixed-capture')?.sourceFidelity).toBe('mixed');
+    expect(notes.find(n => n.slug === 'degraded-capture')?.sourceFidelity).toBe('degraded');
+  });
+
+  it('emits source fidelity summary metadata and compile summary line', () => {
+    const overview = JSON.parse(readFileSync(join(DEGRADED_COMPILE_DIR, 'overview-metadata.json'), 'utf-8')) as any;
+    expect(overview.sourceFidelity).toMatchObject({
+      full: 1,
+      mixed: 1,
+      degraded: 1,
+      unknownSources: 0,
+      degradedArticles: ['degraded-capture'],
+    });
+    expect(stdout).toContain('1 articles on degraded sources');
+  });
+});
+
+describe('compile — fidelity unknown back-compat', () => {
+  const WORKSPACE_DIR = mkdtempSync(join(tmpdir(), 'grimoire-fidelity-unknown-'));
+  const WIKI_DIR = join(WORKSPACE_DIR, 'wiki');
+  const COMPILE_DIR = join(WIKI_DIR, '.compile');
+  let stdout = '';
+
+  beforeAll(() => {
+    createUnknownFidelityWorkspace(WORKSPACE_DIR);
+    stdout = execSync(`${TSX_RUNNER} ${SCRIPT} ${WORKSPACE_DIR}`, {
+      cwd: join(__dirname, '..'),
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 30000,
+    });
+  });
+
+  afterAll(() => {
+    rmSync(WORKSPACE_DIR, { recursive: true, force: true });
+  });
+
+  it('treats missing fidelity frontmatter as full for display but logs untracked status', () => {
+    const notes = JSON.parse(readFileSync(join(COMPILE_DIR, 'notes.json'), 'utf-8')) as any[];
+    const article = notes.find(n => n.slug === 'legacy-article');
+    expect(article?.sourceFidelity).toBe('full');
+
+    const overview = JSON.parse(readFileSync(join(COMPILE_DIR, 'overview-metadata.json'), 'utf-8')) as any;
+    expect(overview.sourceFidelity.degraded).toBe(0);
+    expect(overview.sourceFidelity.unknownSources).toBe(1);
+    expect(stdout).toContain('0 articles on degraded sources');
+    expect(stdout).toContain('fidelity untracked (pre-v0.5 wiki)');
   });
 });
 

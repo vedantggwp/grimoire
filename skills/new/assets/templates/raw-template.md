@@ -5,6 +5,7 @@ published: YYYY-MM-DD
 type: article | documentation | tutorial | video-transcript | thread | repository | paper
 author: "Author Name"
 title: "Original Title"
+fidelity: full
 ---
 
 # Original Title

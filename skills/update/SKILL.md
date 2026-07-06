@@ -67,6 +67,10 @@ Parsed from natural language, like `run`:
 3. Read:
    - `wiki/.compile/update-context.json` — resolved policy, `lastUpdate`,
      `knownUrls` (the cross-run dedup ledger)
+   - `wiki/.compile/notes.json` — article manifest, including `sourceFidelity`
+     and cited source URLs
+   - `wiki/.compile/overview-metadata.json` — compile summary, including
+     source-fidelity counts and degraded article slugs
    - `wiki/.compile/freshness.json` — staleness tiers
    - `wiki/overview.md` — Open Questions and Coverage Gaps sections
    - `SCHEMA.md` — topic and scope (scope.out still excludes results)
@@ -86,8 +90,12 @@ Invoke the scout skill's **Delta Mode** (see `skills/scout/SKILL.md`,
   the coverage gaps, and every policy Watchlist entry (URLs in the watchlist
   are fetched directly — this is also the fallback when WebSearch is
   unavailable in the execution environment).
+- Degraded-source retry candidates come from every article whose manifest
+  `sourceFidelity` is `degraded`: add each cited source URL as a direct retry
+  candidate with reason `raw capture degraded`.
 - Every candidate whose normalized URL appears in `knownUrls` is dropped
-  before scoring.
+  before scoring, except degraded-source retry candidates. Known URLs with
+  failed raw capture must be retried, not deduped away.
 - Score survivors with the standard 6-signal rubric.
 
 Print: `Delta scout: {N} candidates, {M} after cross-run dedup`.

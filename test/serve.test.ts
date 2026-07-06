@@ -25,6 +25,21 @@ const TSX_RUNNER = 'node --import tsx/esm';
 
 let data: WikiData;
 
+const FIDELITY_WARNING =
+  'Fidelity warning: this article was compiled from degraded raw source capture; verify against sources.';
+
+function withSourceFidelity(
+  slug: string,
+  sourceFidelity: 'full' | 'mixed' | 'degraded',
+): WikiData {
+  return {
+    ...data,
+    notes: data.notes.map(note =>
+      note.slug === slug ? { ...note, sourceFidelity } : note,
+    ),
+  };
+}
+
 describe('serve', () => {
   beforeAll(() => {
     // Ensure compile output exists
@@ -111,6 +126,11 @@ scope:
       const result = handleQuery('react', data);
       expect(result).toContain('grimoire_get_article');
     });
+
+    it('appends a fidelity warning when a result article is degraded', () => {
+      const result = handleQuery('react', withSourceFidelity('react-fundamentals', 'degraded'));
+      expect(result).toContain(FIDELITY_WARNING);
+    });
   });
 
   describe('handleListTopics', () => {
@@ -195,6 +215,22 @@ scope:
     it('summary envelope includes hint to use get_section', () => {
       const result = handleGetArticle('react-fundamentals', data, 'summary');
       expect(result).toContain('grimoire_get_section');
+    });
+
+    it('appends a fidelity warning when a fetched article is degraded', () => {
+      const full = handleGetArticle(
+        'react-fundamentals',
+        withSourceFidelity('react-fundamentals', 'degraded'),
+        'full',
+      );
+      expect(full).toContain(FIDELITY_WARNING);
+
+      const summary = handleGetArticle(
+        'react-fundamentals',
+        withSourceFidelity('react-fundamentals', 'degraded'),
+        'summary',
+      );
+      expect(summary).toContain(FIDELITY_WARNING);
     });
   });
 
@@ -302,6 +338,13 @@ scope:
       const result = handleCoverageGaps(data);
       expect(result).toContain('Coverage Gaps');
       expect(result).toMatch(/\(\d+ issues\)/);
+    });
+
+    it('lists degraded-source articles in their own gaps section', () => {
+      const result = handleCoverageGaps(withSourceFidelity('vue-reactivity', 'degraded'));
+      expect(result).toContain('### Degraded Source Fidelity');
+      expect(result).toContain('[DEGRADED SOURCE] "Vue Reactivity System" (vue-reactivity)');
+      expect(result).toContain('retry source capture');
     });
 
     // v0.4.0 — staleness exposure. Crafted reports keep these assertions

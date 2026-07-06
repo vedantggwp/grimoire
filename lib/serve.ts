@@ -11,6 +11,8 @@ import type { FreshnessReport } from './freshness.js';
 
 // --- Types ---
 
+type ArticleSourceFidelity = 'full' | 'mixed' | 'degraded';
+
 interface NoteManifestEntry {
   readonly slug: string;
   readonly title: string;
@@ -22,6 +24,7 @@ interface NoteManifestEntry {
   readonly headings: readonly { level: number; text: string }[];
   readonly confidence: string;
   readonly sources: readonly { url: string; title: string }[];
+  readonly sourceFidelity?: ArticleSourceFidelity;
 }
 
 interface GraphData {
@@ -47,6 +50,22 @@ interface SchemaInfo {
   readonly topic: string;
   readonly scopeIn: string;
   readonly scopeOut: string;
+}
+
+const DEGRADED_FIDELITY_WARNING =
+  'Fidelity warning: this article was compiled from degraded raw source capture; verify against sources.';
+
+function sourceFidelityOf(note: NoteManifestEntry | undefined): ArticleSourceFidelity {
+  return note?.sourceFidelity ?? 'full';
+}
+
+function fidelityWarningFor(note: NoteManifestEntry | undefined): string {
+  return sourceFidelityOf(note) === 'degraded' ? DEGRADED_FIDELITY_WARNING : '';
+}
+
+function appendFidelityWarning(text: string, note: NoteManifestEntry | undefined): string {
+  const warning = fidelityWarningFor(note);
+  return warning ? `${text}\n\n_${warning}_` : text;
 }
 
 export interface WikiData {
@@ -495,13 +514,15 @@ export function handleQuery(query: string, data: WikiData): string {
   const sections = topHits.map((hit) => {
     const note = notesBySlug.get(hit.slug);
     const summary = note?.summary?.trim() ?? '';
+    const warning = fidelityWarningFor(note);
+    const warningLine = warning ? `\n\n_${warning}_` : '';
     if (summary) {
-      return `### ${hit.title} (${hit.slug})\n\n${summary}\n\n_Fetch full article via \`grimoire_get_article(slug: "${hit.slug}")\`, or a specific section via \`grimoire_get_section\`._`;
+      return `### ${hit.title} (${hit.slug})\n\n${summary}\n\n_Fetch full article via \`grimoire_get_article(slug: "${hit.slug}")\`, or a specific section via \`grimoire_get_section\`._${warningLine}`;
     }
     // Legacy fallback: article predates the summary field.
     const content = readArticle(data.wikiDir, hit.slug);
     const excerpt = content ? extractExcerpt(content) : hit.excerpt;
-    return `### ${hit.title} (${hit.slug})\n\n${excerpt}`;
+    return `### ${hit.title} (${hit.slug})\n\n${excerpt}${warningLine}`;
   });
 
   return [
@@ -568,18 +589,19 @@ export function handleGetArticle(
     return `Article not found: "${slug}". Available slugs: ${preview}${more}`;
   }
 
+  const note = data.notes.find((n) => n.slug === slug);
+
   const effectiveMode: GetArticleMode =
     mode === 'full' ? 'full'
       : mode === 'summary' ? 'summary'
         : content.length > LARGE_ARTICLE_CHARS ? 'summary' : 'full';
 
   if (effectiveMode === 'full') {
-    return content;
+    return appendFidelityWarning(content, note);
   }
 
   // Summary envelope: let the LLM client decide whether to fetch the full
   // article or a specific section without paying the full-article token cost.
-  const note = data.notes.find((n) => n.slug === slug);
   const title = note?.title ?? slug;
   const summary = note?.summary?.trim() ?? '';
   const h2Headings = (note?.headings ?? []).filter((h) => h.level === 2);
@@ -600,7 +622,7 @@ export function handleGetArticle(
     lines.push('_(no H2 sections detected)_');
   }
 
-  return lines.join('\n');
+  return appendFidelityWarning(lines.join('\n'), note);
 }
 
 // Split an article body into sections keyed by H2 heading. Markdown-native,
@@ -742,7 +764,18 @@ export function handleCoverageGaps(data: WikiData): string {
     gaps.push('', '### Missing Articles (orphaned links)', '', ...orphanEntries);
   }
 
-  // 4. Articles past their staleness window (freshness.json, v0.4.0+).
+  // 4. Articles whose cited raw captures failed. Mixed/extract captures are
+  // visible on the generated site; failed captures are coverage-blocking.
+  const degradedEntries = data.notes
+    .filter(note => sourceFidelityOf(note) === 'degraded')
+    .sort((a, b) => a.slug.localeCompare(b.slug))
+    .map(note => `- [DEGRADED SOURCE] "${note.title}" (${note.slug}): raw capture failed; retry source capture before relying on claims`);
+
+  if (degradedEntries.length > 0) {
+    gaps.push('', '### Degraded Source Fidelity', '', ...degradedEntries);
+  }
+
+  // 5. Articles past their staleness window (freshness.json, v0.4.0+).
   // Workspaces compiled before v0.4.0 have no freshness report — degrade to
   // the legacy output silently.
   const staleEntries: string[] = [];
@@ -777,7 +810,12 @@ export function handleCoverageGaps(data: WikiData): string {
     return 'No coverage gaps detected.';
   }
 
-  const totalGaps = thinTags.length + thinArticles.length + orphanEntries.length + staleEntries.length;
+  const totalGaps =
+    thinTags.length +
+    thinArticles.length +
+    orphanEntries.length +
+    degradedEntries.length +
+    staleEntries.length;
   return [
     `## Coverage Gaps (${totalGaps} issues)`,
     '',
@@ -878,7 +916,7 @@ function createServer(data: WikiData): McpServer {
 
   server.tool(
     'grimoire_coverage_gaps',
-    'Identify structural weaknesses: tags with only one article, articles below median word count, topics referenced but not yet written, plus articles past their staleness window. Use when asking about wiki health, what to write next, or what needs re-verification.',
+    'Identify structural weaknesses: tags with only one article, articles below median word count, topics referenced but not yet written, degraded raw-source fidelity, plus articles past their staleness window. Use when asking about wiki health, what to write next, or what needs re-verification.',
     {},
     async () => ({
       content: [{ type: 'text' as const, text: handleCoverageGaps(data) }],
