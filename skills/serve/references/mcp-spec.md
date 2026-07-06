@@ -18,6 +18,7 @@ The custom MCP server is Grimoire's moat. It transforms a folder of markdown int
 | `grimoire_query` | Synthesize an answer from wiki articles | Medium |
 | `grimoire_list_topics` | Return taxonomy with article counts | Low |
 | `grimoire_get_article` | Return a specific article by slug | Low |
+| `grimoire_get_section` | Return a single heading-level section of an article | Low |
 | `grimoire_open_questions` | Return unresolved questions from overview | Low |
 | `grimoire_coverage_gaps` | Return topics with thin or missing coverage | Low |
 | `grimoire_search` | Full-text search across all content | Medium |

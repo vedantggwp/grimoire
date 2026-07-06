@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import {
   loadWikiData,
   parseSchemamd,
+  parseQueryInput,
   handleQuery,
   handleListTopics,
   handleGetArticle,
@@ -79,6 +80,11 @@ scope:
   });
 
   describe('handleQuery', () => {
+    it('accepts question as an input alias when query is absent', () => {
+      expect(parseQueryInput({ question: 'what is react' })).toBe('what is react');
+      expect(parseQueryInput({ query: 'react', question: 'ignored alias' })).toBe('react');
+    });
+
     it('returns article excerpts for a known topic', () => {
       const result = handleQuery('react', data);
       expect(result).toContain('Results for');

@@ -15,7 +15,7 @@ Expose the wiki through an MCP server that LLM clients can query over stdio, and
 ## Process
 1. Start the bundled MCP server: `node ${CLAUDE_PLUGIN_ROOT}/dist/serve.js {workspace-path}`.
 2. The server loads `wiki/.compile/*.json` once at startup (restart to pick up changes).
-3. Register the six MCP tools: `grimoire_query`, `grimoire_list_topics`, `grimoire_get_article`, `grimoire_open_questions`, `grimoire_coverage_gaps`, `grimoire_search`.
+3. Register the seven MCP tools: `grimoire_query`, `grimoire_list_topics`, `grimoire_get_article`, `grimoire_get_section`, `grimoire_open_questions`, `grimoire_coverage_gaps`, `grimoire_search`.
 4. Emit a stdio JSON-RPC stream compatible with Claude Desktop, Claude Code, and any MCP client.
 5. Optionally update the target project's `CLAUDE.md` with a snippet pointing at the wiki and the MCP server (only with explicit user consent — same rule as init Q7).
 
