@@ -15,7 +15,7 @@ Fetch approved sources, preserve raw text, and compile structured wiki articles.
 ## Process
 1. Identify the next pending source from approved-sources.md (highest priority first).
 2. Fetch the source content (WebFetch for URLs, Read for files, use pasted text as-is).
-3. Save raw file to `raw/{topic-slug}/{date}-{source-slug}.md` (immutable after creation).
+3. Save raw file to `raw/{topic-slug}/{date}-{source-slug}.md` (immutable after creation) with `fidelity: full|extract|failed` frontmatter.
 4. Extract 3-5 takeaways and map to existing or new articles.
 5. Present proposed actions to user.
    → CHECKPOINT: approval required before writing any wiki article.
@@ -25,6 +25,6 @@ Fetch approved sources, preserve raw text, and compile structured wiki articles.
 ## Outputs
 | Artifact | Location | Format |
 |----------|----------|--------|
-| Raw source | `raw/{topic-slug}/{date}-{source-slug}.md` | Immutable raw preservation |
+| Raw source | `raw/{topic-slug}/{date}-{source-slug}.md` | Immutable raw preservation with capture fidelity |
 | Wiki articles | `wiki/{slug}.md` or `wiki/{category}/{slug}.md` | Markdown with frontmatter |
 | Updated navigators | `wiki/index.md`, `wiki/overview.md`, `wiki/log.md` | Markdown |

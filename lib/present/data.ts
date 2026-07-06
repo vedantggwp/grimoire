@@ -241,6 +241,7 @@ export const ArticleSchema = z.object({
   headings: z.array(z.object({ level: z.number(), text: z.string() })),
   confidence: z.string(),
   sources: z.array(z.object({ url: z.string(), title: z.string() })),
+  sourceFidelity: z.enum(['full', 'mixed', 'degraded']).default('full'),
 });
 
 export function validateArticleData(article: unknown, slug: string): ArticleData | null {
@@ -351,6 +352,7 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
     headings: Array<{ level: number; text: string }>;
     confidence: string;
     sources: Array<{ url: string; title: string }>;
+    sourceFidelity?: 'full' | 'mixed' | 'degraded';
   }>;
 
   const graphRaw = readJSON(join(compileDir, 'graph.json')) as {
@@ -437,6 +439,7 @@ export async function loadSiteData(workspacePath: string): Promise<SiteData> {
         : manifest.headings,
       confidence: manifest.confidence ?? '',
       sources: manifest.sources ?? [],
+      sourceFidelity: manifest.sourceFidelity ?? 'full',
       ...(category ? { category } : {}),
     }, slug);
 

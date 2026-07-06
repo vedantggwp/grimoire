@@ -37,7 +37,7 @@ import {
 import { SUPPORT_SLUGS } from './support-slugs.js';
 import { slugLikePapyr } from './slug.js';
 import { loadUpdatePolicy } from './update-policy.js';
-import { buildSourceLedger, normalizeFrontmatterDate } from './source-ledger.js';
+import { buildSourceLedger, normalizeFrontmatterDate, normalizeUrl } from './source-ledger.js';
 import { buildFreshnessReport } from './freshness.js';
 import { buildConnectionCandidates } from './connections.js';
 
@@ -121,6 +121,22 @@ interface ArticleFrontmatter {
   readonly evergreen: boolean;
 }
 
+export type RawSourceFidelity = 'full' | 'extract' | 'failed' | 'unknown';
+export type ArticleSourceFidelity = 'full' | 'mixed' | 'degraded';
+
+interface SourceFidelityAssessment {
+  readonly sourceFidelity: ArticleSourceFidelity;
+  readonly unknownSourceCount: number;
+}
+
+export interface SourceFidelitySummary {
+  readonly full: number;
+  readonly mixed: number;
+  readonly degraded: number;
+  readonly unknownSources: number;
+  readonly degradedArticles: readonly string[];
+}
+
 type SchemaTaxonomy = 'emergent' | 'defined' | 'unknown';
 
 function parseSchemaTaxonomy(workspaceDir: string): SchemaTaxonomy {
@@ -147,6 +163,7 @@ export interface NoteManifestEntry {
   readonly wordCount: number;
   readonly linksTo: readonly string[];
   readonly sources: readonly { readonly url: string; readonly title: string }[];
+  readonly sourceFidelity: ArticleSourceFidelity;
 }
 
 export interface CandidateTagGroup {
@@ -188,6 +205,7 @@ export interface OverviewMetadata {
     readonly componentId: number;
     readonly articles: readonly string[];
   }[];
+  readonly sourceFidelity: SourceFidelitySummary;
 }
 
 function contentArticles<T extends { slug: string }>(notes: readonly T[]): readonly T[] {
@@ -345,6 +363,7 @@ export function buildOverviewMetadata(
   centrality: ReadonlyMap<string, number>,
   components: readonly string[][],
   crossRefCount: number,
+  sourceFidelity: SourceFidelitySummary,
   now: Date = new Date(),
 ): OverviewMetadata {
   const content = contentArticles(notes);
@@ -391,6 +410,7 @@ export function buildOverviewMetadata(
       isolatedContentNotes,
     },
     topicClusters,
+    sourceFidelity,
   };
 }
 
@@ -441,6 +461,95 @@ function mapSlugsToFiles(wikiDir: string, dir: string = wikiDir): Map<string, st
     }
   }
   return map;
+}
+
+function collectRawFiles(dir: string): readonly string[] {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  return entries.flatMap(entry => {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory() && !entry.name.startsWith('.')) {
+      return collectRawFiles(fullPath);
+    }
+    return entry.name.endsWith('.md') ? [fullPath] : [];
+  });
+}
+
+function parseRawSourceFidelity(value: unknown): RawSourceFidelity {
+  if (typeof value !== 'string') return 'unknown';
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'full' || normalized === 'extract' || normalized === 'failed') {
+    return normalized;
+  }
+  return 'unknown';
+}
+
+export function buildRawSourceFidelityIndex(workspaceDir: string): ReadonlyMap<string, RawSourceFidelity> {
+  const byUrl = new Map<string, RawSourceFidelity>();
+
+  for (const filePath of collectRawFiles(join(workspaceDir, 'raw'))) {
+    try {
+      const raw = readFileSync(filePath, 'utf-8');
+      const data = matter(raw).data ?? {};
+      const sourceUrl = typeof data.source_url === 'string' ? data.source_url : null;
+      if (!sourceUrl) continue;
+
+      byUrl.set(normalizeUrl(sourceUrl), parseRawSourceFidelity(data.fidelity));
+    } catch {
+      continue;
+    }
+  }
+
+  return byUrl;
+}
+
+export function aggregateSourceFidelity(
+  sources: readonly { readonly url: string }[],
+  rawFidelityByUrl: ReadonlyMap<string, RawSourceFidelity>,
+): SourceFidelityAssessment {
+  let worst: ArticleSourceFidelity = 'full';
+  let unknownSourceCount = 0;
+
+  for (const source of sources) {
+    const fidelity = rawFidelityByUrl.get(normalizeUrl(source.url)) ?? 'unknown';
+    if (fidelity === 'unknown') {
+      unknownSourceCount += 1;
+      continue;
+    }
+    if (fidelity === 'failed') {
+      worst = 'degraded';
+      continue;
+    }
+    if (fidelity === 'extract' && worst !== 'degraded') {
+      worst = 'mixed';
+    }
+  }
+
+  return { sourceFidelity: worst, unknownSourceCount };
+}
+
+export function summarizeSourceFidelity(
+  notes: readonly NoteManifestEntry[],
+  unknownSources: number,
+): SourceFidelitySummary {
+  const content = contentArticles(notes);
+  const degradedArticles = content
+    .filter(note => note.sourceFidelity === 'degraded')
+    .map(note => note.slug)
+    .sort();
+
+  return {
+    full: content.filter(note => note.sourceFidelity === 'full').length,
+    mixed: content.filter(note => note.sourceFidelity === 'mixed').length,
+    degraded: degradedArticles.length,
+    unknownSources,
+    degradedArticles,
+  };
 }
 
 function extractFrontmatter(filePath: string | undefined): ArticleFrontmatter {
@@ -585,9 +694,14 @@ async function compile(): Promise<void> {
   // Step 9: Write notes manifest (lightweight — slugs, titles, tags, word counts,
   // plus frontmatter fields that downstream skills need for token-efficient
   // routing: summary, confidence, sources, freshness dates).
+  const workspaceDir = dirname(resolvedWikiDir);
   const slugToFile = mapSlugsToFiles(resolvedWikiDir);
+  const rawFidelityByUrl = buildRawSourceFidelityIndex(workspaceDir);
+  let unknownFidelitySources = 0;
   const noteManifest = notes.map(n => {
     const fm = extractFrontmatter(slugToFile.get(n.slug));
+    const fidelity = aggregateSourceFidelity(fm.sources, rawFidelityByUrl);
+    unknownFidelitySources += fidelity.unknownSourceCount;
     return {
       slug: n.slug,
       title: n.title,
@@ -602,21 +716,28 @@ async function compile(): Promise<void> {
       updated: fm.updated,
       checked: fm.checked,
       evergreen: fm.evergreen,
+      sourceFidelity: fidelity.sourceFidelity,
     };
   });
+  const sourceFidelitySummary = summarizeSourceFidelity(noteManifest, unknownFidelitySources);
   writeJSON('notes.json', noteManifest);
 
   // Step 10 — overview-metadata.json: evidence for the compile skill's Step 5
   // enforcement audit. Emitted every run.
   writeJSON(
     'overview-metadata.json',
-    buildOverviewMetadata(noteManifest, centrality, components, linkValidation.validLinks),
+    buildOverviewMetadata(
+      noteManifest,
+      centrality,
+      components,
+      linkValidation.validLinks,
+      sourceFidelitySummary,
+    ),
   );
 
   // Step 11 — taxonomy-proposal.json: conditional, only when the skill's
   // Step 5.5 conditions are met. Absence of the file = conditions not met,
   // so a stale file from a previous run must be removed.
-  const workspaceDir = dirname(resolvedWikiDir);
   const schemaTaxonomy = parseSchemaTaxonomy(workspaceDir);
   const proposal = buildTaxonomyProposal(noteManifest, schemaTaxonomy);
   if (proposal) {
@@ -667,6 +788,12 @@ async function compile(): Promise<void> {
   console.log(`  Orphan notes:    ${orphanedNotes.length}`);
   console.log(`  Components:      ${components.length}`);
   console.log(`  Graph density:   ${stats.density.toFixed(3)}`);
+  console.log(`  Source fidelity: ${sourceFidelitySummary.degraded} articles on degraded sources`);
+  if (sourceFidelitySummary.unknownSources > 0) {
+    console.log(
+      `  Source fidelity: fidelity untracked (pre-v0.5 wiki) — ${sourceFidelitySummary.unknownSources} cited source${sourceFidelitySummary.unknownSources === 1 ? '' : 's'}`,
+    );
+  }
   console.log(`  Freshness:       ${f.fresh} fresh / ${f.aging} aging / ${f.stale} stale / ${f.evergreen} evergreen / ${f.unknown} unknown`);
   console.log(`  Connections:     ${candidates.length} candidate cross-reference${candidates.length === 1 ? '' : 's'}`);
   console.log(`  Build time:      ${buildInfo.duration}ms`);

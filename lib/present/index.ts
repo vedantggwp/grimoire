@@ -78,6 +78,11 @@ function generateHub(data: SiteData, config: DesignConfig): string {
   const statItems = [
     { label: 'articles', value: String(stats.articleCount) },
     { label: 'sources', value: String(stats.sourceCount) },
+    {
+      label: 'source warnings',
+      value: String(stats.sourceWarnings),
+      title: 'Articles compiled from partial or failed raw captures.',
+    },
     { label: 'tags', value: String(stats.tagCount) },
     { label: 'cross-refs', value: String(stats.crossRefs) },
     {

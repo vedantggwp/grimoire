@@ -7,6 +7,7 @@ export type Density = 'compact' | 'comfortable' | 'spacious';
 
 export const ALL_MODES = ['read', 'graph', 'search', 'feed', 'gaps', 'quiz'] as const;
 export type ModeId = (typeof ALL_MODES)[number];
+export type ArticleSourceFidelity = 'full' | 'mixed' | 'degraded';
 
 export interface DesignConfig {
   readonly palette: string;
@@ -54,6 +55,7 @@ export interface ArticleData {
   readonly headings: readonly { readonly level: number; readonly text: string }[];
   readonly confidence: string;
   readonly sources: readonly { readonly url: string; readonly title: string }[];
+  readonly sourceFidelity: ArticleSourceFidelity;
 }
 
 export interface GraphNodeData {

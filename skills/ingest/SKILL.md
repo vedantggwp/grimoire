@@ -60,6 +60,7 @@ Normalize whatever you have to four fields before continuing:
 | `title` | Human-readable title of the source |
 | `type` | article, documentation, tutorial, video-transcript, thread, repository, paper |
 | `tier` | P0, P1, P2, or `direct` if user-supplied without a tier |
+| `fidelity` | `full`, `extract`, or `failed` after Step 2 raw capture |
 
 ## Step 2 — Fetch and Preserve Raw
 
@@ -73,6 +74,18 @@ Retrieve the full source content.
 - **Local file**: Read the file directly using the Read tool. If the path does not
   exist, ask the user to confirm the correct path before continuing.
 - **Pasted text**: Use as-is.
+
+Before saving, classify raw capture fidelity:
+
+| Fidelity | Meaning |
+|----------|---------|
+| `full` | Complete clean capture of the source text. |
+| `extract` | Partial capture only: search snippets, truncated fetch, paywalled summary, or selected excerpts. |
+| `failed` | Could not capture source text; article claims would rest on model memory or prior knowledge. |
+
+Do not write or update wiki articles from `failed` sources. Mark the source
+`failed`, report the capture failure, and move on. `extract` sources may be
+used only after the Step 4 checkpoint makes the partial capture visible.
 
 Save the raw file using the template at:
 `${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/raw-template.md`
@@ -95,6 +108,7 @@ Populate all frontmatter fields:
 - `type` — normalized type from Step 1
 - `author` — extract from source if present; otherwise omit
 - `title` — full original title
+- `fidelity` — `full`, `extract`, or `failed` from the classification above
 
 **Raw files are immutable once written.** Never edit a raw file after this step.
 All interpretation happens in the wiki articles that reference it.
@@ -121,6 +135,11 @@ Display the proposed actions in this format:
 ```
 Source: {source-title}
 Tier:   {P0|P1|P2|direct}
+Fidelity: {full|extract|failed}
+
+| Article | Action | Fidelity | Reason |
+|---------|--------|----------|--------|
+| [[{slug or proposed-slug}]] | NEW / UPDATE / SKIP | {full|extract|failed} | {reason} |
 
 Proposed actions:
   NEW:    {article-title} — {reason this warrants its own article}
@@ -132,6 +151,8 @@ Then ask: "Do these takeaways look right? Approve, edit, or reject before I writ
 
 **Hard checkpoint: do not write or update any wiki article without explicit user confirmation.**
 If the user edits the proposed actions, apply their changes exactly before proceeding.
+Never silently write an article from an `extract` source; the checkpoint table's
+Fidelity column is the visible warning.
 
 ## Step 5 — Write or Update Wiki Articles
 
@@ -249,6 +270,7 @@ If the approved-sources list is exhausted, say so clearly and recommend
 ## Validation Rules
 
 - Never modify a file in `raw/` after initial creation — raw sources are immutable
+- Every raw file must include `fidelity: full|extract|failed` frontmatter
 - All wiki articles must have complete frontmatter: title, **summary**, tags, sources, updated, confidence
 - The `summary` field is required, one sentence, under 180 characters — this is a hard rule, not a nice-to-have
 - All dates use ISO 8601 (YYYY-MM-DD)

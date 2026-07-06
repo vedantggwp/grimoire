@@ -210,6 +210,16 @@ a.source-count:hover { color: var(--color-accent); opacity: 1; }
 .freshness-badge--aging { background: var(--warning-muted); color: var(--color-warning); }
 .freshness-badge--stale { background: var(--error-muted); color: var(--color-error); }
 
+/* === Source fidelity badge (raw capture quality) === */
+.fidelity-badge {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600;
+  padding: 3px 8px; border-radius: 4px;
+  display: inline-block;
+}
+.fidelity-badge--mixed { background: var(--warning-muted); color: var(--color-warning); }
+.fidelity-badge--degraded { background: var(--error-muted); color: var(--color-error); }
+
 /* === Backlinks ("Linked from") === */
 .article-backlinks {
   margin-top: var(--space-6);
