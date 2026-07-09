@@ -1,0 +1,62 @@
+[
+  {
+    "id": "Q1",
+    "coverage": "present",
+    "expectedSlug": "authentication-and-providers",
+    "question": "To route model calls through Amazon Bedrock and through Google Cloud's Agent Platform (Vertex), which two environment variables do you set (exact names)?"
+  },
+  {
+    "id": "Q2",
+    "coverage": "present",
+    "expectedSlug": "hosting-and-deployment-patterns",
+    "question": "You run multiple tenants in one shared container. settingSources: [] alone does NOT stop context leakage. Name the additional environment variable that must be set and why, plus one more per-tenant isolation control."
+  },
+  {
+    "id": "Q3",
+    "coverage": "present",
+    "expectedSlug": "file-checkpointing",
+    "question": "If the agent modifies a file via a Bash command (e.g. sed -i), will rewindFiles() restore it? Which tools does checkpointing actually track?"
+  },
+  {
+    "id": "Q4",
+    "coverage": "present",
+    "expectedSlug": "permissions-and-approval-control",
+    "question": "Give the exact order the SDK evaluates a tool-permission request (all stages)."
+  },
+  {
+    "id": "Q5",
+    "coverage": "present",
+    "expectedSlug": "sessions-continue-resume-fork",
+    "question": "Distinguish continue vs resume, and what fork does to the original session."
+  },
+  {
+    "id": "Q6",
+    "coverage": "present",
+    "expectedSlug": "production-security-and-sandboxing",
+    "question": "Are the SDK's permission/allow-deny rules a security sandbox that stops a prompt-injected agent from exfiltrating data? What does Anthropic recommend instead?"
+  },
+  {
+    "id": "Q7",
+    "coverage": "present",
+    "expectedSlug": "migration-from-claude-code-sdk",
+    "question": "A team upgrades from claude-code-sdk to the Agent SDK; behavior changes though tools are unchanged. Name the v0.1.0 breaking change in DEFAULT behavior and how to restore the old behavior."
+  },
+  {
+    "id": "Q8",
+    "coverage": "absent",
+    "expectedSlug": null,
+    "question": "Using the skills option on query(): what values does it accept, and if you pass a list that omits a skill, are that skill's files still reachable by the agent?"
+  },
+  {
+    "id": "Q9",
+    "coverage": "partial",
+    "expectedSlug": "skills-and-plugins",
+    "question": "In the SDK's plugins option, what is the ONLY accepted value of an entry's type field, and how do you use a plugin distributed via a marketplace?"
+  },
+  {
+    "id": "Q10",
+    "coverage": "absent",
+    "expectedSlug": null,
+    "question": "In the Python claude-agent-sdk changelog, which version added the EffortLevel type export, and what effort levels does it support?"
+  }
+]
