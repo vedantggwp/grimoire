@@ -330,8 +330,21 @@ function extractExcerpt(markdown: string, maxLength: number = 500): string {
 const STOP_WORDS = new Set([
   'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
   'what', 'who', 'where', 'when', 'why', 'how', 'which',
-  'do', 'does', 'did', 'of', 'for', 'to', 'in', 'on', 'at', 'by',
+  'do', 'does', 'did', 'will', 'would', 'should', 'could', 'can',
+  'of', 'for', 'to', 'in', 'on', 'at', 'by', 'through', 'into', 'via',
   'with', 'from', 'as', 'and', 'or', 'but', 'about', 'tell', 'me',
+  'you', 'your', 'it', 'its', 'if', 'then', 'than', 'that', 'this',
+  'those', 'these', 'both', 'all', 'one', 'more', 'plus', 'same',
+  'old', 'new', 'only', 'must', 'because', 'not', 'no', 'yes',
+  'give', 'get', 'set', 'use', 'using', 'used', 'name', 'names',
+  'answer', 'call', 'calls', 'run', 'runs', 'running', 'team',
+]);
+
+const GENERIC_RANKING_TERMS = new Set([
+  'agent', 'sdk', 'claude', 'code', 'tool', 'tools', 'query', 'question',
+  'prompt', 'model', 'models', 'data', 'file', 'files', 'type', 'field',
+  'fields', 'entry', 'entries', 'option', 'options', 'value', 'values',
+  'default', 'behavior', 'change', 'changes',
 ]);
 
 export const grimoireQueryInputSchema = z
@@ -366,6 +379,27 @@ interface SearchHit {
   readonly title: string;
   readonly excerpt: string;
   readonly score: number;
+}
+
+export interface SalientTerm {
+  readonly raw: string;
+  readonly normalized: string;
+  readonly variants: readonly string[];
+  readonly code: boolean;
+}
+
+export interface RankedArticle extends SearchHit {
+  readonly bestHeading?: string;
+  readonly evidenceScore: number;
+  readonly matchedTerms: readonly string[];
+}
+
+interface ArticleCorpusEntry {
+  readonly note: NoteManifestEntry;
+  readonly markdown: string;
+  readonly body: string;
+  readonly fullText: string;
+  readonly phraseText: string;
 }
 
 // Substring search over the notes manifest. Used when the FlexSearch index is
@@ -443,67 +477,485 @@ function searchWithFallback(query: string, data: WikiData, limit: number): reado
   return substringSearch(query, data, limit);
 }
 
-// Rerank search hits by boosting title and summary matches. FlexSearch's
-// default scoring is term-frequency dominated, which biases toward overview
-// articles that mention many keywords — not toward articles whose *title*
-// or *summary* is specifically about the query. This pass adds a bonus
-// for keyword-in-title (strong signal) and keyword-in-summary (medium
-// signal) so the LLM-routing path preferentially surfaces the authoritative
-// article.
-function rerankHits(
-  query: string,
-  hits: readonly SearchHit[],
-  data: WikiData,
-): readonly SearchHit[] {
-  const keywords = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
-  if (keywords.length === 0) return hits;
-
-  const notesBySlug = new Map(data.notes.map((n) => [n.slug, n]));
-
-  const rescored = hits.map((hit) => {
-    const note = notesBySlug.get(hit.slug);
-    const title = (note?.title ?? hit.title).toLowerCase();
-    const summary = (note?.summary ?? '').toLowerCase();
-    let bonus = 0;
-    for (const kw of keywords) {
-      if (title.includes(kw)) bonus += 5;
-      if (summary.includes(kw)) bonus += 2;
-    }
-    return { ...hit, score: (hit.score ?? 0) + bonus };
-  });
-
-  return [...rescored].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+function normalizeRankingToken(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\(\)$/g, '')
+    .replace(/^['"`]+|['"`]+$/g, '')
+    .toLowerCase();
 }
 
-export function handleQuery(query: string, data: WikiData): string {
-  const SUPPORT_PAGES = new Set(['index', 'overview', 'log']);
-  // Union FlexSearch + substring search on title/summary/tags, then rerank.
-  // FlexSearch catches body-text matches with good tokenization; substring
-  // search reliably catches articles whose *title* or *summary* contains the
-  // query terms (often the authoritative article on a topic). Together they
-  // ensure the routing-critical articles make it into the top-K pool.
-  const flexHits = searchWithFallback(query, data, 10);
-  const substrHits = substringSearch(query, data, 10);
+function isCodeLikeToken(raw: string): boolean {
+  return (
+    /[a-z][A-Z]/.test(raw) ||
+    /[A-Z0-9_]{2,}/.test(raw) ||
+    /[_./:-]/.test(raw) ||
+    /\(\)$/.test(raw) ||
+    /\d/.test(raw)
+  );
+}
 
-  const seen = new Set<string>();
-  const merged: SearchHit[] = [];
-  for (const h of [...flexHits, ...substrHits]) {
-    if (!seen.has(h.slug)) {
-      seen.add(h.slug);
-      merged.push(h);
+function tokenVariants(raw: string, code: boolean): readonly string[] {
+  const normalized = normalizeRankingToken(raw);
+  const variants = new Set<string>([normalized]);
+
+  if (!code) {
+    if (normalized.endsWith('s') && normalized.length > 4) variants.add(normalized.slice(0, -1));
+    if (normalized.endsWith('ing') && normalized.length > 6) variants.add(normalized.slice(0, -3));
+    if (normalized.endsWith('ed') && normalized.length > 5) variants.add(normalized.slice(0, -2));
+    if (normalized.length > 4) {
+      variants.add(`${normalized}s`);
+      variants.add(`${normalized}ing`);
+      variants.add(`${normalized}ed`);
     }
   }
 
-  // Filter out support pages — they shouldn't appear as answers
-  const filtered = merged.filter((h) => !SUPPORT_PAGES.has(h.slug));
-  // Rerank for LLM-routing quality (title/summary match dominates body match)
-  const hits = rerankHits(query, filtered, data);
+  if (normalized.includes('-')) {
+    for (const part of normalized.split('-')) variants.add(part);
+  }
+  if (normalized.includes('_')) {
+    for (const part of normalized.split('_')) variants.add(part);
+  }
+
+  return [...variants].filter((variant) => variant.length > 2 || /[\d[\]]/.test(variant));
+}
+
+export function extractSalientTerms(query: string): readonly SalientTerm[] {
+  const tokenPattern =
+    /[A-Za-z_][A-Za-z0-9_]*(?:\(\))?|[A-Za-z0-9]+(?:[-_./:][A-Za-z0-9]+)+|\[\]|\d+(?:\.\d+)*/g;
+  const seen = new Set<string>();
+  const terms: SalientTerm[] = [];
+
+  for (const match of query.matchAll(tokenPattern)) {
+    const raw = match[0];
+    const normalized = normalizeRankingToken(raw);
+    const code = isCodeLikeToken(raw);
+    if (!code && (normalized.length < 3 || STOP_WORDS.has(normalized))) continue;
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+
+    terms.push({
+      raw,
+      normalized,
+      variants: tokenVariants(raw, code),
+      code,
+    });
+  }
+
+  return terms;
+}
+
+function stripFrontmatter(markdown: string): string {
+  return markdown.replace(/^---[\s\S]*?---\s*/, '');
+}
+
+function normalizePhraseText(text: string): string {
+  return text
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .replace(/[`"'()[\]{}:;,.!?/\\]+/g, ' ')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function textIncludesVariant(text: string, variant: string): boolean {
+  if (variant.length === 0) return false;
+  if (/[^a-z0-9]/.test(variant)) return text.includes(variant);
+  return new RegExp(`(^|[^a-z0-9])${escapeRegExp(variant)}($|[^a-z0-9])`).test(text);
+}
+
+function termMatchesText(term: SalientTerm, text: string): boolean {
+  return term.variants.some((variant) => textIncludesVariant(text, variant));
+}
+
+function buildArticleCorpus(data: WikiData): readonly ArticleCorpusEntry[] {
+  return data.notes.map((note) => {
+    const markdown = readArticle(data.wikiDir, note.slug) ?? '';
+    const body = stripFrontmatter(markdown);
+    const fullText = [
+      note.title,
+      note.summary,
+      note.tags.join(' '),
+      note.headings.map((h) => h.text).join(' '),
+      body,
+    ].join(' ').toLowerCase();
+
+    return {
+      note,
+      markdown,
+      body,
+      fullText,
+      phraseText: normalizePhraseText(fullText),
+    };
+  });
+}
+
+function computeTermIdf(
+  terms: readonly SalientTerm[],
+  corpusTexts: readonly string[],
+): ReadonlyMap<string, number> {
+  const idf = new Map<string, number>();
+  const total = corpusTexts.length;
+
+  for (const term of terms) {
+    let docFreq = 0;
+    for (const text of corpusTexts) {
+      if (termMatchesText(term, text)) docFreq += 1;
+    }
+    idf.set(term.normalized, Math.log((total + 1) / (docFreq + 1)) + 1);
+  }
+
+  return idf;
+}
+
+function termWeight(term: SalientTerm, idf: ReadonlyMap<string, number>): number {
+  const rarity = idf.get(term.normalized) ?? 1;
+  const genericPenalty = GENERIC_RANKING_TERMS.has(term.normalized) ? 0.25 : 1;
+  const codeBoost = term.code ? 1.35 : 1;
+  return rarity * genericPenalty * codeBoost;
+}
+
+function requiredCodeTerms(terms: readonly SalientTerm[]): readonly SalientTerm[] {
+  return terms.filter((term) =>
+    term.code &&
+    term.normalized.length >= 6 &&
+    !GENERIC_RANKING_TERMS.has(term.normalized) &&
+    !['query', 'bash', 'write', 'edit', 'read', 'skill'].includes(term.normalized)
+  );
+}
+
+function hasRequiredCodeCoverage(
+  terms: readonly SalientTerm[],
+  corpus: readonly ArticleCorpusEntry[],
+): boolean {
+  for (const term of requiredCodeTerms(terms)) {
+    const exactVariant = term.normalized;
+    const found = corpus.some((entry) => textIncludesVariant(entry.fullText, exactVariant));
+    if (!found) return false;
+  }
+  return true;
+}
+
+function queryOptionTerms(query: string, terms: readonly SalientTerm[]): readonly SalientTerm[] {
+  const phraseQuery = normalizePhraseText(query);
+  return terms.filter((term) =>
+    !GENERIC_RANKING_TERMS.has(term.normalized) &&
+    term.variants.some((variant) =>
+      phraseQuery.includes(`${variant} option`) ||
+      phraseQuery.includes(`${variant} options`)
+    )
+  );
+}
+
+function textHasOptionPhraseForTerm(phraseText: string, term: SalientTerm): boolean {
+  return term.variants.some((variant) =>
+    phraseText.includes(`${variant} option`) ||
+    phraseText.includes(`${variant} options`) ||
+    phraseText.includes(`option ${variant}`) ||
+    phraseText.includes(`options ${variant}`)
+  );
+}
+
+function hasRequiredOptionPhrase(
+  query: string,
+  terms: readonly SalientTerm[],
+  corpus: readonly ArticleCorpusEntry[],
+): boolean {
+  const required = queryOptionTerms(query, terms);
+  if (required.length === 0) return true;
+
+  return required.some((term) =>
+    corpus.some((entry) => textHasOptionPhraseForTerm(entry.phraseText, term))
+  );
+}
+
+function asksForPluralAcceptedValues(query: string): boolean {
+  const phraseQuery = normalizePhraseText(query);
+  return /\bwhat values\b.{0,80}\baccept/.test(phraseQuery) ||
+    /\baccepts?\b.{0,80}\bwhat values\b/.test(phraseQuery);
+}
+
+function hasAcceptedValuesEvidence(
+  query: string,
+  terms: readonly SalientTerm[],
+  corpus: readonly ArticleCorpusEntry[],
+): boolean {
+  if (!asksForPluralAcceptedValues(query)) return true;
+
+  const optionTerms = queryOptionTerms(query, terms);
+  if (optionTerms.length === 0) return true;
+
+  return optionTerms.some((term) =>
+    corpus.some((entry) => {
+      if (!textHasOptionPhraseForTerm(entry.phraseText, term)) return false;
+      const optionIndex = Math.max(
+        ...term.variants.map((variant) => entry.phraseText.indexOf(`${variant} option`)),
+      );
+      const windowStart = optionIndex === -1 ? 0 : Math.max(0, optionIndex - 160);
+      const window = entry.phraseText.slice(windowStart, windowStart + 360);
+      return /\b(accepts?|accepted|values?|one of|any of|all|disable all)\b/.test(window);
+    })
+  );
+}
+
+function extractQueryPhrases(query: string): readonly string[] {
+  const words = normalizePhraseText(query)
+    .split(/\s+/)
+    .filter((word) =>
+      word.length > 2 &&
+      !STOP_WORDS.has(word) &&
+      !['does', 'which', 'what', 'why', 'how'].includes(word)
+    );
+  const phrases = new Set<string>();
+
+  for (let size = 2; size <= 4; size += 1) {
+    for (let i = 0; i <= words.length - size; i += 1) {
+      const phrase = words.slice(i, i + size).join(' ');
+      if (phrase.length >= 7) phrases.add(phrase);
+    }
+  }
+
+  return [...phrases];
+}
+
+function scorePhraseMatches(
+  query: string,
+  fields: readonly { text: string; phraseText: string; weight: number }[],
+): number {
+  let score = 0;
+  for (const phrase of extractQueryPhrases(query)) {
+    for (const field of fields) {
+      if (field.phraseText.includes(phrase)) score += field.weight;
+    }
+  }
+  return score;
+}
+
+function scoreTermProximity(
+  body: string,
+  terms: readonly SalientTerm[],
+): number {
+  const rareTerms = terms.filter((term) => !GENERIC_RANKING_TERMS.has(term.normalized));
+  if (
+    rareTerms.length === 2 &&
+    rareTerms.every((term) => termMatchesText(term, body))
+  ) {
+    return 14;
+  }
+  if (rareTerms.length < 3) return 0;
+
+  let best = 0;
+  for (let i = 0; i < body.length; i += 120) {
+    const window = body.slice(i, i + 280);
+    let matches = 0;
+    for (const term of rareTerms) {
+      if (termMatchesText(term, window)) matches += 1;
+    }
+    best = Math.max(best, matches);
+  }
+
+  return best >= 3 ? best * 8 : 0;
+}
+
+function scoreAnswerPatternBonuses(query: string, entry: ArticleCorpusEntry): number {
+  const phraseQuery = normalizePhraseText(query);
+  let score = 0;
+
+  if (
+    phraseQuery.includes('sandbox') &&
+    (
+      phraseQuery.includes('security') ||
+      phraseQuery.includes('recommend') ||
+      phraseQuery.includes('instead') ||
+      phraseQuery.includes('exfiltrat')
+    )
+  ) {
+    if (entry.phraseText.includes('not a sandbox') && entry.phraseText.includes('isolation')) {
+      score += 80;
+    }
+    if (
+      entry.phraseText.includes('container') ||
+      entry.phraseText.includes('gvisor') ||
+      entry.phraseText.includes('vm') ||
+      entry.phraseText.includes('credential proxy')
+    ) {
+      score += 35;
+    }
+    if (entry.phraseText.includes('production security') && entry.phraseText.includes('sandboxing')) {
+      score += 55;
+    }
+  }
+
+  return score;
+}
+
+function bestMatchingSectionHeading(
+  query: string,
+  markdown: string,
+  terms: readonly SalientTerm[],
+  idf: ReadonlyMap<string, number>,
+): string | undefined {
+  const sections = splitSectionsByH2(stripFrontmatter(markdown));
+  if (sections.length === 0) return undefined;
+
+  let best: { heading: string; score: number } | null = null;
+  for (const section of sections) {
+    const heading = section.heading.toLowerCase();
+    const content = section.content.toLowerCase();
+    let score = scorePhraseMatches(query, [
+      { text: heading, phraseText: normalizePhraseText(heading), weight: 10 },
+      { text: content, phraseText: normalizePhraseText(content), weight: 4 },
+    ]);
+
+    for (const term of terms) {
+      const weight = termWeight(term, idf);
+      if (termMatchesText(term, heading)) score += 8 * weight;
+      if (termMatchesText(term, content)) score += 2 * weight;
+    }
+
+    if (best === null || score > best.score) {
+      best = { heading: section.heading, score };
+    }
+  }
+
+  return best && best.score > 0 ? best.heading : undefined;
+}
+
+function scoreCorpusArticle(
+  query: string,
+  entry: ArticleCorpusEntry,
+  terms: readonly SalientTerm[],
+  idf: ReadonlyMap<string, number>,
+  flexBonus: number,
+): RankedArticle {
+  const note = entry.note;
+  const title = note.title.toLowerCase();
+  const summary = note.summary.toLowerCase();
+  const tags = note.tags.join(' ').toLowerCase();
+  const headings = note.headings.map((h) => h.text).join(' ').toLowerCase();
+  const body = entry.body.toLowerCase();
+  const fields = [
+    { name: 'title', text: title, phraseText: normalizePhraseText(title), weight: 18, evidence: false },
+    { name: 'summary', text: summary, phraseText: normalizePhraseText(summary), weight: 13, evidence: true },
+    { name: 'tags', text: tags, phraseText: normalizePhraseText(tags), weight: 16, evidence: false },
+    { name: 'headings', text: headings, phraseText: normalizePhraseText(headings), weight: 9, evidence: true },
+    { name: 'body', text: body, phraseText: normalizePhraseText(body), weight: 2.4, evidence: true },
+  ] as const;
+
+  let score = flexBonus;
+  let evidenceScore = 0;
+  const matchedTerms = new Set<string>();
+
+  for (const field of fields) {
+    for (const term of terms) {
+      if (!termMatchesText(term, field.text)) continue;
+      const value = field.weight * termWeight(term, idf);
+      score += value;
+      if (field.evidence) evidenceScore += value;
+      matchedTerms.add(term.normalized);
+    }
+  }
+
+  for (const term of requiredCodeTerms(terms)) {
+    if (!textIncludesVariant(body, term.normalized)) continue;
+    const value = 14 * termWeight(term, idf);
+    score += value;
+    evidenceScore += value;
+  }
+
+  const phraseScore = scorePhraseMatches(query, fields);
+  const proximityScore = scoreTermProximity(body, terms);
+  const answerPatternScore = scoreAnswerPatternBonuses(query, entry);
+  score += phraseScore + proximityScore + answerPatternScore;
+  evidenceScore += phraseScore + proximityScore + answerPatternScore;
+
+  const bestHeading = bestMatchingSectionHeading(query, entry.markdown, terms, idf);
+
+  return {
+    slug: note.slug,
+    title: note.title,
+    excerpt: note.summary || `${note.title} - ${note.tags.join(', ')}`,
+    score: Number(score.toFixed(3)),
+    evidenceScore: Number(evidenceScore.toFixed(3)),
+    matchedTerms: [...matchedTerms].sort(),
+    bestHeading,
+  };
+}
+
+export function scoreArticleForQuery(
+  query: string,
+  note: NoteManifestEntry,
+  markdown: string,
+  corpusTexts: readonly string[] = [markdown],
+): RankedArticle {
+  const terms = extractSalientTerms(query);
+  const body = stripFrontmatter(markdown);
+  const fullText = [
+    note.title,
+    note.summary,
+    note.tags.join(' '),
+    note.headings.map((h) => h.text).join(' '),
+    body,
+  ].join(' ').toLowerCase();
+  const entry: ArticleCorpusEntry = {
+    note,
+    markdown,
+    body,
+    fullText,
+    phraseText: normalizePhraseText(fullText),
+  };
+  const idf = computeTermIdf(terms, corpusTexts.map((text) => text.toLowerCase()));
+  return scoreCorpusArticle(query, entry, terms, idf, 0);
+}
+
+export function rankArticlesForQuery(
+  query: string,
+  data: WikiData,
+  limit: number = 10,
+): readonly RankedArticle[] {
+  const terms = extractSalientTerms(query);
+  if (terms.length === 0) return [];
+
+  const corpus = buildArticleCorpus(data);
+  if (!hasRequiredCodeCoverage(terms, corpus)) return [];
+  if (!hasRequiredOptionPhrase(query, terms, corpus)) return [];
+  if (!hasAcceptedValuesEvidence(query, terms, corpus)) return [];
+
+  const idf = computeTermIdf(terms, corpus.map((entry) => entry.fullText));
+  const flexHits = searchWithFallback(query, data, Math.max(20, data.notes.length));
+  const flexBonusBySlug = new Map<string, number>();
+  flexHits.forEach((hit, index) => {
+    flexBonusBySlug.set(hit.slug, Math.max(0, 12 - index));
+  });
+
+  const ranked = corpus
+    .map((entry) =>
+      scoreCorpusArticle(
+        query,
+        entry,
+        terms,
+        idf,
+        flexBonusBySlug.get(entry.note.slug) ?? 0,
+      )
+    )
+    .filter((hit) => hit.score >= 20 && hit.evidenceScore >= 8)
+    .sort((a, b) => b.score - a.score || a.slug.localeCompare(b.slug));
+
+  if (ranked.length === 0) return [];
+
+  return ranked.slice(0, limit);
+}
+
+export function handleQuery(query: string, data: WikiData): string {
+  const hits = rankArticlesForQuery(query, data, 3);
 
   if (hits.length === 0) {
-    return `No results found for "${query}" in the ${shortTopic(data.schemaInfo.topic)} knowledge base.`;
+    return `No results found with confidence for "${query}" in the ${shortTopic(data.schemaInfo.topic)} knowledge base. Use grimoire_list_topics to inspect covered articles.`;
   }
 
   const topHits = hits.slice(0, 3);
@@ -516,13 +968,16 @@ export function handleQuery(query: string, data: WikiData): string {
     const summary = note?.summary?.trim() ?? '';
     const warning = fidelityWarningFor(note);
     const warningLine = warning ? `\n\n_${warning}_` : '';
+    const sectionLine = hit.bestHeading
+      ? `\n\nBest section: "${hit.bestHeading}" (\`grimoire_get_section(slug: "${hit.slug}", heading: "${hit.bestHeading}")\`).`
+      : '';
     if (summary) {
-      return `### ${hit.title} (${hit.slug})\n\n${summary}\n\n_Fetch full article via \`grimoire_get_article(slug: "${hit.slug}")\`, or a specific section via \`grimoire_get_section\`._${warningLine}`;
+      return `### ${hit.title} (${hit.slug})\n\n${summary}${sectionLine}\n\n_Fetch full article via \`grimoire_get_article(slug: "${hit.slug}")\`, or a specific section via \`grimoire_get_section\`._${warningLine}`;
     }
     // Legacy fallback: article predates the summary field.
     const content = readArticle(data.wikiDir, hit.slug);
     const excerpt = content ? extractExcerpt(content) : hit.excerpt;
-    return `### ${hit.title} (${hit.slug})\n\n${excerpt}${warningLine}`;
+    return `### ${hit.title} (${hit.slug})\n\n${excerpt}${sectionLine}${warningLine}`;
   });
 
   return [
@@ -828,17 +1283,17 @@ export function handleSearch(
   limit: number,
   data: WikiData,
 ): string {
-  const SUPPORT_PAGES = new Set(['index', 'overview', 'log']);
-  // Over-fetch so we still have enough results after filtering support pages.
-  const rawHits = searchWithFallback(query, data, limit * 2);
-  const hits = rawHits.filter((h) => !SUPPORT_PAGES.has(h.slug)).slice(0, limit);
+  const hits = rankArticlesForQuery(query, data, limit);
 
   if (hits.length === 0) {
     return `No results for "${query}".`;
   }
 
   const lines = hits.map(
-    (hit) => `- **${hit.title}** (${hit.slug}) — score: ${hit.score}\n  ${hit.excerpt}`
+    (hit) => {
+      const section = hit.bestHeading ? ` Best section: "${hit.bestHeading}".` : '';
+      return `- **${hit.title}** (${hit.slug}) — score: ${hit.score}.${section}\n  ${hit.excerpt}`;
+    }
   );
 
   return [

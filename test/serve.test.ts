@@ -7,6 +7,9 @@ import {
   loadWikiData,
   parseSchemamd,
   parseQueryInput,
+  extractSalientTerms,
+  scoreArticleForQuery,
+  rankArticlesForQuery,
   handleQuery,
   handleListTopics,
   handleGetArticle,
@@ -130,6 +133,61 @@ scope:
     it('appends a fidelity warning when a result article is degraded', () => {
       const result = handleQuery('react', withSourceFidelity('react-fundamentals', 'degraded'));
       expect(result).toContain(FIDELITY_WARNING);
+    });
+  });
+
+  describe('ranking scorer', () => {
+    it('extracts salient terms while preserving code-ish tokens', () => {
+      const terms = extractSalientTerms(
+        'What does settingSources: [] miss if CLAUDE_CODE_DISABLE_AUTO_MEMORY is not set?',
+      );
+      const normalized = terms.map((term) => term.normalized);
+
+      expect(normalized).toContain('settingsources');
+      expect(normalized).toContain('claude_code_disable_auto_memory');
+      expect(normalized).not.toContain('what');
+      expect(normalized).not.toContain('does');
+
+      const envTerm = terms.find((term) => term.normalized === 'claude_code_disable_auto_memory');
+      expect(envTerm?.code).toBe(true);
+      expect(envTerm?.variants).toContain('claude_code_disable_auto_memory');
+    });
+
+    it('weights title and summary matches above body-only matches', () => {
+      const titleNote = {
+        slug: 'title-hit',
+        title: 'React State Patterns',
+        summary: 'State management approaches for React components.',
+        tags: ['react'],
+        wordCount: 20,
+        readingTime: 1,
+        linksTo: [],
+        headings: [{ level: 1, text: 'React State Patterns' }],
+        confidence: 'P0',
+        sources: [],
+      };
+      const bodyNote = {
+        ...titleNote,
+        slug: 'body-hit',
+        title: 'General UI Notes',
+        summary: 'Broad notes about frontend implementation.',
+        tags: ['frontend'],
+        headings: [{ level: 1, text: 'General UI Notes' }],
+      };
+      const titleMarkdown = '# React State Patterns\n\nShort overview.';
+      const bodyMarkdown = '# General UI Notes\n\nReact state patterns are mentioned only in the body.';
+      const corpus = [titleMarkdown, bodyMarkdown];
+
+      const titleScore = scoreArticleForQuery('react state patterns', titleNote, titleMarkdown, corpus);
+      const bodyScore = scoreArticleForQuery('react state patterns', bodyNote, bodyMarkdown, corpus);
+
+      expect(titleScore.score).toBeGreaterThan(bodyScore.score);
+    });
+
+    it('ranks the strongest article first for natural-language questions', () => {
+      const [hit] = rankArticlesForQuery('how does vue reactivity work', data, 3);
+      expect(hit?.slug).toBe('vue-reactivity');
+      expect(hit?.bestHeading).toBeTruthy();
     });
   });
 
