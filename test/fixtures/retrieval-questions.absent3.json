@@ -1,0 +1,50 @@
+[
+  {
+    "id": "A3-Q1",
+    "coverage": "absent",
+    "expectedSlug": null,
+    "preRegisteredAt": "2026-07-10T17:50:23Z",
+    "preRegistrationComment": "Pre-registered before threshold implementation; LangChain is outside the agent-sdk-claude wiki scope.",
+    "question": "In LangChain's Anthropic integration, what callback handler records agent tool calls and how do you configure tracing for those runs?"
+  },
+  {
+    "id": "A3-Q2",
+    "coverage": "absent",
+    "expectedSlug": null,
+    "preRegisteredAt": "2026-07-10T17:50:23Z",
+    "preRegistrationComment": "Pre-registered before threshold implementation; LlamaIndex workflow memory is outside the agent-sdk-claude wiki scope.",
+    "question": "For LlamaIndex agent workflows, which memory block stores chat history and how is that memory configured?"
+  },
+  {
+    "id": "A3-Q3",
+    "coverage": "absent",
+    "expectedSlug": null,
+    "preRegisteredAt": "2026-07-10T17:50:23Z",
+    "preRegistrationComment": "Pre-registered before threshold implementation; raw Messages API tool-call JSON is outside the covered SDK topics.",
+    "question": "In the raw Anthropic Messages API, what exact JSON shape enables parallel tool calls, and which beta header is required?"
+  },
+  {
+    "id": "A3-Q4",
+    "coverage": "absent",
+    "expectedSlug": null,
+    "preRegisteredAt": "2026-07-10T17:50:23Z",
+    "preRegistrationComment": "Pre-registered before threshold implementation; consumer Claude app project setup is outside the wiki scope.",
+    "question": "In Claude Desktop Projects, how do you pin a project's custom instructions and attach source documents for the consumer app?"
+  },
+  {
+    "id": "A3-Q5",
+    "coverage": "absent",
+    "expectedSlug": null,
+    "preRegisteredAt": "2026-07-10T17:50:23Z",
+    "preRegistrationComment": "Pre-registered before threshold implementation; MCP Registry publishing is adjacent but not covered by the wiki slugs.",
+    "question": "For publishing to the MCP Registry, what manifest fields are required for a server package and how is package signing verified?"
+  },
+  {
+    "id": "A3-Q6",
+    "coverage": "absent",
+    "expectedSlug": null,
+    "preRegisteredAt": "2026-07-10T17:50:23Z",
+    "preRegistrationComment": "Pre-registered before threshold implementation; model fine-tuning internals are explicitly out of scope.",
+    "question": "For Anthropic model fine-tuning, what training file format and validation split controls are supported?"
+  }
+]
