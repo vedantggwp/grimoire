@@ -11,6 +11,7 @@ import { defineConfig } from 'vitest/config';
 // while eliminating the race.
 export default defineConfig({
   test: {
+    include: ['test/**/*.test.ts'],
     fileParallelism: false,
   },
 });
