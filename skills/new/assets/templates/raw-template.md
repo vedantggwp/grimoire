@@ -6,6 +6,8 @@ type: article | documentation | tutorial | video-transcript | thread | repositor
 author: "Author Name"
 title: "Original Title"
 fidelity: full
+capture_method: md-variant
+final_url: "https://example.com/original-source"
 ---
 
 # Original Title

@@ -1,0 +1,9 @@
+This response is plain text and intentionally has no markdown heading marker.
+It is also long enough that length alone cannot be used as the acceptance gate.
+The provider must require a markdown heading before marking a documentation
+variant as full fidelity. Otherwise a server-side error page, a plain changelog
+fragment, or a search result dump could be misclassified as a complete source
+capture. This fixture repeats that idea with enough prose to exceed the minimum
+character threshold used by the ladder. The correct result is rejection from the
+markdown/full route followed by the next ladder step.
+

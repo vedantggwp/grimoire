@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Provider Docs</title>
+    <style>.hidden { display: none; }</style>
+    <script>window.__APP__ = true;</script>
+  </head>
+  <body>
+    <header>Product navigation should not appear.</header>
+    <nav>Home Docs Pricing Login</nav>
+    <main>
+      <h1>Provider Spine</h1>
+      <p>The provider spine gives Grimoire a deterministic way to capture source
+      text before any model reads it. It starts with routes that can return
+      original markdown, then falls back to a small local HTML extraction path
+      only when a verbatim source is not available.</p>
+      <p>The implementation preserves article paragraphs, code examples, and
+      links while dropping navigation, scripts, styles, and repeated chrome. This
+      fixture is intentionally verbose so the extractor crosses the shell
+      detection threshold and is treated as a legitimate extracted capture.</p>
+      <h2>Example</h2>
+      <pre><code>const capture = await fetchSource(url);
+if (capture.fidelity === 'failed') {
+  throw new Error('No usable source text');
+}</code></pre>
+      <p>When the extractor succeeds, the result is still not the same as a raw
+      markdown route. It has gone through deterministic conversion and therefore
+      receives extract fidelity rather than full fidelity. That distinction is
+      the core behavior this fixture protects.</p>
+      <p>Additional body text keeps the fixture over five hundred characters.
+      The conversion should produce readable markdown-ish output with headings,
+      paragraphs, a fenced code block, and a markdown link to the
+      <a href="https://example.com/reference">reference page</a>.</p>
+    </main>
+    <footer>Footer should not appear.</footer>
+  </body>
+</html>
+

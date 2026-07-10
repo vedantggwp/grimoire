@@ -64,13 +64,23 @@ Normalize whatever you have to four fields before continuing:
 
 ## Step 2 — Fetch and Preserve Raw
 
-Retrieve the full source content.
+Retrieve the source content with the verbatim-first ladder before any model
+summary path.
 
-- **URL**: Use WebFetch to retrieve the page. Extract clean markdown text — remove
-  navigation chrome, ads, and repeated boilerplate. Preserve the substantive prose
-  and code blocks verbatim. If WebFetch returns an error, a 404, or empty content,
-  mark the source as `failed` in `approved-sources.md`, explain the failure to the
-  user, and move on to the next pending source.
+- **URL**: First run the local research provider:
+  ```bash
+  node ${CLAUDE_PLUGIN_ROOT}/dist/research.js fetch <url>
+  ```
+  Use the returned markdown and frontmatter as the capture source. If it reports
+  `fidelity: full`, the capture came from a verbatim route (`md-variant`,
+  `content-negotiation`, `github-raw`, or `github-readme`). If it reports
+  `fidelity: extract`, the capture came from deterministic HTML extraction.
+  If it reports `fidelity: failed`, fall back to WebFetch once. WebFetch captures
+  are model-mediated extracts, so mark any successful WebFetch fallback as
+  `fidelity: extract` and `capture_method: webfetch-fallback` — NEVER `full`.
+  If WebFetch also errors, 404s, or returns empty content, mark the source as
+  `failed` in `approved-sources.md`, explain the failure to the user, and move on
+  to the next pending source.
 - **Local file**: Read the file directly using the Read tool. If the path does not
   exist, ask the user to confirm the correct path before continuing.
 - **Pasted text**: Use as-is.
@@ -79,8 +89,8 @@ Before saving, classify raw capture fidelity:
 
 | Fidelity | Meaning |
 |----------|---------|
-| `full` | Complete clean capture of the source text. |
-| `extract` | Partial capture only: search snippets, truncated fetch, paywalled summary, or selected excerpts. |
+| `full` | Complete clean capture from a verbatim route: markdown variant, content-negotiated markdown/plain text, GitHub raw blob, or GitHub README raw API. |
+| `extract` | Partial or converted capture: deterministic HTML extraction, WebFetch fallback, search snippets, truncated fetch, paywalled summary, or selected excerpts. |
 | `failed` | Could not capture source text; article claims would rest on model memory or prior knowledge. |
 
 Do not write or update wiki articles from `failed` sources. Mark the source
@@ -109,6 +119,10 @@ Populate all frontmatter fields:
 - `author` — extract from source if present; otherwise omit
 - `title` — full original title
 - `fidelity` — `full`, `extract`, or `failed` from the classification above
+- `capture_method` — provider method from `research.js` (`md-variant`,
+  `content-negotiation`, `github-raw`, `github-readme`, `html-extract`) or
+  `webfetch-fallback` when WebFetch was used after provider failure
+- `final_url` — final redirected URL from `research.js` when present
 
 **Raw files are immutable once written.** Never edit a raw file after this step.
 All interpretation happens in the wiki articles that reference it.
@@ -271,6 +285,7 @@ If the approved-sources list is exhausted, say so clearly and recommend
 
 - Never modify a file in `raw/` after initial creation — raw sources are immutable
 - Every raw file must include `fidelity: full|extract|failed` frontmatter
+- Never mark WebFetch output as `full`; it is always `extract` at best
 - All wiki articles must have complete frontmatter: title, **summary**, tags, sources, updated, confidence
 - The `summary` field is required, one sentence, under 180 characters — this is a hard rule, not a nice-to-have
 - All dates use ISO 8601 (YYYY-MM-DD)

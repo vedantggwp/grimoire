@@ -65,7 +65,16 @@ Incorporate user edits before proceeding.
 
 ## Step 3 — Execute Searches
 
-Run WebSearch for each approved angle. For each result, collect:
+Run WebSearch for each approved angle. WebSearch stays primary on the Claude
+path because its ranking is usually stronger. If WebSearch is unavailable,
+blocked, or the environment needs a portable non-Claude route, run:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/dist/research.js search "<query>"
+```
+
+It returns one JSON object per line with `url`, `title`, and `snippet`. For each
+result, collect:
 
 - URL
 - Title

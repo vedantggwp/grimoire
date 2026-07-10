@@ -13,7 +13,7 @@ Research a topic, score candidate sources, and hand an approved source list to i
 
 ## Process
 1. Parse topic, scope, exclusions, freshness needs, and source types to prioritize.
-2. Run parallel searches across official docs, community guides, videos, social threads, GitHub, and research sources.
+2. Run parallel searches across official docs, community guides, videos, social threads, GitHub, and research sources. Use WebSearch first on the Claude path; use `node ${CLAUDE_PLUGIN_ROOT}/dist/research.js search "<query>"` as the fallback and portability route.
 3. Deduplicate results and score every source 1-5 on Authority, Credibility, Uniqueness, Depth, Recency, and Engagement.
 4. Rank sources into P0, P1, and P2 tiers; record rationale and list gaps.
 5. Present the curated list to the human reviewer.
