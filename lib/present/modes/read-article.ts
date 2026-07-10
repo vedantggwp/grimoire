@@ -185,7 +185,7 @@ function buildPrevNext(
 function articlePageScript(slug: string): string {
   return `<script>
 (function() {
-  try { localStorage.setItem('grimoire-last-read', ${JSON.stringify(slug)}); } catch(e) {}
+  try { localStorage.setItem('grimoire-last-read', ${jsonForScript(slug)}); } catch(e) {}
 
   // Reading progress: the CSS scroll-timeline path takes over where
   // supported; the scroll listener is the fallback.

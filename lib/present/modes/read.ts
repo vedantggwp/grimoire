@@ -11,7 +11,7 @@
 import type { SiteData, DesignConfig, ArticleData } from '../types.js';
 import { pageShell } from '../html.js';
 import { shortTopic } from '../hub.js';
-import { esc } from '../esc.js';
+import { esc, jsonForScript } from '../esc.js';
 
 export function sortByCentrality(
   articles: readonly ArticleData[],
@@ -54,7 +54,7 @@ function buildRow(article: ArticleData, index: number): string {
 function readIndexScript(slugs: readonly string[]): string {
   return `<script>
 (function() {
-  var known = ${JSON.stringify(slugs)};
+  var known = ${jsonForScript(slugs)};
 
   // Legacy hash links (read/index.html#slug) redirect to the article page.
   var hash = window.location.hash.slice(1);
