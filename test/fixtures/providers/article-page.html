@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <body>
+    <aside>Related stories and ads should be ignored.</aside>
+    <article>
+      <h1>Why source fidelity matters</h1>
+      <p>Research systems that compile durable knowledge bases need to know
+      whether a capture is a complete source or a derived excerpt. A complete
+      capture can support precise citations, later diffing, and review. A derived
+      excerpt can still be useful, but it should carry lower confidence and be
+      made visible before any article is written.</p>
+      <p>The article fixture exercises the article tag path rather than the main
+      tag path. It should still extract the article body and ignore surrounding
+      boilerplate. This verifies that the fallback converter is not tied to a
+      single document structure.</p>
+      <h2>Operational rule</h2>
+      <p>Only content returned by a verbatim route can be labeled full fidelity.
+      HTML extraction is deterministic but lossy, so it is always labeled
+      extract. Very short client-rendered shells are labeled failed because they
+      do not contain enough source text to ground downstream claims.</p>
+      <p>More text is included here to keep the fixture above the threshold used
+      for shell detection. The exact words are less important than the structural
+      contract: title, paragraphs, secondary heading, and enough body content to
+      represent an article.</p>
+    </article>
+  </body>
+</html>
+

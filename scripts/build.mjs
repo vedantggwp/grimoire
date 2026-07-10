@@ -1,10 +1,10 @@
 /**
  * Build script for Grimoire CLI bundles.
  *
- * Bundles lib/compile.ts, lib/present/index.ts, and lib/serve.ts into
+ * Bundles lib/compile.ts, lib/present/index.ts, lib/research-cli.ts, and lib/serve.ts into
  * self-contained ESM JavaScript files in dist/ that users can execute via
  *
- *     node dist/{compile,present,serve}.js <args>
+ *     node dist/{compile,present,research,serve}.js <args>
  *
  * without running `npm install`. This is what makes Grimoire installable
  * through the Claude Code plugin marketplace — pre-built bundles ship with
@@ -97,6 +97,7 @@ async function main() {
     entryPoints: {
       compile: resolve(root, 'lib/compile.ts'),
       present: resolve(root, 'lib/present/index.ts'),
+      research: resolve(root, 'lib/research-cli.ts'),
       serve: resolve(root, 'lib/serve.ts'),
     },
     outdir: distDir,
@@ -128,12 +129,14 @@ async function main() {
 
   const compileSize = await formatSize(resolve(distDir, 'compile.js'));
   const presentSize = await formatSize(resolve(distDir, 'present.js'));
+  const researchSize = await formatSize(resolve(distDir, 'research.js'));
   const serveSize = await formatSize(resolve(distDir, 'serve.js'));
 
   console.log('');
   console.log(`[grimoire build] Bundled in ${elapsed}s`);
   console.log(`  dist/compile.js  ${compileSize}`);
   console.log(`  dist/present.js  ${presentSize}`);
+  console.log(`  dist/research.js ${researchSize}`);
   console.log(`  dist/serve.js    ${serveSize}`);
 
   if (result.warnings.length > 0) {

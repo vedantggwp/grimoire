@@ -9,13 +9,13 @@ Fetch approved sources, preserve raw text, and compile structured wiki articles.
 | `SCHEMA.md` | Topic, scope, taxonomy, naming conventions |
 | `wiki/index.md` | Existing article inventory |
 | `wiki/*.md` | Existing articles (for merge decisions) |
-| Templates: `${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/raw-template.md` | Raw source format |
+| Templates: `${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/raw-template.md` | Raw source format with fidelity and capture method |
 | Templates: `${CLAUDE_PLUGIN_ROOT}/skills/new/assets/templates/article-template.md` | Article format |
 
 ## Process
 1. Identify the next pending source from approved-sources.md (highest priority first).
-2. Fetch the source content (WebFetch for URLs, Read for files, use pasted text as-is).
-3. Save raw file to `raw/{topic-slug}/{date}-{source-slug}.md` (immutable after creation) with `fidelity: full|extract|failed` frontmatter.
+2. Fetch URL content with `node ${CLAUDE_PLUGIN_ROOT}/dist/research.js fetch <url>` first; only if it reports `fidelity: failed`, fall back to WebFetch and mark any successful WebFetch capture `fidelity: extract` and `capture_method: webfetch-fallback`. Use Read for files and pasted text as-is.
+3. Save raw file to `raw/{topic-slug}/{date}-{source-slug}.md` (immutable after creation) with `fidelity: full|extract|failed` and capture method frontmatter.
 4. Extract 3-5 takeaways and map to existing or new articles.
 5. Present proposed actions to user.
    → CHECKPOINT: approval required before writing any wiki article.
@@ -25,6 +25,6 @@ Fetch approved sources, preserve raw text, and compile structured wiki articles.
 ## Outputs
 | Artifact | Location | Format |
 |----------|----------|--------|
-| Raw source | `raw/{topic-slug}/{date}-{source-slug}.md` | Immutable raw preservation with capture fidelity |
+| Raw source | `raw/{topic-slug}/{date}-{source-slug}.md` | Immutable raw preservation with capture fidelity and method |
 | Wiki articles | `wiki/{slug}.md` or `wiki/{category}/{slug}.md` | Markdown with frontmatter |
 | Updated navigators | `wiki/index.md`, `wiki/overview.md`, `wiki/log.md` | Markdown |
