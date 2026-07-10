@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-07-10 — v0.5.0 "The Honest Engine"
+
+The truth-sprint release: every change traces to a measured finding.
+
+**Verbatim-first research providers** (#20, #15). The falsifier spike measured
+WebFetch captures at 1.5% verbatim retention — paraphrase marked as raw. New
+`lib/providers/` fetch ladder (`.md`-variant probe → content negotiation → own
+HTML extraction → honest `failed`) and keyless DDG search, bundled as
+`dist/research.js` (`fetch`/`search`). The ingest skill runs the ladder first;
+WebFetch is demoted to last resort, always marked `extract`. The same CLI is
+the foundation for running Grimoire outside Claude Code.
+
+**Retrieval ranking overhaul** (launch gate 2). Naive `grimoire_query` went
+from 4/10 to 10/10 top-1-or-abstain on the T3 eval, with correct abstention on
+absent topics (was 0/2 — false positives eliminated). Salient-term extraction,
+field-weighted scoring, phrase proximity, confident-abstention threshold.
+Repeatable eval: `scripts/retrieval-eval.mjs`.
+
+**Raw-source fidelity gates** (#12). Sources carry `fidelity: full|extract|failed`;
+compile aggregates worst-of per article; present badges degraded articles; serve
+warns in MCP responses. It is now harder to produce a beautiful artifact than to
+preserve the sources behind it.
+
+**`/grimoire:new`** replaces `/grimoire:init` (old trigger phrases still route).
+Plus: `grimoire_query` accepts `question` as alias; content/support counts
+reported separately; empty taxonomy proposals no longer force a checkpoint.
+
+368 tests (was 334). Distribution: the Athanor marketplace now pins release
+tags — strangers install releases, not raw main.
+
 ## 2026-06-10 — v0.4.0 "The Living Grimoire"
 
 The self-updating release. Two workstreams shipped together:
