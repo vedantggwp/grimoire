@@ -11,7 +11,7 @@ import {
 
 describe('update policy', () => {
   it('exposes conservative defaults', () => {
-    expect(DEFAULT_UPDATE_POLICY.autonomy).toBe('pr');
+    expect(DEFAULT_UPDATE_POLICY.autonomy).toBe('digest-only');
     expect(DEFAULT_UPDATE_POLICY.minScore).toBe(12);
     expect(DEFAULT_UPDATE_POLICY.maxSourcesPerRun).toBe(5);
     expect(DEFAULT_UPDATE_POLICY.maxConnectionsPerRun).toBe(5);

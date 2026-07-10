@@ -46,7 +46,10 @@ export interface UpdatePolicy {
 }
 
 export const DEFAULT_UPDATE_POLICY: UpdatePolicy = {
-  autonomy: 'pr',
+  // Conservative default: a workspace whose owner never wrote a policy gets a
+  // digest to review, not an unsolicited PR. `--setup` scaffolds a policy with
+  // autonomy: pr as the explicit opt-in to automated PRs.
+  autonomy: 'digest-only',
   minScore: 12,
   maxSourcesPerRun: 5,
   maxConnectionsPerRun: 5,
