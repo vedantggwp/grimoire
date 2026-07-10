@@ -10,6 +10,7 @@ import {
   extractSalientTerms,
   scoreArticleForQuery,
   rankArticlesForQuery,
+  passesAbstentionThreshold,
   handleQuery,
   handleListTopics,
   handleGetArticle,
@@ -188,6 +189,50 @@ scope:
       const [hit] = rankArticlesForQuery('how does vue reactivity work', data, 3);
       expect(hit?.slug).toBe('vue-reactivity');
       expect(hit?.bestHeading).toBeTruthy();
+    });
+
+    it('accepts only statistically distinct hits with enough supported term coverage', () => {
+      expect(passesAbstentionThreshold({
+        robustScoreZ: 3.2,
+        corpusSupportRatio: 0.85,
+        topSupportedCoverageRatio: 0.6,
+        supportedTermCount: 5,
+      })).toBe(true);
+
+      expect(passesAbstentionThreshold({
+        robustScoreZ: 1.6,
+        corpusSupportRatio: 0.95,
+        topSupportedCoverageRatio: 0.97,
+        supportedTermCount: 5,
+      })).toBe(true);
+
+      expect(passesAbstentionThreshold({
+        robustScoreZ: 4,
+        corpusSupportRatio: 0.9,
+        topSupportedCoverageRatio: 0.35,
+        supportedTermCount: 2,
+      })).toBe(true);
+
+      expect(passesAbstentionThreshold({
+        robustScoreZ: 2.9,
+        corpusSupportRatio: 0.85,
+        topSupportedCoverageRatio: 0.8,
+        supportedTermCount: 5,
+      })).toBe(false);
+
+      expect(passesAbstentionThreshold({
+        robustScoreZ: 8,
+        corpusSupportRatio: 0.3,
+        topSupportedCoverageRatio: 0.9,
+        supportedTermCount: 5,
+      })).toBe(false);
+
+      expect(passesAbstentionThreshold({
+        robustScoreZ: 8,
+        corpusSupportRatio: 0.9,
+        topSupportedCoverageRatio: 0.5,
+        supportedTermCount: 5,
+      })).toBe(false);
     });
   });
 

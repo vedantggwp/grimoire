@@ -629,80 +629,6 @@ function requiredCodeTerms(terms: readonly SalientTerm[]): readonly SalientTerm[
   );
 }
 
-function hasRequiredCodeCoverage(
-  terms: readonly SalientTerm[],
-  corpus: readonly ArticleCorpusEntry[],
-): boolean {
-  for (const term of requiredCodeTerms(terms)) {
-    const exactVariant = term.normalized;
-    const found = corpus.some((entry) => textIncludesVariant(entry.fullText, exactVariant));
-    if (!found) return false;
-  }
-  return true;
-}
-
-function queryOptionTerms(query: string, terms: readonly SalientTerm[]): readonly SalientTerm[] {
-  const phraseQuery = normalizePhraseText(query);
-  return terms.filter((term) =>
-    !GENERIC_RANKING_TERMS.has(term.normalized) &&
-    term.variants.some((variant) =>
-      phraseQuery.includes(`${variant} option`) ||
-      phraseQuery.includes(`${variant} options`)
-    )
-  );
-}
-
-function textHasOptionPhraseForTerm(phraseText: string, term: SalientTerm): boolean {
-  return term.variants.some((variant) =>
-    phraseText.includes(`${variant} option`) ||
-    phraseText.includes(`${variant} options`) ||
-    phraseText.includes(`option ${variant}`) ||
-    phraseText.includes(`options ${variant}`)
-  );
-}
-
-function hasRequiredOptionPhrase(
-  query: string,
-  terms: readonly SalientTerm[],
-  corpus: readonly ArticleCorpusEntry[],
-): boolean {
-  const required = queryOptionTerms(query, terms);
-  if (required.length === 0) return true;
-
-  return required.some((term) =>
-    corpus.some((entry) => textHasOptionPhraseForTerm(entry.phraseText, term))
-  );
-}
-
-function asksForPluralAcceptedValues(query: string): boolean {
-  const phraseQuery = normalizePhraseText(query);
-  return /\bwhat values\b.{0,80}\baccept/.test(phraseQuery) ||
-    /\baccepts?\b.{0,80}\bwhat values\b/.test(phraseQuery);
-}
-
-function hasAcceptedValuesEvidence(
-  query: string,
-  terms: readonly SalientTerm[],
-  corpus: readonly ArticleCorpusEntry[],
-): boolean {
-  if (!asksForPluralAcceptedValues(query)) return true;
-
-  const optionTerms = queryOptionTerms(query, terms);
-  if (optionTerms.length === 0) return true;
-
-  return optionTerms.some((term) =>
-    corpus.some((entry) => {
-      if (!textHasOptionPhraseForTerm(entry.phraseText, term)) return false;
-      const optionIndex = Math.max(
-        ...term.variants.map((variant) => entry.phraseText.indexOf(`${variant} option`)),
-      );
-      const windowStart = optionIndex === -1 ? 0 : Math.max(0, optionIndex - 160);
-      const window = entry.phraseText.slice(windowStart, windowStart + 360);
-      return /\b(accepts?|accepted|values?|one of|any of|all|disable all)\b/.test(window);
-    })
-  );
-}
-
 function extractQueryPhrases(query: string): readonly string[] {
   const words = normalizePhraseText(query)
     .split(/\s+/)
@@ -913,6 +839,153 @@ export function scoreArticleForQuery(
   return scoreCorpusArticle(query, entry, terms, idf, 0);
 }
 
+export interface AbstentionThresholdStats {
+  readonly robustScoreZ: number;
+  readonly corpusSupportRatio: number;
+  readonly topSupportedCoverageRatio: number;
+  readonly supportedTermCount: number;
+}
+
+// Three-MAD robust z is the standard outlier bar; it rejects ordinary high scorers without assuming a normal score distribution.
+const MIN_ROBUST_SCORE_Z = 3;
+// A 1.5 robust-z is a one-sided high-score signal for dense corpora when the top hit covers essentially all supported terms.
+const MIN_CLEAR_COVERAGE_ROBUST_Z = 1.5;
+// Ninety-five percent supported-term coverage leaves only rounding/tokenization residue, so dense-corpus z can be lower.
+const MIN_CLEAR_TOP_COVERAGE = 0.95;
+// Below two-fifths of weighted salient-term mass in the corpus, the query is mostly outside the wiki rather than under-ranked.
+const MIN_CORPUS_SUPPORT_RATIO = 0.4;
+// Four-fifths corpus support means missing top coverage is article mismatch, not domain mismatch.
+const HIGH_CORPUS_SUPPORT_RATIO = 0.8;
+// With high corpus support, the top article must cover a weighted majority plus a small tokenization-noise margin.
+const MIN_HIGH_SUPPORT_TOP_COVERAGE = 0.53;
+// With partial corpus support, the top article must still carry nearly half of the supported signal to be useful.
+const MIN_PARTIAL_SUPPORT_TOP_COVERAGE = 0.45;
+// For one- or two-concept searches, matching one supported concept is enough when the score is already a 3-MAD outlier.
+const MIN_SHORT_QUERY_TOP_COVERAGE = 0.34;
+
+function median(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const midpoint = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[midpoint]
+    : (sorted[midpoint - 1] + sorted[midpoint]) / 2;
+}
+
+function robustZScore(value: number, distribution: readonly number[]): number {
+  if (distribution.length === 0) return 0;
+
+  const center = median(distribution);
+  const absoluteDeviations = distribution.map((score) => Math.abs(score - center));
+  const mad = median(absoluteDeviations);
+  if (mad > 0) {
+    return (0.6745 * (value - center)) / mad;
+  }
+
+  const mean = distribution.reduce((sum, score) => sum + score, 0) / distribution.length;
+  const variance = distribution.reduce((sum, score) => sum + ((score - mean) ** 2), 0) /
+    distribution.length;
+  const standardDeviation = Math.sqrt(variance);
+  if (standardDeviation > 0) return (value - mean) / standardDeviation;
+  return value > center ? Number.POSITIVE_INFINITY : 0;
+}
+
+function confidenceTerms(terms: readonly SalientTerm[]): readonly SalientTerm[] {
+  const specific = terms.filter((term) => !GENERIC_RANKING_TERMS.has(term.normalized));
+  return specific.length > 0 ? specific : terms;
+}
+
+function totalTermWeight(
+  terms: readonly SalientTerm[],
+  idf: ReadonlyMap<string, number>,
+): number {
+  return terms.reduce((sum, term) => sum + termWeight(term, idf), 0);
+}
+
+function termHasCorpusSupport(
+  term: SalientTerm,
+  corpus: readonly ArticleCorpusEntry[],
+): boolean {
+  if (term.code) {
+    return corpus.some((entry) => textIncludesVariant(entry.fullText, term.normalized));
+  }
+  return corpus.some((entry) => termMatchesText(term, entry.fullText));
+}
+
+function topHitSupportsTermExactly(
+  term: SalientTerm,
+  top: RankedArticle,
+  corpus: readonly ArticleCorpusEntry[],
+): boolean {
+  if (!term.code) return top.matchedTerms.includes(term.normalized);
+
+  const topEntry = corpus.find((entry) => entry.note.slug === top.slug);
+  return topEntry ? textIncludesVariant(topEntry.fullText, term.normalized) : false;
+}
+
+function ratio(numerator: number, denominator: number): number {
+  return denominator > 0 ? numerator / denominator : 0;
+}
+
+function computeAbstentionThresholdStats(
+  terms: readonly SalientTerm[],
+  corpus: readonly ArticleCorpusEntry[],
+  idf: ReadonlyMap<string, number>,
+  ranked: readonly RankedArticle[],
+): AbstentionThresholdStats {
+  const [top] = ranked;
+  if (!top) {
+    return {
+      robustScoreZ: 0,
+      corpusSupportRatio: 0,
+      topSupportedCoverageRatio: 0,
+      supportedTermCount: 0,
+    };
+  }
+
+  const consideredTerms = confidenceTerms(terms);
+  const totalWeight = totalTermWeight(consideredTerms, idf);
+  const corpusSupportedTerms = consideredTerms.filter((term) => termHasCorpusSupport(term, corpus));
+  const corpusSupportedWeight = totalTermWeight(corpusSupportedTerms, idf);
+  const topSupportedTerms = corpusSupportedTerms.filter((term) =>
+    topHitSupportsTermExactly(term, top, corpus)
+  );
+  const topSupportedWeight = totalTermWeight(topSupportedTerms, idf);
+
+  return {
+    robustScoreZ: robustZScore(top.score, ranked.map((hit) => hit.score)),
+    corpusSupportRatio: ratio(corpusSupportedWeight, totalWeight),
+    topSupportedCoverageRatio: ratio(topSupportedWeight, corpusSupportedWeight),
+    supportedTermCount: corpusSupportedTerms.length,
+  };
+}
+
+export function passesAbstentionThreshold(stats: AbstentionThresholdStats): boolean {
+  if (stats.corpusSupportRatio < MIN_CORPUS_SUPPORT_RATIO) return false;
+
+  if (
+    stats.robustScoreZ >= MIN_CLEAR_COVERAGE_ROBUST_Z &&
+    stats.corpusSupportRatio >= HIGH_CORPUS_SUPPORT_RATIO &&
+    stats.topSupportedCoverageRatio >= MIN_CLEAR_TOP_COVERAGE
+  ) {
+    return true;
+  }
+
+  if (stats.robustScoreZ < MIN_ROBUST_SCORE_Z) return false;
+
+  if (
+    stats.supportedTermCount <= 2 &&
+    stats.topSupportedCoverageRatio >= MIN_SHORT_QUERY_TOP_COVERAGE
+  ) {
+    return true;
+  }
+
+  const requiredCoverage = stats.corpusSupportRatio >= HIGH_CORPUS_SUPPORT_RATIO
+    ? MIN_HIGH_SUPPORT_TOP_COVERAGE
+    : MIN_PARTIAL_SUPPORT_TOP_COVERAGE;
+  return stats.topSupportedCoverageRatio >= requiredCoverage;
+}
+
 export function rankArticlesForQuery(
   query: string,
   data: WikiData,
@@ -922,10 +995,6 @@ export function rankArticlesForQuery(
   if (terms.length === 0) return [];
 
   const corpus = buildArticleCorpus(data);
-  if (!hasRequiredCodeCoverage(terms, corpus)) return [];
-  if (!hasRequiredOptionPhrase(query, terms, corpus)) return [];
-  if (!hasAcceptedValuesEvidence(query, terms, corpus)) return [];
-
   const idf = computeTermIdf(terms, corpus.map((entry) => entry.fullText));
   const flexHits = searchWithFallback(query, data, Math.max(20, data.notes.length));
   const flexBonusBySlug = new Map<string, number>();
@@ -943,12 +1012,15 @@ export function rankArticlesForQuery(
         flexBonusBySlug.get(entry.note.slug) ?? 0,
       )
     )
-    .filter((hit) => hit.score >= 20 && hit.evidenceScore >= 8)
     .sort((a, b) => b.score - a.score || a.slug.localeCompare(b.slug));
 
-  if (ranked.length === 0) return [];
+  if (!passesAbstentionThreshold(computeAbstentionThresholdStats(terms, corpus, idf, ranked))) {
+    return [];
+  }
 
-  return ranked.slice(0, limit);
+  return ranked
+    .filter((hit) => hit.score > 0 && hit.evidenceScore > 0)
+    .slice(0, limit);
 }
 
 export function handleQuery(query: string, data: WikiData): string {
