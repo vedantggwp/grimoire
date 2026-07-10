@@ -4,6 +4,8 @@
  * Inline vanilla-JS snippets embedded into every generated page.
  */
 
+import { jsonForScript } from '../esc.js';
+
 /**
  * Runs first on every page: flags JS presence (the CSS reveal utility only
  * hides elements under html.js — no-JS readers always see content), defines
@@ -103,7 +105,7 @@ export function tiltScript(selector: string): string {
   if (!window.GRIMOIRE_MOTION_OK || !window.GRIMOIRE_MOTION_OK()) return;
 
   var raf = null;
-  document.querySelectorAll(${JSON.stringify(selector)}).forEach(function(card) {
+  document.querySelectorAll(${jsonForScript(selector)}).forEach(function(card) {
     card.classList.add('tiltable');
     card.addEventListener('pointermove', function(e) {
       if (raf) return;

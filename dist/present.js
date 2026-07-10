@@ -2082,7 +2082,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   if (!window.GRIMOIRE_MOTION_OK || !window.GRIMOIRE_MOTION_OK()) return;
 
   var raf = null;
-  document.querySelectorAll(${JSON.stringify(selector)}).forEach(function(card) {
+  document.querySelectorAll(${jsonForScript(selector)}).forEach(function(card) {
     card.classList.add('tiltable');
     card.addEventListener('pointermove', function(e) {
       if (raf) return;
@@ -2218,7 +2218,7 @@ ${themeToggleScript()}
       </a>
     </li>`}function readIndexScript(slugs){return`<script>
 (function() {
-  var known = ${JSON.stringify(slugs)};
+  var known = ${jsonForScript(slugs)};
 
   // Legacy hash links (read/index.html#slug) redirect to the article page.
   var hash = window.location.hash.slice(1);
@@ -2376,7 +2376,7 @@ ${readIndexScript(sorted.map(a2=>a2.slug))}`;return pageShell(`${shortTopic(data
         ${nextLink}
       </nav>`}function articlePageScript(slug){return`<script>
 (function() {
-  try { localStorage.setItem('grimoire-last-read', ${JSON.stringify(slug)}); } catch(e) {}
+  try { localStorage.setItem('grimoire-last-read', ${jsonForScript(slug)}); } catch(e) {}
 
   // Reading progress: the CSS scroll-timeline path takes over where
   // supported; the scroll listener is the fallback.
