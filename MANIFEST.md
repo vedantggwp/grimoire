@@ -126,8 +126,7 @@
 - `docs/architecture/frontend-modes.d2` — Frontend modes diagram source
 - `docs/architecture/frontend-modes.svg` — Frontend modes diagram (rendered)
 - `docs/changelog.md` — Session changelog (engineering log of all build sessions)
-- `docs/competitive.md` — Competitive landscape + moat (updated 2026-07-05: direct LLM-wiki competitor matrix, corrected design-system claims)
-- `docs/strategy.md` — Growth strategy: positioning thesis vs. Karpathy-pattern clones, launch sequence, star math, operating cadence (2026-07-05)
+- `docs/competitive.md` — Capabilities comparison vs adjacent tools and LLM-wiki implementations
 - `docs/decisions.md` — Living decision log
 - `docs/design-engine.md` — Theming, palettes, design skill arsenal
 - `docs/design-research.md` — Comprehensive design research report: top 10 reference sites, 8 design principles, typography/color/layout/micro-interaction/quiz UI recommendations for knowledge base frontends (2025-2026)
@@ -138,8 +137,6 @@
 - `docs/mcp-smoke-results.md` — Frozen protocol-level MCP end-to-end test report (2026-04-17); regeneratable via `node scripts/mcp-smoke-client.mjs`
 - `docs/plugin-spec.md` — Claude Code plugin format reference
 - `docs/roadmap.md` — Phased roadmap (updated 2026-04-11 to reflect v0.2.2 launch-ready status and explicit deferrals to v0.3)
-- `docs/launch-readiness.md` — v0.2.2 launch-readiness scratchpad consolidating research findings, runtime audit, and decisions (MUST/DEFER scope cuts)
-- `docs/launch-announcement-draft.md` — Draft launch post for internal review (not published)
 - `docs/scout-spec.md` — Research engine specification
 - `docs/references/papyr-core.md` — Papyr Core evaluation ("Evaluation Result" — verified adopted, npm-confirmed)
 - `docs/references/quartz-patterns.md` — Quartz patterns evaluation
@@ -150,7 +147,7 @@
 
 ## Recent Changes
 - 2026-07-10: **v0.5.0 "The Honest Engine".** Verbatim-first research providers (lib/providers/ + dist/research.js, closes #20/founds #15), retrieval ranking overhaul (naive query 4/10 → 10/10 top-1-or-abstain, launch gate 2), fidelity gates (#12), /grimoire:new rename, dogfood mechanical fixes (#13/#14). 368 tests. Athanor marketplace now pins release tags (launch gate 1). Every change traces to a truth-sprint finding.
-- 2026-07-05: **Growth strategy + competitive refresh.** Created `docs/strategy.md` (positioning thesis: "the complete, living implementation of the LLM-wiki pattern"; launch sequence; distribution surfaces; operating cadence). Rewrote `docs/competitive.md` with the July 2026 direct-competitor matrix (Karpathy-gist clones: nashsu/llm_wiki ~13.7k★, SamurAIGPT ~3.1k★, lucasastorian ~1.3k★, nvk ~0.8k★, Hjarni hosted) and corrected inflated design claims ("97+ palettes" → 8 palettes, "57 font pairings" → 6 typography systems) — accuracy matters for launch trust.
+- 2026-07-05: **Competitive comparison refresh.** Updated `docs/competitive.md` with a current capabilities comparison and corrected two design-system counts to match the shipped code (8 palettes, 6 typography systems).
 - 2026-06-10: **README rewrite + PII sweep for ship.** README rebuilt against a documentation rubric (value clarity, time-to-first-success, information architecture, audience fit, evidence freshness, critical-path completeness, scannability, honesty): stale v0.3.0 badges/counts corrected to v0.4.0/334, flagship self-updating capability given its own section, frontend/MCP sections re-grounded in shipped behavior, positioning section added, duplicate install removed, CONTRIBUTING/SECURITY linked. `.mcp.json` (machine-specific absolute paths) untracked + gitignored.
 - 2026-06-10: **v0.4.0 "The Living Grimoire" released.** Version bumped in package.json + plugin.json; roadmap Phase 8 recorded; decisions.md entry (PR-gated policy-driven updates, zero-dependency frontend held); changelog entry; SOUL principle 5 gains the relocated-control clause; design-config template documents real motion/density semantics + `modes:` + individual font overrides; README/CLAUDE.md skill tables gain `update`.
 - 2026-06-10: **Editorial Constellation frontend (v0.4.0 Phase 3).** Design-token layer (`css/tokens.ts` motion/spacing/z/cat-ramp + `lib/present/color.ts` OKLCH math with AA contrast matrix test across 8 palettes × 2 themes); per-article routes `read/{slug}/` with cross-document View Transitions + title morphs and a legacy-hash redirect shim (#2); hub constellation hero (deterministic FNV-seeded force layout in `lib/present/layout.ts`, ambient canvas in `js/constellation.ts`, parallax, count-up, tilt); reading experience (popover link previews in `js/popover.ts`, backlinks, sources, freshness badges via `lib/present/freshness.ts`, sliding TOC marker, scroll-timeline progress); mode upgrades (graph cat-colors/warm-start/focus/hulls/Read-link, gaps d3-free build-time squarified treemap ~290KB→21KB + freshness lens, quiz 3D flip + streak confetti, feed update-digest cards, search keyboard nav + recovery state). Config engine: motion/density real + validated, `modes:` disabling (#9), font-heading/body/mono (#3), 4px grid (#4). 334/334 tests.

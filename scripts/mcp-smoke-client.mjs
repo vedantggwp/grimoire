@@ -1,17 +1,28 @@
 /**
  * MCP smoke test — protocol-level client over stdio.
  *
- * Spawns dist/serve.js against /Users/ved/Developer/grimoire-wiki, then
- * exercises every registered tool via real JSON-RPC calls. This is the same
- * transport + protocol Claude Desktop uses, so a clean pass here = a clean
- * pass in any MCP client.
+ * Spawns dist/serve.js against a grimoire workspace, then exercises every
+ * registered tool via real JSON-RPC calls. This is the same transport +
+ * protocol Claude Desktop uses, so a clean pass here = a clean pass in any
+ * MCP client.
+ *
+ * Usage: node scripts/mcp-smoke-client.mjs [workspace] [serve.js]
+ * Defaults: workspace = ../grimoire-wiki relative to the repo (falls back to
+ * examples/mcp), serve.js = dist/serve.js in this repo.
  */
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
-const SERVE_JS = '/Users/ved/Developer/grimoire/dist/serve.js';
-const WORKSPACE = '/Users/ved/Developer/grimoire-wiki';
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const DEFAULT_WIKI = existsSync(path.join(REPO_ROOT, '..', 'grimoire-wiki'))
+  ? path.join(REPO_ROOT, '..', 'grimoire-wiki')
+  : path.join(REPO_ROOT, 'examples', 'mcp');
+const WORKSPACE = process.argv[2] ?? DEFAULT_WIKI;
+const SERVE_JS = process.argv[3] ?? path.join(REPO_ROOT, 'dist', 'serve.js');
 
 const PROBES = [
   { tool: 'grimoire_list_topics', args: {}, label: 'List all topics' },

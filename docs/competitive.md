@@ -1,38 +1,37 @@
-# Competitive Landscape & Moat
+# How Grimoire Compares
 
-> Updated 2026-07-05. The category shifted in April 2026 when Karpathy's "LLM Wiki" gist
-> went viral (21M+ views) and spawned direct implementations. See docs/strategy.md for
-> the full positioning thesis and distribution plan.
+> A capabilities comparison for people choosing a knowledge-base tool.
 
-## Adjacent Tools (different job)
+## Tools that solve adjacent problems
 
-| Tool | What It Does | How Grimoire Differs |
+| Tool | What it does | How Grimoire differs |
 |------|-------------|---------------------|
-| **Obsidian** | Personal knowledge management with backlinks | Note-taking app for humans. Grimoire is a compilation engine for LLMs AND humans. Obsidian doesn't scout, score, or synthesize. |
-| **Notion** | Team workspace with databases | General-purpose. Grimoire is purpose-built for deep-dive knowledge. No MCP server, no confidence scoring, no gap analysis. |
-| **GitBook / Docusaurus** | Documentation sites | These document YOUR code. Grimoire compiles knowledge FROM external sources. Different input, different output. |
-| **Roam / Logseq** | Networked thought, outliner-based | Human-first. No LLM integration, no automated research, no frontend generation. |
-| **Perplexity** | AI search engine | Answers questions. Grimoire BUILDS the knowledge base that answers questions. Ephemeral vs. compounding. |
-| **mem0-class memory** | Auto-captured agent memory | Accumulates chat exhaust. Grimoire curates sources — human-auditable, provenance-first. |
+| **Obsidian** | Personal knowledge management with backlinks | Note-taking for humans. Grimoire compiles knowledge bases from external sources, for LLMs and humans — with source scouting, confidence scoring, and synthesis. |
+| **Notion** | Team workspace with databases | General-purpose. Grimoire is purpose-built for deep-dive knowledge: per-wiki MCP server, confidence scoring, gap analysis. |
+| **GitBook / Docusaurus** | Documentation sites | These document your own material. Grimoire compiles knowledge from external sources. |
+| **Roam / Logseq** | Networked thought, outliner-based | Human-first. No automated research, no LLM serving layer, no frontend generation. |
+| **Perplexity** | AI search engine | Answers questions and moves on. Grimoire builds the knowledge base that answers questions — compounding instead of ephemeral. |
+| **Agent memory layers** (mem0-class) | Auto-captured conversation memory | Accumulates chat history. Grimoire curates sources — human-auditable, provenance-first. |
 
-## Direct Competitors (same job: the LLM-wiki pattern)
+## Tools in the same space
 
-| Project | Scout | Study frontend | MCP | Self-updating | Local-first |
-|---|---|---|---|---|---|
-| nashsu/llm_wiki (~13.7k★) | — | desktop app | ✓ | — | ✓ |
-| SamurAIGPT/llm-wiki-agent (~3.1k★) | — | — | — | — | ✓ |
-| lucasastorian/llmwiki (~1.3k★) | — | — | ✓ | — | ✓ |
-| nvk/llm-wiki (~0.8k★) | partial | — | — | — | ✓ |
-| Hjarni (hosted, paid) | — | ✓ | ✓ | — | — |
-| **Grimoire** | **✓ confidence-scored** | **✓ 6 study modes** | **✓ 7 tools** | **✓ PR-gated (v0.4.0)** | **✓ git-native** |
+Several projects implement parts of the LLM-wiki pattern (sources in → compiled interlinked
+markdown → queryable knowledge). Grimoire's position in that space is the complete pipeline:
 
-Nobody else ships the complete pipeline. Hjarni publicly concedes git history, graph
-view, and filesystem access — Grimoire is the local-first answer to their trade-off list.
+| Capability | Typical LLM-wiki tools | Grimoire |
+|---|---|---|
+| Source discovery | you supply sources | automated scout with 6-signal confidence scoring |
+| Raw preservation | rarely | verbatim-first fetch ladder, per-source fidelity labels |
+| Compilation audit | rarely | backlink audit, gap analysis, citation enforcement |
+| Human study surface | markdown files | generated study site (read, graph, search, feed, gaps, quiz) |
+| LLM serving | sometimes | per-wiki MCP server, 7 tools, token-budgeted responses |
+| Staying current | manual re-runs | scheduled, PR-gated self-updates with freshness tiers |
 
-## Five Compounding Advantages
+## What Grimoire optimizes for
 
-1. **The Complete Pipeline** — scout → ingest → compile → present → serve → update. Every clone implements one or two slices.
-2. **Scout + Confidence Scoring** — Automated research with transparent 6-signal scoring. Every clone assumes you hand it sources.
-3. **The Study Frontend** — 6 study modes (read, graph, search, feed, gaps, quiz), 8 curated palettes, 6 typography systems, WCAG AA, zero runtime dependencies. Every clone stops at markdown files.
-4. **The Living Grimoire** — Scheduled, PR-gated self-updates via GitHub Actions (v0.4.0). The only knowledge base in the category that keeps itself fresh.
-5. **Compounding Backlinks** — Mandatory backlink audit on every ingest; the wiki gets more connected with every source.
+1. **Provenance you can audit** — every article cites preserved raw sources; degraded capture is
+   visibly labeled at every layer rather than hidden behind polish.
+2. **Honest retrieval** — the MCP server abstains when the knowledge base doesn't cover a question
+   instead of returning a confident wrong answer.
+3. **Compounding** — backlinks, freshness tiers, and scheduled updates make the wiki more valuable
+   over time, in your git history, on your machine.
