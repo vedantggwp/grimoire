@@ -1,0 +1,50 @@
+[
+  {
+    "question": "If I set a PreToolUse hook to allow a command, can a deny rule still block it later in the permission flow?",
+    "expectedSlug": "permissions-and-approval-control"
+  },
+  {
+    "question": "For a custom in-process tool, what happens to the agent loop if my handler throws instead of returning an error result?",
+    "expectedSlug": "custom-tools-in-process-mcp"
+  },
+  {
+    "question": "Can file rewind undo changes made by a shell command like sed, or only SDK edit operations?",
+    "expectedSlug": "file-checkpointing"
+  },
+  {
+    "question": "Where should I check for failed MCP server connections before letting an agent start using those tools?",
+    "expectedSlug": "external-mcp-integration"
+  },
+  {
+    "question": "When hosting many active agent sessions, why do I need separate working directories or per-session cwd values?",
+    "expectedSlug": "hosting-and-deployment-patterns"
+  },
+  {
+    "question": "Which telemetry switch records full tool inputs and outputs, and why should it stay off unless the pipeline is approved?",
+    "expectedSlug": "observability-opentelemetry"
+  },
+  {
+    "question": "What changed in the rename from the old Claude Code SDK packages to the Agent SDK packages?",
+    "expectedSlug": "migration-from-claude-code-sdk"
+  },
+  {
+    "question": "How can I fork a conversation to try another direction without changing the original session history?",
+    "expectedSlug": "sessions-continue-resume-fork"
+  },
+  {
+    "question": "If a subagent needs to run without seeing the parent conversation history, what information must the parent provide?",
+    "expectedSlug": "subagents"
+  },
+  {
+    "question": "Why might enabling deferred tool discovery improve both prompt size and tool selection once a server exposes hundreds of tools?",
+    "expectedSlug": "tool-search"
+  },
+  {
+    "question": "How do I configure vector embedding dimensions and chunk overlap for the Agent SDK retriever?",
+    "expectedSlug": null
+  },
+  {
+    "question": "Which managed Postgres schema does the Agent SDK create for storing durable task queues?",
+    "expectedSlug": null
+  }
+]
