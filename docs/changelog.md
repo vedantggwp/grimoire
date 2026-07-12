@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-12 — v0.5.1
+
+Hygiene and honesty release. Abstention threshold rebuilt on corpus-relative
+statistics and validated on three question sets including one pre-registered
+before implementation (naive queries now abstain on uncovered topics instead
+of returning confident wrong answers). No-policy update default is now
+digest-only — automated PRs require explicit opt-in via `_config/update.md`.
+Inline-script embeds normalized to `jsonForScript` with a regression scan.
+Third-party captures in examples trimmed to attributed excerpts. Internal
+working notes removed from the public tree; smoke client parameterized.
+Plugin manifest gains displayName/category. 370 tests.
+
 ## 2026-07-10 — v0.5.0 "The Honest Engine"
 
 The truth-sprint release: every change traces to a measured finding.
