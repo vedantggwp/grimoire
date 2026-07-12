@@ -83,6 +83,11 @@ function generateHub(data: SiteData, config: DesignConfig): string {
       value: String(stats.sourceWarnings),
       title: 'Articles compiled from partial or failed raw captures.',
     },
+    {
+      label: 'untracked provenance',
+      value: String(stats.sourceUntracked),
+      title: 'Articles whose source fidelity is unknown.',
+    },
     { label: 'tags', value: String(stats.tagCount) },
     { label: 'cross-refs', value: String(stats.crossRefs) },
     {

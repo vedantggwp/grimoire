@@ -34,7 +34,7 @@ const FIDELITY_WARNING =
 
 function withSourceFidelity(
   slug: string,
-  sourceFidelity: 'full' | 'mixed' | 'degraded',
+  sourceFidelity: 'full' | 'mixed' | 'degraded' | 'unknown',
 ): WikiData {
   return {
     ...data,
@@ -335,6 +335,15 @@ scope:
       );
       expect(summary).toContain(FIDELITY_WARNING);
     });
+
+    it('does not append a fidelity warning when a fetched article has unknown provenance', () => {
+      const full = handleGetArticle(
+        'react-fundamentals',
+        withSourceFidelity('react-fundamentals', 'unknown'),
+        'full',
+      );
+      expect(full).not.toContain(FIDELITY_WARNING);
+    });
   });
 
   describe('handleGetSection', () => {
@@ -392,6 +401,15 @@ scope:
       const section = handleGetSection('react-fundamentals', 'Overview', data);
       // The single section must be meaningfully smaller than the full article.
       expect(section.length).toBeLessThan(fullArticle.length * 0.7);
+    });
+  });
+
+  describe('handleCoverageGaps', () => {
+    it('lists unknown provenance separately from degraded source fidelity', () => {
+      const result = handleCoverageGaps(withSourceFidelity('react-fundamentals', 'unknown'));
+      expect(result).toContain('### Untracked Provenance');
+      expect(result).toContain('[UNTRACKED PROVENANCE] "React Fundamentals" (react-fundamentals)');
+      expect(result).not.toContain('[DEGRADED SOURCE] "React Fundamentals" (react-fundamentals)');
     });
   });
 

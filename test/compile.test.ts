@@ -108,7 +108,16 @@ scope:
 \`\`\`
 `, 'utf-8');
 
-  writeFileSync(join(wikiDir, 'index.md'), '# Index\n\n| Article |\n|---------|\n| [[legacy-article]] |\n', 'utf-8');
+  writeFileSync(join(wikiDir, 'index.md'), `# Index
+
+| Article |
+|---------|
+| [[legacy-article]] |
+| [[zero-source]] |
+| [[all-unknown]] |
+| [[final-url-bridge]] |
+| [[duplicate-capture]] |
+`, 'utf-8');
   writeFileSync(join(wikiDir, 'overview.md'), '# Overview\n\n## Open Questions\n\n- None.\n', 'utf-8');
   writeFileSync(join(wikiDir, 'log.md'), '# Log\n\n## 2026-07-06 — Legacy fixture\n\n- Created.\n', 'utf-8');
 
@@ -132,6 +141,79 @@ Legacy content should compile as full for display while still logging that
 fidelity is untracked.
 `, 'utf-8');
 
+  writeFileSync(join(wikiDir, 'zero-source.md'), `---
+title: "Zero Source"
+summary: "An article with no source list must not pretend to have full source fidelity."
+tags: [legacy]
+sources: []
+updated: 2026-07-06
+confidence: P2
+---
+
+# Zero Source
+
+## Overview
+
+This article has no citations.
+`, 'utf-8');
+
+  writeFileSync(join(wikiDir, 'all-unknown.md'), `---
+title: "All Unknown"
+summary: "An article whose cited source has no matching raw capture must become unknown."
+tags: [legacy]
+sources:
+  - url: "https://example.com/missing-raw-source"
+    title: "Missing Raw Source"
+    accessed: 2026-07-06
+updated: 2026-07-06
+confidence: P2
+---
+
+# All Unknown
+
+## Overview
+
+This article cites a source that is not present in raw archives.
+`, 'utf-8');
+
+  writeFileSync(join(wikiDir, 'final-url-bridge.md'), `---
+title: "Final URL Bridge"
+summary: "An article citing the post-redirect URL should match raw capture final_url."
+tags: [legacy]
+sources:
+  - url: "https://example.com/docs/final"
+    title: "Redirected Docs"
+    accessed: 2026-07-06
+updated: 2026-07-06
+confidence: P1
+---
+
+# Final URL Bridge
+
+## Overview
+
+This article cites the final URL produced by source capture redirects.
+`, 'utf-8');
+
+  writeFileSync(join(wikiDir, 'duplicate-capture.md'), `---
+title: "Duplicate Capture"
+summary: "An article with duplicate raw captures should use the best capture fidelity."
+tags: [legacy]
+sources:
+  - url: "https://example.com/duplicate-source"
+    title: "Duplicate Source"
+    accessed: 2026-07-06
+updated: 2026-07-06
+confidence: P1
+---
+
+# Duplicate Capture
+
+## Overview
+
+This article cites a URL captured more than once.
+`, 'utf-8');
+
   writeFileSync(join(rawDir, '2026-07-06-legacy-source.md'), `---
 source_url: "https://example.com/legacy-source"
 collected: 2026-07-06
@@ -144,6 +226,49 @@ title: "Legacy Source"
 # Legacy Source
 
 Raw content from a pre-v0.5 archive with no fidelity field.
+`, 'utf-8');
+
+  writeFileSync(join(rawDir, '2026-07-06-redirected-source.md'), `---
+source_url: "https://example.com/docs/original"
+final_url: "https://example.com/docs/final"
+captured_at: "2026-07-06T10:00:00.000Z"
+type: article
+author: "Fixture"
+title: "Redirected Docs"
+fidelity: full
+---
+
+# Redirected Docs
+
+Raw content captured after following a redirect.
+`, 'utf-8');
+
+  writeFileSync(join(rawDir, '2026-07-05-duplicate-full.md'), `---
+source_url: "https://example.com/duplicate-source"
+captured_at: "2026-07-05T10:00:00.000Z"
+type: article
+author: "Fixture"
+title: "Duplicate Source Full"
+fidelity: full
+---
+
+# Duplicate Source
+
+Best raw capture.
+`, 'utf-8');
+
+  writeFileSync(join(rawDir, '2026-07-06-duplicate-failed.md'), `---
+source_url: "https://example.com/duplicate-source"
+captured_at: "2026-07-06T10:00:00.000Z"
+type: article
+author: "Fixture"
+title: "Duplicate Source Failed"
+fidelity: failed
+---
+
+# Duplicate Source
+
+Later but worse raw capture.
 `, 'utf-8');
 }
 
@@ -485,16 +610,30 @@ describe('compile — fidelity unknown back-compat', () => {
     rmSync(WORKSPACE_DIR, { recursive: true, force: true });
   });
 
-  it('treats missing fidelity frontmatter as full for display but logs untracked status', () => {
+  it('treats missing fidelity frontmatter as unknown and logs untracked status', () => {
     const notes = JSON.parse(readFileSync(join(COMPILE_DIR, 'notes.json'), 'utf-8')) as any[];
-    const article = notes.find(n => n.slug === 'legacy-article');
-    expect(article?.sourceFidelity).toBe('full');
+    expect(notes.find(n => n.slug === 'legacy-article')?.sourceFidelity).toBe('unknown');
+    expect(notes.find(n => n.slug === 'legacy-article')?.unknownSourceCount).toBe(1);
+    expect(notes.find(n => n.slug === 'zero-source')?.sourceFidelity).toBe('unknown');
+    expect(notes.find(n => n.slug === 'zero-source')?.unknownSourceCount).toBe(0);
+    expect(notes.find(n => n.slug === 'all-unknown')?.sourceFidelity).toBe('unknown');
+    expect(notes.find(n => n.slug === 'all-unknown')?.unknownSourceCount).toBe(1);
 
     const overview = JSON.parse(readFileSync(join(COMPILE_DIR, 'overview-metadata.json'), 'utf-8')) as any;
     expect(overview.sourceFidelity.degraded).toBe(0);
-    expect(overview.sourceFidelity.unknownSources).toBe(1);
+    expect(overview.sourceFidelity.unknown).toBe(3);
+    expect(overview.sourceFidelity.unknownSources).toBe(2);
+    expect(overview.sourceFidelity.unknownArticles).toEqual(['all-unknown', 'legacy-article', 'zero-source']);
     expect(stdout).toContain('0 articles on degraded sources');
+    expect(stdout).toContain('3 articles with untracked provenance');
     expect(stdout).toContain('fidelity untracked (pre-v0.5 wiki)');
+  });
+
+  it('bridges final_url captures and prefers the best duplicate capture', () => {
+    const notes = JSON.parse(readFileSync(join(COMPILE_DIR, 'notes.json'), 'utf-8')) as any[];
+    expect(notes.find(n => n.slug === 'final-url-bridge')?.sourceFidelity).toBe('full');
+    expect(notes.find(n => n.slug === 'duplicate-capture')?.sourceFidelity).toBe('full');
+    expect(stdout).toContain('raw source fidelity collision for https://example.com/duplicate-source');
   });
 });
 
