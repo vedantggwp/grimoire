@@ -17,9 +17,9 @@ review). A scheduled run can't pause, so control relocates:
 
 The autonomy ladder in `_config/update.md`:
 
-- `pr` (default) — branch + commit + open a PR with the digest as body
+- `pr` — branch + commit + open a PR with the digest as body (scaffolded by `--setup`)
 - `branch` — branch + commit, you open the PR
-- `digest-only` — analyze and report, write no git history
+- `digest-only` (default when no policy file exists) — analyze and report, write no git history
 
 A run with nothing to do is a **no-op**: no branch, no empty PR — the
 scheduler log holds the printed digest.

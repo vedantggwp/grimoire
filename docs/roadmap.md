@@ -61,7 +61,7 @@
 - [x] **End-to-end regression suite** — test/examples-mcp.smoke.test.ts locks in the full contract with 22 assertions (v0.2.2)
 - [x] **v0.2.3 Option F shipping fix pass** — 18 concrete design + UX fixes across `lib/present/` so the generated frontend clears the quality bar; decisions.md entry captures the full trail; 129/129 tests still green; desktop + dark + mobile verified
 - [x] **README + docs refresh for v0.2.3** — updated palette/typography counts (8 palettes, 6 typography systems), added example use cases section, updated gaps/quiz descriptions to match actual shipping behavior, added badges row
-- [x] **Launch announcement draft refreshed to v0.2.3** — `docs/launch-announcement-draft.md` updated with the Option F frontend narrative
+- [x] **Launch announcement draft refreshed to v0.2.3** — launch announcement draft (internal) updated with the Option F frontend narrative
 - [ ] Launch announcement published — **maintainer's call, maintainer's voice**
 - [ ] Share with community — **maintainer's call, maintainer's networks**
 - [ ] Claude Desktop end-to-end MCP compatibility test — **deferred to v0.3**
