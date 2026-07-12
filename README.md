@@ -4,7 +4,7 @@
 
 [![Version](https://img.shields.io/badge/version-0.5.1-0d9488)](https://github.com/vedantggwp/grimoire/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![Tests](https://img.shields.io/badge/tests-368%20passing-16a34a)](./test) [![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-plugin-1a1a1a)](https://github.com/vedantggwp/athanor)
 
-Grimoire is a Claude Code plugin that turns a topic into a living knowledge base. Say what you want to understand; it **scouts** the web for the best sources, **ingests** them into cross-referenced wiki articles, **compiles** a knowledge graph, **presents** a study site you open from `file://`, and **serves** the whole corpus to any LLM client over MCP. Then `/grimoire:update` keeps it alive: a scheduled editorial pass that finds what's new, weaves in new connections, flags stale articles, and ships every change as a pull request you review.
+Grimoire is a Claude Code plugin that turns a topic into a living knowledge base. Say what you want to understand; it **scouts** the web for the best sources, **ingests** them into cross-referenced wiki articles, **compiles** a knowledge graph, **presents** a study site you open from `file://`, and **serves** the whole corpus to any LLM client over MCP. Then `/grimoire:update` keeps it alive: a scheduled editorial pass that finds what's new, weaves in new connections, flags stale articles, and — once you enable it via the update policy — ships every change as a pull request you review.
 
 Everything is plain markdown on your disk, in your git history. No SaaS, no database, no build step.
 
@@ -71,7 +71,7 @@ A knowledge base built once decays. `/grimoire:update` is the maintenance loop:
 2. **Policy-gated ingest** — sources scoring above your threshold (capped per run) flow through the standard pipeline; raw text preserved, articles compiled.
 3. **Connection mining** — unlinked article pairs with real overlap become bidirectional cross-references; rejected pairs are remembered and never proposed again.
 4. **Freshness** — every article is tiered fresh / aging / stale against configurable windows; optionally the stalest articles' sources are re-fetched and verified.
-5. **PR-gated shipping** — everything lands on a branch with a digest (sources found, skipped-with-scores, articles changed, connections made) as the PR body. The update never touches your default branch. A run with nothing new is a no-op — no empty PRs.
+5. **PR-gated shipping** — with `autonomy: pr` in your update policy (the `--setup` default), everything lands on a branch with a digest (sources found, skipped-with-scores, articles changed, connections made) as the PR body. The update never touches your default branch. A run with nothing new is a no-op — no empty PRs.
 
 Your judgment lives in [`_config/update.md`](skills/new/assets/templates/update-config.md) — score thresholds, per-run caps, staleness windows, watchlist — and in PR review.
 
