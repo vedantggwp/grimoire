@@ -523,7 +523,7 @@ function tokenVariants(raw: string, code: boolean): readonly string[] {
 
 export function extractSalientTerms(query: string): readonly SalientTerm[] {
   const tokenPattern =
-    /[A-Za-z_][A-Za-z0-9_]*(?:\(\))?|[A-Za-z0-9]+(?:[-_./:][A-Za-z0-9]+)+|\[\]|\d+(?:\.\d+)*/g;
+    /[A-Za-z0-9]+(?:[-_./:][A-Za-z0-9]+)+|[A-Za-z_][A-Za-z0-9_]*(?:\(\))?|\[\]|\d+(?:\.\d+)*/g;
   const seen = new Set<string>();
   const terms: SalientTerm[] = [];
 
@@ -689,38 +689,6 @@ function scoreTermProximity(
   return best >= 3 ? best * 8 : 0;
 }
 
-function scoreAnswerPatternBonuses(query: string, entry: ArticleCorpusEntry): number {
-  const phraseQuery = normalizePhraseText(query);
-  let score = 0;
-
-  if (
-    phraseQuery.includes('sandbox') &&
-    (
-      phraseQuery.includes('security') ||
-      phraseQuery.includes('recommend') ||
-      phraseQuery.includes('instead') ||
-      phraseQuery.includes('exfiltrat')
-    )
-  ) {
-    if (entry.phraseText.includes('not a sandbox') && entry.phraseText.includes('isolation')) {
-      score += 80;
-    }
-    if (
-      entry.phraseText.includes('container') ||
-      entry.phraseText.includes('gvisor') ||
-      entry.phraseText.includes('vm') ||
-      entry.phraseText.includes('credential proxy')
-    ) {
-      score += 35;
-    }
-    if (entry.phraseText.includes('production security') && entry.phraseText.includes('sandboxing')) {
-      score += 55;
-    }
-  }
-
-  return score;
-}
-
 function bestMatchingSectionHeading(
   query: string,
   markdown: string,
@@ -797,9 +765,8 @@ function scoreCorpusArticle(
 
   const phraseScore = scorePhraseMatches(query, fields);
   const proximityScore = scoreTermProximity(body, terms);
-  const answerPatternScore = scoreAnswerPatternBonuses(query, entry);
-  score += phraseScore + proximityScore + answerPatternScore;
-  evidenceScore += phraseScore + proximityScore + answerPatternScore;
+  score += phraseScore + proximityScore;
+  evidenceScore += phraseScore + proximityScore;
 
   const bestHeading = bestMatchingSectionHeading(query, entry.markdown, terms, idf);
 
@@ -845,8 +812,12 @@ export interface AbstentionThresholdStats {
   readonly corpusSupportRatio: number;
   readonly topSupportedCoverageRatio: number;
   readonly supportedTermCount: number;
+  readonly articleCount: number;
+  readonly topEvidenceScore: number;
 }
 
+// Eight articles leaves seven peer scores after excluding the top hit; below that, robust-MAD estimates are too quantized.
+const MIN_STATISTICAL_ARTICLE_COUNT = 8;
 // Three-MAD robust z is the standard outlier bar; it rejects ordinary high scorers without assuming a normal score distribution.
 const MIN_ROBUST_SCORE_Z = 3;
 // A 1.5 robust-z is a one-sided high-score signal for dense corpora when the top hit covers essentially all supported terms.
@@ -863,6 +834,12 @@ const MIN_HIGH_SUPPORT_TOP_COVERAGE = 0.53;
 const MIN_PARTIAL_SUPPORT_TOP_COVERAGE = 0.45;
 // For one- or two-concept searches, matching one supported concept is enough when the score is already a 3-MAD outlier.
 const MIN_SHORT_QUERY_TOP_COVERAGE = 0.34;
+// For one- or two-concept small-wiki searches, one supported concept can be enough when absolute evidence is present.
+const MIN_SMALL_CORPUS_SHORT_QUERY_TOP_COVERAGE = 0.34;
+// Half coverage keeps three-plus-term small-wiki searches on a weighted-majority evidence bar.
+const MIN_SMALL_CORPUS_TOP_COVERAGE = 0.5;
+// A single specific body-term contributes 2.4 evidence, admitting true one-article starts while rejecting zero-evidence hits.
+const MIN_SMALL_CORPUS_EVIDENCE_SCORE = 2.4;
 
 function median(values: readonly number[]): number {
   if (values.length === 0) return 0;
@@ -941,6 +918,8 @@ function computeAbstentionThresholdStats(
       corpusSupportRatio: 0,
       topSupportedCoverageRatio: 0,
       supportedTermCount: 0,
+      articleCount: ranked.length,
+      topEvidenceScore: 0,
     };
   }
 
@@ -954,15 +933,27 @@ function computeAbstentionThresholdStats(
   const topSupportedWeight = totalTermWeight(topSupportedTerms, idf);
 
   return {
-    robustScoreZ: robustZScore(top.score, ranked.map((hit) => hit.score)),
+    robustScoreZ: robustZScore(top.score, ranked.slice(1).map((hit) => hit.score)),
     corpusSupportRatio: ratio(corpusSupportedWeight, totalWeight),
     topSupportedCoverageRatio: ratio(topSupportedWeight, corpusSupportedWeight),
     supportedTermCount: corpusSupportedTerms.length,
+    articleCount: ranked.length,
+    topEvidenceScore: top.evidenceScore,
   };
 }
 
 export function passesAbstentionThreshold(stats: AbstentionThresholdStats): boolean {
   if (stats.corpusSupportRatio < MIN_CORPUS_SUPPORT_RATIO) return false;
+
+  if (stats.articleCount < MIN_STATISTICAL_ARTICLE_COUNT) {
+    const requiredCoverage = stats.supportedTermCount <= 2
+      ? MIN_SMALL_CORPUS_SHORT_QUERY_TOP_COVERAGE
+      : MIN_SMALL_CORPUS_TOP_COVERAGE;
+    return (
+      stats.topSupportedCoverageRatio >= requiredCoverage &&
+      stats.topEvidenceScore >= MIN_SMALL_CORPUS_EVIDENCE_SCORE
+    );
+  }
 
   if (
     stats.robustScoreZ >= MIN_CLEAR_COVERAGE_ROBUST_Z &&
