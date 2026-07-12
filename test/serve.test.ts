@@ -24,10 +24,13 @@ import {
 const FIXTURES_DIR = join(__dirname, 'fixtures/sample-wiki');
 const WIKI_DIR = join(FIXTURES_DIR, 'wiki');
 const COMPILE_DIR = join(WIKI_DIR, '.compile');
+const SMALL_WIKIS_DIR = join(__dirname, 'fixtures/small-wikis');
+const SMALL_WIKI_SIZES = [1, 2, 3, 5] as const;
 const COMPILE_SCRIPT = join(__dirname, '../lib/compile.ts');
 const TSX_RUNNER = 'node --import tsx/esm';
 
 let data: WikiData;
+const smallWikiData = new Map<number, WikiData>();
 
 const FIDELITY_WARNING =
   'Fidelity warning: this article was compiled from degraded raw source capture; verify against sources.';
@@ -154,6 +157,51 @@ scope:
       expect(envTerm?.variants).toContain('claude_code_disable_auto_memory');
     });
 
+    it('extracts compound code tokens before bare identifiers', () => {
+      const terms = extractSalientTerms(
+        'What is node.js in settings.json for claude-code tool:call?',
+      );
+      const normalized = terms.map((term) => term.normalized);
+
+      expect(normalized).toContain('node.js');
+      expect(normalized).toContain('settings.json');
+      expect(normalized).toContain('claude-code');
+      expect(normalized).toContain('tool:call');
+      expect(normalized).not.toContain('node');
+      expect(normalized).not.toContain('js');
+
+      for (const token of ['node.js', 'settings.json', 'claude-code', 'tool:call']) {
+        const term = terms.find((candidate) => candidate.normalized === token);
+        expect(term?.code, `${token} should be code-like`).toBe(true);
+        expect(term?.variants).toContain(token);
+      }
+    });
+
+    it('applies required-code evidence boosts to compound code tokens', () => {
+      const note = {
+        slug: 'runtime-adapters',
+        title: 'Runtime Adapters',
+        summary: 'Adapter notes.',
+        tags: ['runtime'],
+        wordCount: 20,
+        readingTime: 1,
+        linksTo: [],
+        headings: [{ level: 1, text: 'Runtime Adapters' }],
+        confidence: 'P0',
+        sources: [],
+      };
+      const markdown = [
+        '# Runtime Adapters',
+        '',
+        'The adapter supports node.js, claude-code, and tool:call integrations.',
+      ].join('\n');
+
+      for (const token of ['node.js', 'claude-code', 'tool:call']) {
+        const hit = scoreArticleForQuery(`what is ${token}`, note, markdown);
+        expect(hit.evidenceScore, `${token} should receive required-code evidence`).toBeGreaterThan(15);
+      }
+    });
+
     it('weights title and summary matches above body-only matches', () => {
       const titleNote = {
         slug: 'title-hit',
@@ -197,6 +245,8 @@ scope:
         corpusSupportRatio: 0.85,
         topSupportedCoverageRatio: 0.6,
         supportedTermCount: 5,
+        articleCount: 8,
+        topEvidenceScore: 10,
       })).toBe(true);
 
       expect(passesAbstentionThreshold({
@@ -204,6 +254,8 @@ scope:
         corpusSupportRatio: 0.95,
         topSupportedCoverageRatio: 0.97,
         supportedTermCount: 5,
+        articleCount: 8,
+        topEvidenceScore: 10,
       })).toBe(true);
 
       expect(passesAbstentionThreshold({
@@ -211,6 +263,8 @@ scope:
         corpusSupportRatio: 0.9,
         topSupportedCoverageRatio: 0.35,
         supportedTermCount: 2,
+        articleCount: 8,
+        topEvidenceScore: 10,
       })).toBe(true);
 
       expect(passesAbstentionThreshold({
@@ -218,6 +272,8 @@ scope:
         corpusSupportRatio: 0.85,
         topSupportedCoverageRatio: 0.8,
         supportedTermCount: 5,
+        articleCount: 8,
+        topEvidenceScore: 10,
       })).toBe(false);
 
       expect(passesAbstentionThreshold({
@@ -225,6 +281,8 @@ scope:
         corpusSupportRatio: 0.3,
         topSupportedCoverageRatio: 0.9,
         supportedTermCount: 5,
+        articleCount: 8,
+        topEvidenceScore: 10,
       })).toBe(false);
 
       expect(passesAbstentionThreshold({
@@ -232,8 +290,93 @@ scope:
         corpusSupportRatio: 0.9,
         topSupportedCoverageRatio: 0.5,
         supportedTermCount: 5,
+        articleCount: 8,
+        topEvidenceScore: 10,
       })).toBe(false);
     });
+
+    it('uses absolute evidence instead of robust-z for small corpora', () => {
+      expect(passesAbstentionThreshold({
+        robustScoreZ: 0,
+        corpusSupportRatio: 1,
+        topSupportedCoverageRatio: 1,
+        supportedTermCount: 1,
+        articleCount: 1,
+        topEvidenceScore: 2.4,
+      })).toBe(true);
+
+      expect(passesAbstentionThreshold({
+        robustScoreZ: 0,
+        corpusSupportRatio: 1,
+        topSupportedCoverageRatio: 0.34,
+        supportedTermCount: 2,
+        articleCount: 5,
+        topEvidenceScore: 12,
+      })).toBe(true);
+
+      expect(passesAbstentionThreshold({
+        robustScoreZ: 0,
+        corpusSupportRatio: 1,
+        topSupportedCoverageRatio: 0.34,
+        supportedTermCount: 3,
+        articleCount: 5,
+        topEvidenceScore: 12,
+      })).toBe(false);
+
+      expect(passesAbstentionThreshold({
+        robustScoreZ: 100,
+        corpusSupportRatio: 1,
+        topSupportedCoverageRatio: 1,
+        supportedTermCount: 1,
+        articleCount: 1,
+        topEvidenceScore: 0,
+      })).toBe(false);
+
+      expect(passesAbstentionThreshold({
+        robustScoreZ: 100,
+        corpusSupportRatio: 0,
+        topSupportedCoverageRatio: 0,
+        supportedTermCount: 0,
+        articleCount: 5,
+        topEvidenceScore: 20,
+      })).toBe(false);
+    });
+  });
+
+  describe('small-corpus retrieval', () => {
+    beforeAll(() => {
+      for (const size of SMALL_WIKI_SIZES) {
+        const workspace = join(SMALL_WIKIS_DIR, `size-${size}`);
+        const compileDir = join(workspace, 'wiki/.compile');
+        if (!existsSync(join(compileDir, 'notes.json'))) {
+          execSync(`${TSX_RUNNER} ${COMPILE_SCRIPT} ${join(workspace, 'wiki')}`, {
+            cwd: join(__dirname, '..'),
+            stdio: 'pipe',
+            timeout: 30000,
+          });
+        }
+        smallWikiData.set(size, loadWikiData(workspace));
+      }
+    });
+
+    for (const size of SMALL_WIKI_SIZES) {
+      it(`answers covered queries for ${size}-article wikis`, () => {
+        const wiki = smallWikiData.get(size);
+        expect(wiki?.notes.length).toBe(size);
+
+        const hits = rankArticlesForQuery('aurora cache invalidation', wiki!, 3);
+        expect(hits[0]?.slug).toBe('aurora-cache');
+        expect(handleQuery('aurora cache invalidation', wiki!)).not.toContain('No results found');
+      });
+
+      it(`abstains on absent queries for ${size}-article wikis`, () => {
+        const wiki = smallWikiData.get(size);
+        expect(wiki?.notes.length).toBe(size);
+
+        expect(rankArticlesForQuery('quantum ledger settlement', wiki!, 3)).toHaveLength(0);
+        expect(handleQuery('quantum ledger settlement', wiki!)).toContain('No results found');
+      });
+    }
   });
 
   describe('handleListTopics', () => {
