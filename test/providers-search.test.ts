@@ -32,12 +32,34 @@ describe('parseDuckDuckGoHtml', () => {
   it('caps results', () => {
     expect(parseDuckDuckGoHtml(fixture('duckduckgo.html'), 1)).toHaveLength(1);
   });
+
+  it('rejects unsafe uddg schemes', () => {
+    const results = parseDuckDuckGoHtml(`
+      <a class="result__a" href="/l/?uddg=data%3Atext%2Fhtml%2Cowned">Unsafe result</a>
+      <div class="result__snippet">Should be ignored.</div>
+      <a class="result__a" href="/l/?uddg=file%3A%2F%2F%2Fetc%2Fpasswd">File result</a>
+    `);
+
+    expect(results).toEqual([]);
+  });
+
+  it('clamps out-of-range and surrogate numeric entities', () => {
+    const results = parseDuckDuckGoHtml(`
+      <a class="result__a" href="https://example.com/entity">Entity &#x110000; &#55296;</a>
+      <div class="result__snippet">Snippet &#x110000;.</div>
+    `);
+
+    expect(results[0]).toMatchObject({
+      title: 'Entity \uFFFD \uFFFD',
+      snippet: 'Snippet \uFFFD.',
+    });
+  });
 });
 
 describe('searchWeb', () => {
   it('queries DuckDuckGo HTML and parses results', async () => {
     let requested = '';
-    const results = await searchWeb('provider spine', {
+    const search = await searchWeb('provider spine', {
       fetchImpl: async (url) => {
         requested = url;
         return new Response(fixture('duckduckgo.html'), {
@@ -47,14 +69,49 @@ describe('searchWeb', () => {
     });
 
     expect(requested).toBe('https://html.duckduckgo.com/html/?q=provider%20spine');
-    expect(results.map(result => result.title)).toEqual(['Example Docs', 'Provider article']);
+    expect(search.ok).toBe(true);
+    expect(search.results.map(result => result.title)).toEqual(['Example Docs', 'Provider article']);
   });
 
-  it('returns an empty list when blocked', async () => {
-    const results = await searchWeb('provider spine', {
+  it('returns a structured HTTP error for non-ok statuses', async () => {
+    const search = await searchWeb('provider spine', {
       fetchImpl: async () => new Response('blocked', { status: 403 }),
     });
 
-    expect(results).toEqual([]);
+    expect(search).toEqual({
+      ok: false,
+      results: [],
+      error: {
+        code: 'http',
+        status: 403,
+        message: 'DuckDuckGo returned HTTP 403',
+      },
+    });
+  });
+
+  it('returns a structured network error for thrown failures', async () => {
+    const search = await searchWeb('provider spine', {
+      fetchImpl: async () => {
+        throw new Error('socket closed');
+      },
+    });
+
+    expect(search.ok).toBe(false);
+    if (!search.ok) {
+      expect(search.error).toMatchObject({ code: 'network', message: 'socket closed' });
+    }
+  });
+
+  it('distinguishes DuckDuckGo anomaly pages from genuine empty results', async () => {
+    const blocked = await searchWeb('provider spine', {
+      fetchImpl: async () => new Response('<html><body>Anomaly detected. Verify you are human.</body></html>'),
+    });
+    const empty = await searchWeb('provider spine', {
+      fetchImpl: async () => new Response('<html><body>No results found.</body></html>'),
+    });
+
+    expect(blocked.ok).toBe(false);
+    if (!blocked.ok) expect(blocked.error.code).toBe('blocked');
+    expect(empty).toEqual({ ok: true, results: [] });
   });
 });

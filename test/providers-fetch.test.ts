@@ -26,6 +26,56 @@ function acceptHeader(init?: RequestInit): string {
 }
 
 describe('fetchSource verbatim ladder', () => {
+  it('does not build an md variant for an origin-root URL', async () => {
+    const calls: string[] = [];
+    const result = await fetchSource('https://docs.example.com/', {
+      fetchImpl: async (url, init) => {
+        calls.push(url);
+        if (acceptHeader(init).includes('text/markdown')) {
+          return response('missing', { status: 404 });
+        }
+        return response(fixture('docs-page.html'), { headers: { 'content-type': 'text/html' } });
+      },
+    });
+
+    expect(calls[0]).toBe('https://docs.example.com/');
+    expect(calls).not.toContain('https://docs.example.com.md');
+    expect(result.method).toBe('html-extract');
+  });
+
+  it('adds md variants to the pathname without mangling query strings', async () => {
+    const calls: string[] = [];
+    const result = await fetchSource('https://docs.example.com/sdk/overview?tab=js', {
+      fetchImpl: async (url) => {
+        calls.push(url);
+        if (url === 'https://docs.example.com/sdk/overview.md?tab=js') {
+          return response(fixture('markdown-doc.md'), { headers: { 'content-type': 'text/markdown' } });
+        }
+        return response('missing', { status: 404 });
+      },
+    });
+
+    expect(calls[0]).toBe('https://docs.example.com/sdk/overview.md?tab=js');
+    expect(calls[0]).not.toContain('tab=js.md');
+    expect(result.method).toBe('md-variant');
+  });
+
+  it('adds md variants for normal page paths', async () => {
+    const calls: string[] = [];
+    const result = await fetchSource('https://docs.example.com/sdk/guide', {
+      fetchImpl: async (url) => {
+        calls.push(url);
+        if (url === 'https://docs.example.com/sdk/guide.md') {
+          return response(fixture('markdown-doc.md'), { headers: { 'content-type': 'text/markdown' } });
+        }
+        return response('missing', { status: 404 });
+      },
+    });
+
+    expect(calls[0]).toBe('https://docs.example.com/sdk/guide.md');
+    expect(result.method).toBe('md-variant');
+  });
+
   it('accepts a markdown URL variant as full fidelity', async () => {
     const calls: string[] = [];
     const result = await fetchSource('https://docs.example.com/sdk/overview/', {
@@ -42,6 +92,24 @@ describe('fetchSource verbatim ladder', () => {
     expect(result.fidelity).toBe('full');
     expect(result.method).toBe('md-variant');
     expect(result.text).toContain('# Agent SDK Overview');
+  });
+
+  it('does not accept site-wide llms.txt as page content', async () => {
+    const calls: string[] = [];
+    const result = await fetchSource('https://docs.example.com/sdk/reject', {
+      fetchImpl: async (url, init) => {
+        calls.push(url);
+        if (url.endsWith('.md')) return response('missing', { status: 404 });
+        if (url.endsWith('/llms.txt') || url.endsWith('/llms-full.txt')) {
+          return response(fixture('markdown-doc.md'), { headers: { 'content-type': 'text/markdown' } });
+        }
+        if (acceptHeader(init).includes('text/markdown')) return response('missing', { status: 404 });
+        return response(fixture('docs-page.html'), { headers: { 'content-type': 'text/html' } });
+      },
+    });
+
+    expect(calls.some(url => url.endsWith('/llms.txt') || url.endsWith('/llms-full.txt'))).toBe(false);
+    expect(result.method).toBe('html-extract');
   });
 
   it('rejects weak markdown variants before falling back to HTML extract', async () => {
@@ -143,5 +211,87 @@ describe('extractMarkdownFromHtml', () => {
     expect(markdown).toContain('# Why source fidelity matters');
     expect(markdown).toContain('## Operational rule');
     expect(markdown).not.toContain('Related stories');
+  });
+
+  it('clamps out-of-range and surrogate numeric entities to replacement characters', () => {
+    const markdown = extractMarkdownFromHtml('<main><h1>Entities</h1><p>&#x110000; and &#55296; survive.</p></main>');
+
+    expect(markdown).toContain('\uFFFD and \uFFFD survive.');
+  });
+});
+
+describe('fetchSource redirect and resource hardening', () => {
+  it('rejects cross-scheme redirects before fetching the target', async () => {
+    const calls: string[] = [];
+    const result = await fetchSource('https://example.com/page', {
+      fetchImpl: async (url) => {
+        calls.push(url);
+        return new Response('', {
+          status: 302,
+          headers: { location: 'data:text/plain,owned' },
+        });
+      },
+    });
+
+    expect(calls.every(url => url.startsWith('https://example.com/'))).toBe(true);
+    expect(result.fidelity).toBe('failed');
+    expect(result.meta.attempts[0]?.error).toContain('unsupported redirect scheme: data:');
+  });
+
+  it('respects the redirect limit', async () => {
+    const result = await fetchSource('https://example.com/page', {
+      redirectLimit: 1,
+      fetchImpl: async (url) => new Response('', {
+        status: 302,
+        headers: {
+          location: url.endsWith('/one') ? 'https://example.com/two' : 'https://example.com/one',
+        },
+      }),
+    });
+
+    expect(result.fidelity).toBe('failed');
+    expect(result.meta.attempts[0]?.error).toContain('redirect limit exceeded (1)');
+  });
+
+  it('uses one abort signal across a redirect chain', async () => {
+    const signals: (AbortSignal | null | undefined)[] = [];
+    const result = await fetchSource('https://example.com/page', {
+      fetchImpl: async (url, init) => {
+        signals.push(init?.signal);
+        if (url === 'https://example.com/page.md') {
+          return new Response('', {
+            status: 302,
+            headers: { location: 'https://example.com/final.md' },
+          });
+        }
+        return response(fixture('markdown-doc.md'), { headers: { 'content-type': 'text/markdown' } });
+      },
+    });
+
+    expect(result.method).toBe('md-variant');
+    expect(signals).toHaveLength(2);
+    expect(signals[1]).toBe(signals[0]);
+  });
+
+  it('cancels the response reader when the size cap is exceeded', async () => {
+    let cancelCount = 0;
+
+    const result = await fetchSource('https://example.com/page', {
+      maxBytes: 1,
+      fetchImpl: async () => new Response(new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array([1, 2, 3, 4]));
+        },
+        cancel() {
+          cancelCount += 1;
+        },
+      }), {
+        headers: { 'content-type': 'text/markdown' },
+      }),
+    });
+
+    expect(cancelCount).toBeGreaterThan(0);
+    expect(result.fidelity).toBe('failed');
+    expect(result.meta.attempts[0]?.error).toContain('response exceeded max size');
   });
 });

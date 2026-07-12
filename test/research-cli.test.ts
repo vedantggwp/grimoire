@@ -71,6 +71,39 @@ describe('research CLI', () => {
     ]);
   });
 
+  it('writes [] for genuine empty search results', async () => {
+    let stdout = '';
+    let stderr = '';
+    const code = await runResearchCli(['search', 'provider', 'spine'], {
+      stdout: text => { stdout += text; },
+      stderr: text => { stderr += text; },
+      fetchImpl: async () => new Response('<html><body>No results found.</body></html>'),
+    });
+
+    expect(code).toBe(0);
+    expect(stdout).toBe('[]\n');
+    expect(stderr).toBe('');
+  });
+
+  it('writes structured search errors to stderr and exits nonzero', async () => {
+    let stdout = '';
+    let stderr = '';
+    const code = await runResearchCli(['search', 'provider', 'spine'], {
+      stdout: text => { stdout += text; },
+      stderr: text => { stderr += text; },
+      fetchImpl: async () => new Response('<html><body>Anomaly detected. Verify you are human.</body></html>'),
+    });
+
+    expect(code).toBe(1);
+    expect(stdout).toBe('');
+    expect(JSON.parse(stderr)).toEqual({
+      error: {
+        code: 'blocked',
+        message: 'DuckDuckGo returned an anomaly or CAPTCHA page',
+      },
+    });
+  });
+
   it('returns usage errors for invalid args', async () => {
     let stderr = '';
     const code = await runResearchCli(['fetch'], {

@@ -119,9 +119,9 @@ Populate all frontmatter fields:
 - `author` — extract from source if present; otherwise omit
 - `title` — full original title
 - `fidelity` — `full`, `extract`, or `failed` from the classification above
-- `capture_method` — provider method from `research.js` (`md-variant`,
-  `content-negotiation`, `github-raw`, `github-readme`, `html-extract`) or
-  `webfetch-fallback` when WebFetch was used after provider failure
+- `capture_method` — provider method from `research.js`: `md-variant`,
+  `content-negotiation`, `github-raw`, `github-readme`, or `html-extract`.
+  Use `webfetch-fallback` only when WebFetch was used after provider failure.
 - `final_url` — final redirected URL from `research.js` when present
 
 **Raw files are immutable once written.** Never edit a raw file after this step.
