@@ -2,7 +2,6 @@ export type FetchFidelity = 'full' | 'extract' | 'failed';
 
 export type FetchMethod =
   | 'md-variant'
-  | 'llms-txt'
   | 'content-negotiation'
   | 'github-raw'
   | 'github-readme'
@@ -50,10 +49,6 @@ const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
 const DEFAULT_REDIRECT_LIMIT = 5;
 const USER_AGENT = 'grimoire-research/0.1 (+https://github.com/vedantggwp/grimoire)';
 
-function stripTrailingSlash(url: string): string {
-  return url.replace(/\/+$/, '');
-}
-
 function isHtmlLike(text: string, contentType: string): boolean {
   if (/\bhtml\b/i.test(contentType)) return true;
   return /^\s*(?:<!doctype\s+html|<html[\s>])/i.test(text);
@@ -72,24 +67,15 @@ function acceptsVerbatimText(text: string, contentType: string): boolean {
 }
 
 function docsVariantUrls(url: string): readonly { method: FetchMethod; url: string }[] {
-  const urls: { method: FetchMethod; url: string }[] = [
-    { method: 'md-variant', url: `${stripTrailingSlash(url)}.md` },
-  ];
-
   try {
     const parsed = new URL(url);
-    const docsLike = /\bdocs?\b/i.test(parsed.hostname) || /\/docs?\//i.test(parsed.pathname);
-    if (docsLike) {
-      urls.push(
-        { method: 'llms-txt', url: new URL('/llms.txt', parsed.origin).toString() },
-        { method: 'llms-txt', url: new URL('/llms-full.txt', parsed.origin).toString() },
-      );
-    }
+    const basePath = parsed.pathname.replace(/\/+$/, '');
+    if (!basePath) return [];
+    parsed.pathname = `${basePath}.md`;
+    return [{ method: 'md-variant', url: parsed.toString() }];
   } catch {
-    // Let the normal fetch path report the invalid URL.
+    return [];
   }
-
-  return [...new Map(urls.map(candidate => [candidate.url, candidate])).values()];
 }
 
 function githubVerbatimUrls(url: string): readonly { method: FetchMethod; url: string }[] {
@@ -138,7 +124,9 @@ function decodeEntities(text: string): string {
       const codePoint = body[1]?.toLowerCase() === 'x'
         ? Number.parseInt(body.slice(2), 16)
         : Number.parseInt(body.slice(1), 10);
-      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : entity;
+      if (!Number.isFinite(codePoint)) return entity;
+      if (codePoint > 0x10FFFF || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) return '\uFFFD';
+      return String.fromCodePoint(codePoint);
     }
     return named[body.toLowerCase()] ?? entity;
   });
@@ -234,16 +222,20 @@ async function readResponseText(response: Response, maxBytes: number): Promise<s
   const chunks: Uint8Array[] = [];
   let size = 0;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (!value) continue;
-    size += value.byteLength;
-    if (size > maxBytes) {
-      reader.releaseLock();
-      throw new Error(`response exceeded max size (${size} > ${maxBytes})`);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      size += value.byteLength;
+      if (size > maxBytes) {
+        await reader.cancel();
+        throw new Error(`response exceeded max size (${size} > ${maxBytes})`);
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } finally {
+    reader.releaseLock();
   }
 
   const merged = new Uint8Array(size);
@@ -261,10 +253,15 @@ async function fetchText(
   opts: Required<Pick<FetchSourceOptions, 'fetchImpl' | 'timeoutMs' | 'maxBytes' | 'redirectLimit'>>,
 ): Promise<FetchTextResult> {
   let currentUrl = url;
-  for (let redirects = 0; redirects <= opts.redirectLimit; redirects += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), opts.timeoutMs);
-    try {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs);
+  try {
+    for (let redirects = 0; redirects <= opts.redirectLimit; redirects += 1) {
+      const parsed = new URL(currentUrl);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error(`unsupported URL scheme: ${parsed.protocol}`);
+      }
+
       const response = await opts.fetchImpl(currentUrl, {
         ...init,
         redirect: 'manual',
@@ -272,7 +269,11 @@ async function fetchText(
       });
       const location = response.headers.get('location');
       if (response.status >= 300 && response.status < 400 && location) {
-        currentUrl = new URL(location, currentUrl).toString();
+        const nextUrl = new URL(location, currentUrl);
+        if (nextUrl.protocol !== 'http:' && nextUrl.protocol !== 'https:') {
+          throw new Error(`unsupported redirect scheme: ${nextUrl.protocol}`);
+        }
+        currentUrl = nextUrl.toString();
         continue;
       }
       const text = await readResponseText(response, opts.maxBytes);
@@ -283,12 +284,12 @@ async function fetchText(
         contentType: response.headers.get('content-type') ?? '',
         text,
       };
-    } finally {
-      clearTimeout(timeout);
     }
-  }
 
-  throw new Error(`redirect limit exceeded (${opts.redirectLimit})`);
+    throw new Error(`redirect limit exceeded (${opts.redirectLimit})`);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function attemptHeaders(extra?: HeadersInit): HeadersInit {

@@ -4,6 +4,18 @@ export interface SearchResult {
   readonly snippet: string;
 }
 
+export type SearchErrorCode = 'blocked' | 'http' | 'network';
+
+export interface SearchWebError {
+  readonly code: SearchErrorCode;
+  readonly message: string;
+  readonly status?: number;
+}
+
+export type SearchWebResult =
+  | { readonly ok: true; readonly results: readonly SearchResult[] }
+  | { readonly ok: false; readonly results: readonly []; readonly error: SearchWebError };
+
 export interface SearchWebOptions {
   readonly fetchImpl?: (url: string, init?: RequestInit) => Promise<Response>;
   readonly timeoutMs?: number;
@@ -29,7 +41,9 @@ function decodeEntities(text: string): string {
       const codePoint = body[1]?.toLowerCase() === 'x'
         ? Number.parseInt(body.slice(2), 16)
         : Number.parseInt(body.slice(1), 10);
-      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : entity;
+      if (!Number.isFinite(codePoint)) return entity;
+      if (codePoint > 0x10FFFF || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) return '\uFFFD';
+      return String.fromCodePoint(codePoint);
     }
     return named[body.toLowerCase()] ?? entity;
   });
@@ -51,13 +65,24 @@ function classContains(attrs: string, name: string): boolean {
   return className?.split(/\s+/).includes(name) ?? false;
 }
 
+function isHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function unwrapDuckDuckGoUrl(href: string): string | null {
   const absolute = href.startsWith('//') ? `https:${href}` : href;
   try {
     const parsed = new URL(absolute, 'https://duckduckgo.com');
     if (parsed.hostname.endsWith('duckduckgo.com') && parsed.pathname === '/l/') {
       const wrapped = parsed.searchParams.get('uddg');
-      return wrapped ? decodeURIComponent(wrapped) : null;
+      if (!wrapped) return null;
+      const unwrapped = decodeURIComponent(wrapped);
+      return isHttpUrl(unwrapped) ? unwrapped : null;
     }
     if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
   } catch {
@@ -82,6 +107,12 @@ function snippetFromSegment(segment: string): string {
   const tag = [...segment.matchAll(/<(a|div|td)\b([^>]*)>([\s\S]*?)<\/\1>/gi)]
     .find(match => classContains(match[2], 'result__snippet'));
   return tag ? stripTags(tag[3]) : '';
+}
+
+function isDuckDuckGoBlockedPage(html: string): boolean {
+  const withoutAnchors = !/<a\b[^>]*\bclass=(["'])[^"']*\bresult__a\b[^"']*\1/i.test(html);
+  if (!withoutAnchors) return false;
+  return /anomaly|captcha|automated|unusual traffic|verify you are human|bots use duckduckgo|not a robot/i.test(html);
 }
 
 export function parseDuckDuckGoHtml(html: string, maxResults = DEFAULT_MAX_RESULTS): SearchResult[] {
@@ -114,7 +145,7 @@ export function parseDuckDuckGoHtml(html: string, maxResults = DEFAULT_MAX_RESUL
   return results;
 }
 
-export async function searchWeb(query: string, options: SearchWebOptions = {}): Promise<SearchResult[]> {
+export async function searchWeb(query: string, options: SearchWebOptions = {}): Promise<SearchWebResult> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxResults = options.maxResults ?? DEFAULT_MAX_RESULTS;
@@ -130,10 +161,38 @@ export async function searchWeb(query: string, options: SearchWebOptions = {}): 
       },
       signal: controller.signal,
     });
-    if (!response.ok) return [];
-    return parseDuckDuckGoHtml(await response.text(), maxResults);
-  } catch {
-    return [];
+    if (!response.ok) {
+      return {
+        ok: false,
+        results: [],
+        error: {
+          code: 'http',
+          status: response.status,
+          message: `DuckDuckGo returned HTTP ${response.status}`,
+        },
+      };
+    }
+    const html = await response.text();
+    if (isDuckDuckGoBlockedPage(html)) {
+      return {
+        ok: false,
+        results: [],
+        error: {
+          code: 'blocked',
+          message: 'DuckDuckGo returned an anomaly or CAPTCHA page',
+        },
+      };
+    }
+    return { ok: true, results: parseDuckDuckGoHtml(html, maxResults) };
+  } catch (error) {
+    return {
+      ok: false,
+      results: [],
+      error: {
+        code: 'network',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    };
   } finally {
     clearTimeout(timeout);
   }

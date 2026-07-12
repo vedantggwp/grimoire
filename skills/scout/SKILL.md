@@ -73,8 +73,11 @@ blocked, or the environment needs a portable non-Claude route, run:
 node ${CLAUDE_PLUGIN_ROOT}/dist/research.js search "<query>"
 ```
 
-It returns one JSON object per line with `url`, `title`, and `snippet`. For each
-result, collect:
+For non-empty successful searches, it returns one JSON object per line with
+`url`, `title`, and `snippet`. A literal `[]` means the search succeeded with no
+results. A JSON `{"error": ...}` line on stderr means the provider was blocked
+or failed; treat that as a search failure and use WebSearch, broader queries, or
+seed URLs rather than concluding there are no sources. For each result, collect:
 
 - URL
 - Title

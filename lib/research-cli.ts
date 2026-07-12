@@ -106,8 +106,18 @@ export async function runResearchCli(args: readonly string[], options: ResearchC
       return 64;
     }
 
-    const results = await searchWeb(query, { fetchImpl: options.fetchImpl });
-    for (const result of results) {
+    const search = await searchWeb(query, { fetchImpl: options.fetchImpl });
+    if (!search.ok) {
+      stderr(`${JSON.stringify({ error: search.error })}\n`);
+      return 1;
+    }
+
+    if (search.results.length === 0) {
+      stdout('[]\n');
+      return 0;
+    }
+
+    for (const result of search.results) {
       stdout(`${JSON.stringify(result)}\n`);
     }
     return 0;
