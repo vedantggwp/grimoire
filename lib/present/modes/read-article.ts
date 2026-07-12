@@ -42,7 +42,7 @@ function freshnessBadge(data: SiteData, slug: string): string {
 }
 
 function fidelityBadge(article: ArticleData): string {
-  if (article.sourceFidelity === 'full') return '';
+  if (article.sourceFidelity === 'full' || article.sourceFidelity === 'unknown') return '';
   const title = article.sourceFidelity === 'degraded'
     ? 'At least one cited source could not be captured; verify claims against the source list.'
     : 'At least one cited source was only partially captured; verify claims against the source list.';

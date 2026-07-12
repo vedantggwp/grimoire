@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'node:child_process';
-import { cpSync, readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, readFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -623,6 +623,22 @@ describe('present — raw-source fidelity gates', () => {
       timeout: 30000,
     });
 
+    const notesPath = join(workspace, 'wiki/.compile/notes.json');
+    const notes = JSON.parse(readFileSync(notesPath, 'utf-8')) as any[];
+    writeFileSync(
+      notesPath,
+      JSON.stringify(
+        notes.map(note =>
+          note.slug === 'full-capture'
+            ? { ...note, sourceFidelity: 'unknown', unknownSourceCount: 0 }
+            : note,
+        ),
+        null,
+        2,
+      ),
+      'utf-8',
+    );
+
     execSync(`${TSX_RUNNER} ${PRESENT_SCRIPT} ${workspace}`, {
       cwd: join(__dirname, '..'),
       stdio: 'pipe',
@@ -642,6 +658,8 @@ describe('present — raw-source fidelity gates', () => {
     const hub = readGenerated('index.html');
     expect(hub).toContain('source warnings');
     expect(hub).toContain('<strong data-count="2">2</strong>');
+    expect(hub).toContain('untracked provenance');
+    expect(hub).toContain('<strong data-count="1">1</strong>');
 
     const mixed = readGenerated('read/mixed-capture/index.html');
     expect(mixed).toContain('fidelity-badge--mixed');

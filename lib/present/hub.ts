@@ -7,6 +7,7 @@ export interface HubStats {
   readonly articleCount: number;
   readonly sourceCount: number;
   readonly sourceWarnings: number;
+  readonly sourceUntracked: number;
   readonly tagCount: number;
   readonly crossRefs: number;
   readonly density: number | null;
@@ -38,7 +39,10 @@ export function computeHubStats(data: SiteData): HubStats {
   return {
     articleCount: data.articles.length,
     sourceCount: sourceUrls.size,
-    sourceWarnings: data.articles.filter(article => article.sourceFidelity !== 'full').length,
+    sourceWarnings: data.articles.filter(article =>
+      article.sourceFidelity === 'mixed' || article.sourceFidelity === 'degraded',
+    ).length,
+    sourceUntracked: data.articles.filter(article => article.sourceFidelity === 'unknown').length,
     tagCount: tags.size,
     crossRefs,
     density: data.articles.length < 10 ? null : Math.min(100, Math.round(densityRatio * 100)),

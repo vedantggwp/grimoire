@@ -122,7 +122,7 @@ interface ArticleFrontmatter {
 }
 
 export type RawSourceFidelity = 'full' | 'extract' | 'failed' | 'unknown';
-export type ArticleSourceFidelity = 'full' | 'mixed' | 'degraded';
+export type ArticleSourceFidelity = 'full' | 'mixed' | 'degraded' | 'unknown';
 
 interface SourceFidelityAssessment {
   readonly sourceFidelity: ArticleSourceFidelity;
@@ -133,8 +133,10 @@ export interface SourceFidelitySummary {
   readonly full: number;
   readonly mixed: number;
   readonly degraded: number;
+  readonly unknown: number;
   readonly unknownSources: number;
   readonly degradedArticles: readonly string[];
+  readonly unknownArticles: readonly string[];
 }
 
 type SchemaTaxonomy = 'emergent' | 'defined' | 'unknown';
@@ -164,6 +166,7 @@ export interface NoteManifestEntry {
   readonly linksTo: readonly string[];
   readonly sources: readonly { readonly url: string; readonly title: string }[];
   readonly sourceFidelity: ArticleSourceFidelity;
+  readonly unknownSourceCount: number;
 }
 
 export interface CandidateTagGroup {
@@ -489,23 +492,79 @@ function parseRawSourceFidelity(value: unknown): RawSourceFidelity {
   return 'unknown';
 }
 
+interface RawSourceFidelityEntry {
+  readonly fidelity: RawSourceFidelity;
+  readonly capturedDate: string | null;
+  readonly filePath: string;
+}
+
+function rawFidelityRank(fidelity: RawSourceFidelity): number {
+  if (fidelity === 'full') return 3;
+  if (fidelity === 'extract') return 2;
+  if (fidelity === 'failed') return 1;
+  return 0;
+}
+
+function rawCaptureDate(data: Record<string, unknown>): string | null {
+  return normalizeFrontmatterDate(data.captured_at)
+    ?? normalizeFrontmatterDate(data.collected)
+    ?? normalizeFrontmatterDate(data.published)
+    ?? normalizeFrontmatterDate(data.updated);
+}
+
+function preferRawFidelityEntry(
+  existing: RawSourceFidelityEntry,
+  candidate: RawSourceFidelityEntry,
+): RawSourceFidelityEntry {
+  const existingRank = rawFidelityRank(existing.fidelity);
+  const candidateRank = rawFidelityRank(candidate.fidelity);
+  if (candidateRank !== existingRank) {
+    return candidateRank > existingRank ? candidate : existing;
+  }
+  const existingDate = existing.capturedDate ?? '';
+  const candidateDate = candidate.capturedDate ?? '';
+  if (candidateDate !== existingDate) {
+    return candidateDate > existingDate ? candidate : existing;
+  }
+  return existing;
+}
+
 export function buildRawSourceFidelityIndex(workspaceDir: string): ReadonlyMap<string, RawSourceFidelity> {
-  const byUrl = new Map<string, RawSourceFidelity>();
+  const byUrl = new Map<string, RawSourceFidelityEntry>();
 
   for (const filePath of collectRawFiles(join(workspaceDir, 'raw'))) {
     try {
       const raw = readFileSync(filePath, 'utf-8');
       const data = matter(raw).data ?? {};
-      const sourceUrl = typeof data.source_url === 'string' ? data.source_url : null;
-      if (!sourceUrl) continue;
+      const fidelity = parseRawSourceFidelity(data.fidelity);
+      const capturedDate = rawCaptureDate(data);
+      const urls = new Set<string>();
 
-      byUrl.set(normalizeUrl(sourceUrl), parseRawSourceFidelity(data.fidelity));
+      if (typeof data.source_url === 'string') urls.add(normalizeUrl(data.source_url));
+      if (typeof data.final_url === 'string') urls.add(normalizeUrl(data.final_url));
+
+      for (const url of urls) {
+        if (!url) continue;
+        const candidate = { fidelity, capturedDate, filePath };
+        const existing = byUrl.get(url);
+        if (!existing) {
+          byUrl.set(url, candidate);
+          continue;
+        }
+        if (existing.filePath !== filePath) {
+          const preferred = preferRawFidelityEntry(existing, candidate);
+          console.log(
+            `  ⚠ raw source fidelity collision for ${url}: keeping ${preferred.fidelity} from ${relative(workspaceDir, preferred.filePath)}`,
+          );
+          byUrl.set(url, preferred);
+        }
+      }
     } catch {
       continue;
     }
   }
 
-  return byUrl;
+  return new Map([...byUrl].map(([url, entry]) => [url, entry.fidelity]));
 }
 
 export function aggregateSourceFidelity(
@@ -514,6 +573,7 @@ export function aggregateSourceFidelity(
 ): SourceFidelityAssessment {
   let worst: ArticleSourceFidelity = 'full';
   let unknownSourceCount = 0;
+  let matchedSourceCount = 0;
 
   for (const source of sources) {
     const fidelity = rawFidelityByUrl.get(normalizeUrl(source.url)) ?? 'unknown';
@@ -521,6 +581,7 @@ export function aggregateSourceFidelity(
       unknownSourceCount += 1;
       continue;
     }
+    matchedSourceCount += 1;
     if (fidelity === 'failed') {
       worst = 'degraded';
       continue;
@@ -528,6 +589,10 @@ export function aggregateSourceFidelity(
     if (fidelity === 'extract' && worst !== 'degraded') {
       worst = 'mixed';
     }
+  }
+
+  if (sources.length === 0 || matchedSourceCount === 0) {
+    return { sourceFidelity: 'unknown', unknownSourceCount };
   }
 
   return { sourceFidelity: worst, unknownSourceCount };
@@ -542,13 +607,19 @@ export function summarizeSourceFidelity(
     .filter(note => note.sourceFidelity === 'degraded')
     .map(note => note.slug)
     .sort();
+  const unknownArticles = content
+    .filter(note => note.sourceFidelity === 'unknown')
+    .map(note => note.slug)
+    .sort();
 
   return {
     full: content.filter(note => note.sourceFidelity === 'full').length,
     mixed: content.filter(note => note.sourceFidelity === 'mixed').length,
     degraded: degradedArticles.length,
+    unknown: unknownArticles.length,
     unknownSources,
     degradedArticles,
+    unknownArticles,
   };
 }
 
@@ -717,6 +788,7 @@ async function compile(): Promise<void> {
       checked: fm.checked,
       evergreen: fm.evergreen,
       sourceFidelity: fidelity.sourceFidelity,
+      unknownSourceCount: fidelity.unknownSourceCount,
     };
   });
   const sourceFidelitySummary = summarizeSourceFidelity(noteManifest, unknownFidelitySources);
@@ -789,6 +861,7 @@ async function compile(): Promise<void> {
   console.log(`  Components:      ${components.length}`);
   console.log(`  Graph density:   ${stats.density.toFixed(3)}`);
   console.log(`  Source fidelity: ${sourceFidelitySummary.degraded} articles on degraded sources`);
+  console.log(`  Source fidelity: ${sourceFidelitySummary.unknown} articles with untracked provenance`);
   if (sourceFidelitySummary.unknownSources > 0) {
     console.log(
       `  Source fidelity: fidelity untracked (pre-v0.5 wiki) — ${sourceFidelitySummary.unknownSources} cited source${sourceFidelitySummary.unknownSources === 1 ? '' : 's'}`,

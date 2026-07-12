@@ -7,7 +7,7 @@ export type Density = 'compact' | 'comfortable' | 'spacious';
 
 export const ALL_MODES = ['read', 'graph', 'search', 'feed', 'gaps', 'quiz'] as const;
 export type ModeId = (typeof ALL_MODES)[number];
-export type ArticleSourceFidelity = 'full' | 'mixed' | 'degraded';
+export type ArticleSourceFidelity = 'full' | 'mixed' | 'degraded' | 'unknown';
 
 export interface DesignConfig {
   readonly palette: string;

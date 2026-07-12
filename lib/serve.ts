@@ -11,7 +11,7 @@ import type { FreshnessReport } from './freshness.js';
 
 // --- Types ---
 
-type ArticleSourceFidelity = 'full' | 'mixed' | 'degraded';
+type ArticleSourceFidelity = 'full' | 'mixed' | 'degraded' | 'unknown';
 
 interface NoteManifestEntry {
   readonly slug: string;
@@ -25,6 +25,7 @@ interface NoteManifestEntry {
   readonly confidence: string;
   readonly sources: readonly { url: string; title: string }[];
   readonly sourceFidelity?: ArticleSourceFidelity;
+  readonly unknownSourceCount?: number;
 }
 
 interface GraphData {
@@ -56,7 +57,7 @@ const DEGRADED_FIDELITY_WARNING =
   'Fidelity warning: this article was compiled from degraded raw source capture; verify against sources.';
 
 function sourceFidelityOf(note: NoteManifestEntry | undefined): ArticleSourceFidelity {
-  return note?.sourceFidelity ?? 'full';
+  return note?.sourceFidelity ?? 'unknown';
 }
 
 function fidelityWarningFor(note: NoteManifestEntry | undefined): string {
@@ -1302,7 +1303,19 @@ export function handleCoverageGaps(data: WikiData): string {
     gaps.push('', '### Degraded Source Fidelity', '', ...degradedEntries);
   }
 
-  // 5. Articles past their staleness window (freshness.json, v0.4.0+).
+  // 5. Articles whose provenance cannot be tracked. This is distinct from
+  // degraded capture: no warning is added to retrieval responses, but wiki
+  // health should still show that provenance is not known.
+  const unknownEntries = data.notes
+    .filter(note => sourceFidelityOf(note) === 'unknown')
+    .sort((a, b) => a.slug.localeCompare(b.slug))
+    .map(note => `- [UNTRACKED PROVENANCE] "${note.title}" (${note.slug}): cited source fidelity is unknown`);
+
+  if (unknownEntries.length > 0) {
+    gaps.push('', '### Untracked Provenance', '', ...unknownEntries);
+  }
+
+  // 6. Articles past their staleness window (freshness.json, v0.4.0+).
   // Workspaces compiled before v0.4.0 have no freshness report — degrade to
   // the legacy output silently.
   const staleEntries: string[] = [];
@@ -1342,6 +1355,7 @@ export function handleCoverageGaps(data: WikiData): string {
     thinArticles.length +
     orphanEntries.length +
     degradedEntries.length +
+    unknownEntries.length +
     staleEntries.length;
   return [
     `## Coverage Gaps (${totalGaps} issues)`,
@@ -1443,7 +1457,7 @@ function createServer(data: WikiData): McpServer {
 
   server.tool(
     'grimoire_coverage_gaps',
-    'Identify structural weaknesses: tags with only one article, articles below median word count, topics referenced but not yet written, degraded raw-source fidelity, plus articles past their staleness window. Use when asking about wiki health, what to write next, or what needs re-verification.',
+    'Identify structural weaknesses: tags with only one article, articles below median word count, topics referenced but not yet written, degraded raw-source fidelity, untracked provenance, plus articles past their staleness window. Use when asking about wiki health, what to write next, or what needs re-verification.',
     {},
     async () => ({
       content: [{ type: 'text' as const, text: handleCoverageGaps(data) }],
