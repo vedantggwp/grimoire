@@ -233,7 +233,7 @@
 
 **Decision:** Split SOUL.md (3500 words) into SOUL.md (~700 words) + 8 spec docs in docs/.
 
-**Why:** SOUL.md violated ICM's <200 line reference file convention. A monolithic file also caused Codex agents to exhaust their token budget reading it before they could write anything.
+**Why:** SOUL.md violated ICM's <200 line reference file convention. A monolithic file also made it expensive for any agent or tool to load in full before doing useful work.
 
 **Trail:** Audit found SOUL.md at 420+ lines. ICM spec says reference files stay under 200. The split approach was confirmed.
 
