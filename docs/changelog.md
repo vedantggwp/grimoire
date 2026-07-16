@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-07-16 — v0.5.2
+
+Provenance release. Adds the **claim-entailment audit** (#48) — the compile-side
+half of the G1 guarantee. The fetch ladder proves a capture is faithful to its
+page; this proves an article's prose doesn't assert a statistic or verbatim
+quote its own cited captures never contained. It exists because the first live
+self-update shipped an article claiming a `95%+` figure its source's abstract
+never stated.
+
+Compile Step 9.5 scans article prose for two high-signal claim classes —
+percentages/ranges and multi-word quoted spans — and checks each against the
+raw captures the article cites, emitting `wiki/.compile/claim-audit.json`. Four
+verdicts: `supported`, `unsupported` (absent from a full-fidelity capture — a
+decisive defect), `review` (a statistic absent from an excerpt whose sibling
+figures ARE archived — spot-check), and `unverifiable`. The sibling-presence
+heuristic distinguishes a fabricated figure from one merely trimmed out of an
+excerpt: on the excerpt-heavy living corpus it flags nothing across 282 real
+claims, yet catches a reinjected `95%+` as exactly one review. The update skill
+gains a provenance pass (Step 7.5) and a digest section so update PRs surface
+flagged claims for review before merge. Precision-first and advisory — it flags,
+it does not fail the build. First cut of the `grimoire audit` harness (#25).
+416 tests.
+
 ## 2026-07-12 — v0.5.1
 
 Hygiene and honesty release. Abstention threshold rebuilt on corpus-relative
