@@ -115,6 +115,7 @@ between stages are the contract:
 - `site/` — static frontend output
 - `_config/update.md` — standing policy for headless update runs
 - `wiki/.compile/freshness.json`, `connection-candidates.json`, `update-context.json` — update-engine artifacts (v0.4.0)
+- `wiki/.compile/claim-audit.json` — claim-entailment audit: statistics/quotes flagged as absent from cited captures (compile-side G1, #48)
 - `_updates/{date}-update.md` — update-run digests (double as PR bodies)
 - MCP server reads `wiki/.compile/` + `wiki/*.md`, exposes tools over stdio
 

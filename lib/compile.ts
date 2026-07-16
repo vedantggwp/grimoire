@@ -40,6 +40,11 @@ import { loadUpdatePolicy } from './update-policy.js';
 import { buildSourceLedger, normalizeFrontmatterDate, normalizeUrl } from './source-ledger.js';
 import { buildFreshnessReport } from './freshness.js';
 import { buildConnectionCandidates } from './connections.js';
+import {
+  buildRawSourceTextIndex,
+  auditArticleClaims,
+  buildClaimAuditReport,
+} from './claim-audit.js';
 
 // --- CLI ---
 
@@ -658,6 +663,15 @@ function extractFrontmatter(filePath: string | undefined): ArticleFrontmatter {
   }
 }
 
+function readArticleBody(filePath: string | undefined): string {
+  if (!filePath) return '';
+  try {
+    return matter(readFileSync(filePath, 'utf-8')).content;
+  } catch {
+    return '';
+  }
+}
+
 // --- Main ---
 
 async function compile(): Promise<void> {
@@ -794,6 +808,29 @@ async function compile(): Promise<void> {
   const sourceFidelitySummary = summarizeSourceFidelity(noteManifest, unknownFidelitySources);
   writeJSON('notes.json', noteManifest);
 
+  // Step 9.5 — claim-entailment audit (#48). The fidelity index above proves
+  // how each source was captured; this proves the article's prose doesn't
+  // assert statistics or verbatim quotes its own captures never contained.
+  // Flags for review (compile summary + claim-audit.json + the update digest);
+  // it does not fail the build — v1 statistic-presence still has some false
+  // positives and legacy wikis run through this same path.
+  const rawTextByUrl = buildRawSourceTextIndex(workspaceDir);
+  const claimAudits = contentArticles(noteManifest).map(note =>
+    auditArticleClaims(
+      {
+        slug: note.slug,
+        body: readArticleBody(slugToFile.get(note.slug)),
+        sources: note.sources,
+      },
+      rawTextByUrl,
+    ),
+  );
+  const claimAudit = buildClaimAuditReport(claimAudits);
+  writeJSON('claim-audit.json', {
+    generatedAt: new Date().toISOString(),
+    ...claimAudit,
+  });
+
   // Step 10 — overview-metadata.json: evidence for the compile skill's Step 5
   // enforcement audit. Emitted every run.
   writeJSON(
@@ -865,6 +902,26 @@ async function compile(): Promise<void> {
   if (sourceFidelitySummary.unknownSources > 0) {
     console.log(
       `  Source fidelity: fidelity untracked (pre-v0.5 wiki) — ${sourceFidelitySummary.unknownSources} cited source${sourceFidelitySummary.unknownSources === 1 ? '' : 's'}`,
+    );
+  }
+  const ca = claimAudit.summary;
+  const flagged = [...claimAudit.unsupported, ...claimAudit.review];
+  if (flagged.length > 0) {
+    const parts: string[] = [];
+    if (ca.unsupported > 0) parts.push(`${ca.unsupported} unsupported`);
+    if (ca.review > 0) parts.push(`${ca.review} to spot-check`);
+    console.log(
+      `  Claim audit:     ⚠ ${parts.join(' + ')} across ${ca.articlesFlagged} article${ca.articlesFlagged === 1 ? '' : 's'} — see claim-audit.json`,
+    );
+    for (const u of flagged.slice(0, 6)) {
+      console.log(`                   • ${u.slug}: ${u.kind} "${u.text}" not found in cited sources`);
+    }
+    if (flagged.length > 6) {
+      console.log(`                   … and ${flagged.length - 6} more`);
+    }
+  } else {
+    console.log(
+      `  Claim audit:     ${ca.supported} supported / ${ca.unverifiable} unverifiable / 0 flagged (${ca.claimsChecked} checked)`,
     );
   }
   console.log(`  Freshness:       ${f.fresh} fresh / ${f.aging} aging / ${f.stale} stale / ${f.evergreen} evergreen / ${f.unknown} unknown`);

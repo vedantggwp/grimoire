@@ -51,6 +51,16 @@ Rejected {N} candidate(s); reasons appended to `_config/update.md` Connection ex
 {If verify_stale ran: which articles were re-verified, which got `checked:`
 bumped, which sources changed materially.}
 
+## Provenance
+
+{From `wiki/.compile/claim-audit.json`, scoped to this run's created/changed
+articles. Omit this section entirely when they have no flagged claims.}
+
+- [UNSUPPORTED] [[{slug}]] — {kind} "{text}" is absent from the article's cited
+  captures, which are complete (full-fidelity) — treat as a defect and fix before merge.
+- [SPOT-CHECK] [[{slug}]] — statistic "{text}" is absent from an excerpt capture
+  whose other figures ARE archived; verify it against the full source or remove it.
+
 ## Attention Needed
 
 - {Anything the policy could not decide — taxonomy proposal pending, ambiguous
