@@ -72,6 +72,9 @@ Parsed from natural language, like `run`:
    - `wiki/.compile/overview-metadata.json` — compile summary, including
      source-fidelity counts and degraded article slugs
    - `wiki/.compile/freshness.json` — staleness tiers
+   - `wiki/.compile/claim-audit.json` — statistics/quotes flagged as absent
+     from their cited captures (`unsupported` = decisive defect; `review` =
+     spot-check against the full source)
    - `wiki/overview.md` — Open Questions and Coverage Gaps sections
    - `SCHEMA.md` — topic and scope (scope.out still excludes results)
 4. Print the run header:
@@ -164,6 +167,24 @@ exclusion-filtered, scored, capped by the policy's engine):
      frontmatter. **Never bump `checked:` without an actual verification.**
    - Materially changed → treat the source as a new candidate within this
      run's remaining caps (back through Steps 3–5 for it).
+
+## Step 7.5 — Provenance audit
+
+Compile pass 2 refreshed `wiki/.compile/claim-audit.json`. Re-read it and
+filter `unsupported` + `review` to **this run's created/changed articles** —
+pre-existing flags on untouched articles are not this run's concern.
+
+- Any `unsupported` claim on a changed article (absent from a full-fidelity
+  capture) is a **defect**: fix the article to match its source, or drop the
+  claim, before shipping. Never open a PR that adds an unsupported claim.
+- Any `review` claim (a statistic absent from an excerpt whose sibling figures
+  ARE archived — the ACON "95%+" pattern) goes in the digest's **Provenance**
+  section for the reviewer, and you should verify it against the full source
+  now if the source is reachable; correct or remove it if it doesn't check out.
+- No flagged claims on changed articles → omit the Provenance section.
+
+This is the compile-side half of the G1 guarantee (#48): the fetch ladder
+proves the capture is faithful; this proves the prose didn't invent a figure.
 
 ## Step 8 — Present
 
