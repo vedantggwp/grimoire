@@ -2,7 +2,7 @@
 
 **Your knowledge, structured for machines and humans — and kept current on a schedule.**
 
-[![Version](https://img.shields.io/badge/version-0.5.1-0d9488)](https://github.com/vedantggwp/grimoire/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![Tests](https://img.shields.io/badge/tests-368%20passing-16a34a)](./test) [![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-plugin-1a1a1a)](https://github.com/vedantggwp/athanor)
+[![Version](https://img.shields.io/badge/version-0.5.2-0d9488)](https://github.com/vedantggwp/grimoire/releases) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE) [![Tests](https://img.shields.io/badge/tests-416%20passing-16a34a)](./test) [![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-plugin-1a1a1a)](https://github.com/vedantggwp/athanor)
 
 Grimoire is a Claude Code plugin that turns a topic into a living knowledge base. Say what you want to understand; it **scouts** the web for the best sources, **ingests** them into cross-referenced wiki articles, **compiles** a knowledge graph, **presents** a study site you open from `file://`, and **serves** the whole corpus to any LLM client over MCP. Then `/grimoire:update` keeps it alive: a scheduled editorial pass that finds what's new, weaves in new connections, flags stale articles, and — once you enable it via the update policy — ships every change as a pull request you review.
 
