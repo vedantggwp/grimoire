@@ -37,9 +37,9 @@ Plugin manifest gains displayName/category. 370 tests.
 
 ## 2026-07-10 — v0.5.0 "The Honest Engine"
 
-The truth-sprint release: every change traces to a measured finding.
+Every change in this release traces to a measured finding.
 
-**Verbatim-first research providers** (#20, #15). The falsifier spike measured
+**Verbatim-first research providers** (#20, #15). Measurement found
 WebFetch captures at 1.5% verbatim retention — paraphrase marked as raw. New
 `lib/providers/` fetch ladder (`.md`-variant probe → content negotiation → own
 HTML extraction → honest `failed`) and keyless DDG search, bundled as
@@ -47,8 +47,8 @@ HTML extraction → honest `failed`) and keyless DDG search, bundled as
 WebFetch is demoted to last resort, always marked `extract`. The same CLI is
 the foundation for running Grimoire outside Claude Code.
 
-**Retrieval ranking overhaul** (launch gate 2). Naive `grimoire_query` went
-from 4/10 to 10/10 top-1-or-abstain on the T3 eval, with correct abstention on
+**Retrieval ranking overhaul.** Naive `grimoire_query` went
+from 4/10 to 10/10 top-1-or-abstain on the retrieval eval, with correct abstention on
 absent topics (was 0/2 — false positives eliminated). Salient-term extraction,
 field-weighted scoring, phrase proximity, confident-abstention threshold.
 Repeatable eval: `scripts/retrieval-eval.mjs`.
